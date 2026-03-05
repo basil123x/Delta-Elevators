@@ -1,0 +1,10 @@
+<svg width="356" height="261" viewBox="0 0 356 261" fill="none" xmlns="http://www.w3.org/2000/svg">
+<ellipse cx="130.368" cy="130" rx="130.368" ry="130" transform="matrix(-1 0 0 1 308.439 0)" fill="#FDD89A"/>
+<ellipse cx="102.432" cy="102.143" rx="102.432" ry="102.143" transform="matrix(-1 0 0 1 280.504 27.8572)" fill="#F59E41"/>
+<ellipse cx="4.65601" cy="4.64286" rx="4.65601" ry="4.64286" transform="matrix(-1 0 0 1 232.392 35.5952)" stroke="#030303" stroke-width="1.67686"/>
+<ellipse cx="3.10401" cy="3.09524" rx="3.10401" ry="3.09524" transform="matrix(-1 0 0 1 57.0156 182.619)" stroke="#030303" stroke-width="1.67686"/>
+<ellipse cx="6.98401" cy="6.96429" rx="6.98401" ry="6.96429" transform="matrix(-1 0 0 1 303.784 154.762)" stroke="#030303" stroke-width="1.67686"/>
+<path d="M355 260H0.999996" stroke="#6E7191" stroke-linecap="round"/>
+<path d="M178 190C211.137 190 238 163.137 238 130C238 96.8629 211.137 70 178 70C144.863 70 118 96.8629 118 130C118 163.137 144.863 190 178 190Z" fill="#F59E41"/>
+<path d="M151 130L169 148L205 112M238 130C238 163.137 211.137 190 178 190C144.863 190 118 163.137 118 130C118 96.8629 144.863 70 178 70C211.137 70 238 96.8629 238 130Z" stroke="#FCFCFC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
