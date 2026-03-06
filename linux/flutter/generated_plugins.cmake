@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_secure_storage_linux
   open_file_linux
   printing
+  restart_app
   sentry_flutter
   url_launcher_linux
 )
