@@ -267,6 +267,12 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
                   });
                   SharedPreferences prefx =
                       await SharedPreferences.getInstance();
+                      print({
+                      "action": "addOneItem",
+                      "itmid": itemDetails[0]['id'],
+                      "uid": prefx.getString("userId"),
+                      "oid": prefx.getString("orderId"),
+                    });
                   var result = await getDio().post(
                     "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
                     data: {

@@ -7,6 +7,7 @@ import 'package:Delta/screens/settings/About/about_screen.dart';
 import 'package:Delta/screens/settings/Complaints/Complaints_screen.dart';
 import 'package:Delta/screens/settings/Sales/SalesScreen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
@@ -203,11 +204,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(10),
                                 color: Colors.grey.shade200,
-                                image: DecorationImage(
-                                  image: NetworkImage(promosImages[i]),
-                                  fit: BoxFit.cover,
-                                ),
                               ),
+                              child: CachedNetworkImage(imageUrl: promosImages[i], fit: BoxFit.cover,),
                             ),
                           );
                         }),

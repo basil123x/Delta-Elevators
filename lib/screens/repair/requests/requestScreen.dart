@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart' as intlx;
 
 class RequestScreen extends StatefulWidget {
   final String type;
@@ -180,7 +181,11 @@ class _RequestScreenState extends State<RequestScreen> {
                   },
                 ),
                 SizedBox(height: 10),
-                MyInputCustom(
+                widget.type == 'Urgent' ? MyInputCustom(
+                  iHint: "حدد التاريخ",
+                  iEnabled: true,
+                  initVx: intlx.DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                ) : MyInputCustom(
                   iController: dateController,
                   iHint: "حدد التاريخ",
                   isTyping: TextInputType.name,
@@ -196,7 +201,11 @@ class _RequestScreenState extends State<RequestScreen> {
                   },
                 ),
                 SizedBox(height: 10),
-                MyInputCustom(
+                widget.type == 'Urgent' ? MyInputCustom(
+                  iHint: "حدد الوقت",
+                  iEnabled: true,
+                  initVx: intlx.DateFormat('hh:mm a').format(DateTime.now()),
+                ) : MyInputCustom(
                   iController: timeController,
                   iHint: "حدد الوقت",
                   isTyping: TextInputType.name,
@@ -433,6 +442,7 @@ class MyInputCustom extends StatelessWidget {
   final String? Function(String?)? iValid;
   final Function()? iTab;
   final bool? iEnabled;
+  final String? initVx;
   const MyInputCustom({
     super.key,
     required this.iHint,
@@ -445,11 +455,13 @@ class MyInputCustom extends StatelessWidget {
     this.iValid,
     this.iTab,
     this.iEnabled,
+    this.initVx
   });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      initialValue: initVx,
       validator: iValid,
       controller: iController,
       keyboardType: isTyping,

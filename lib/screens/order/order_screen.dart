@@ -31,28 +31,29 @@ class _OrderScreenState extends State<OrderScreen> {
   Future getUserProfile() async {
     SharedPreferences _prefx = await SharedPreferences.getInstance();
     String uid = _prefx.getString("userId") ?? "";
-
+    print({"action": "profile", "uid": uid});
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "profile", "uid": uid},
     );
-    setState(() {
-      nameController.text = result.data['data']['a1'];
-      mobileController.text = result.data['data']['a2'];
-      addId = _prefx.getString("addId") ?? "";
-    });
+      setState(() {
+        nameController.text = result.data['data']['a1'];
+        mobileController.text = result.data['data']['a2'];
+        addId = _prefx.getString("addId") ?? "";
+      });
   }
 
   Future getMyOrders() async {
     SharedPreferences _prefx = await SharedPreferences.getInstance();
     String uid = _prefx.getString("userId") ?? "";
+    print({"action": "getOrders", "uid": uid});
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "getOrders", "uid": uid},
     );
-    setState(() {
-      myOrders = result.data['data'];
-    });
+      setState(() {
+        myOrders = result.data['data'];
+      });
   }
 
   @override
@@ -64,6 +65,7 @@ class _OrderScreenState extends State<OrderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print(myOrders);
     final currentTab = Provider.of<AppProvider>(context);
     return Scaffold(
       backgroundColor: Colors.white,

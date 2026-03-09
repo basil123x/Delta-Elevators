@@ -6,7 +6,7 @@ environment:
   sdk: ^3.9.2
 dependencies:
   animated_bottom_navigation_bar: ^1.4.0
-  cached_network_image: ^3.4.0
+  cached_network_image: ^3.4.1
   calendar_date_picker2: ^1.1.5
   camerawesome: ^2.5.0
   collection: ^1.18.0
