@@ -79,14 +79,13 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
     _loadAllData();
     super.initState();
   }
-
   @override
   Widget build(BuildContext context) {
     final currentTab = Provider.of<AppProvider>(context);
     return Directionality(
       textDirection: TextDirection.rtl,
       child:
-          itemDetails.isEmpty || itemLabelsDet.isEmpty || itemLiftsDet.isEmpty
+          itemDetails.isEmpty
           ? Scaffold(
               body: Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
@@ -119,15 +118,7 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
                         child: Container(
                           width: double.maxFinite,
                           height: 200,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            image: DecorationImage(
-                              image: NetworkImage(
-                                "https://daltalifts.com/erp2026/assets/items/${itemDetails[0]['id'] ?? ""}/images/1.jpg",
-                              ),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+                          child: Image.network("https://delta-lifts.s3.me-south-1.amazonaws.com/Sys/items/${itemDetails[0]['id'] ?? ""}/1.jpg"),
                         ),
                       ),
                       SizedBox(height: 10),
@@ -228,6 +219,7 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
                         ),
                       ),
                       SizedBox(height: 10),
+                      if (itemLabelsDet.isEmpty && itemLiftsDet.isEmpty)
                       ...List.generate(itemLabelsDet.length, (i) {
                         return Visibility(
                           visible: itemLiftsDet[0]['a${i + 1}'] != null

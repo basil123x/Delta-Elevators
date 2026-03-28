@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:Delta/constants/app_colors.dart';
@@ -17,6 +18,7 @@ import 'package:pdf/pdf.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signature/signature.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -36,6 +38,7 @@ class _ContractState extends State<Contract> {
   TextEditingController batchController2 = TextEditingController();
   bool isLoading = false;
   String isLoadingTxt = "تحميل العقد";
+  String pdfSend = "";
   late SignatureController signatureController = SignatureController(
     penStrokeWidth: 5,
     penColor: Colors.black,
@@ -53,82 +56,58 @@ class _ContractState extends State<Contract> {
   }
 
   Future<void> uploadSignature(signId) async {
-    if (signatureController.value.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('من فضلك قم بالتوقيع أولاً')));
-      return;
-    }
+  if (signatureController.value.isEmpty) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('من فضلك قم بالتوقيع أولاً')));
+    return;
+  }
 
-    setState(() {
-      isLoadingTxt = "جاري رفع التوقيع";
-    });
-    final Uint8List? signatureBytes = await signatureController.toPngBytes();
+  setState(() => isLoadingTxt = "جاري رفع التوقيع");
 
-    String base64Signature = base64Encode(signatureBytes!);
+  final Uint8List? signatureBytes = await signatureController.toPngBytes();
 
-    var response = await getDio().post(
-      'https://daltalifts.com/app2026/sql.php',
-      data: {
-        'action': 'UploadSignature',
-        'contractId': signId,
-        'signature': base64Signature,
+  // 1. اجيب presigned URL من السيرفر
+  var res = await getDio().post(
+    'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+    data: {'action': 'getPresignedUrlS3', 'contractId': signId, 'contractType': "1"},
+  );
+
+  String presignedUrl = res.data['url'];
+  String s3Key = res.data['key'];
+
+  // 2. ارفع على S3 مباشرة
+  await Dio().put(
+    presignedUrl,
+    data: signatureBytes,
+    options: Options(
+      headers: {
+        'Content-Type': 'image/png',
+        'Content-Length': signatureBytes!.length,
       },
-    );
+    ),
+  );
 
-    if (response.data['success'] == true) {
-      downloadAndUploadPdf(signId);
-    } else {
-      throw Exception(response.data['message'] ?? 'خطأ في الحفظ');
-    }
+  // 3. ابعت الـ key للسيرفر عشان يحفظه في DB
+  var response = await getDio().post(
+    'https://daltalifts.com/app2026/sql.php',
+    data: {
+      'action': 'UploadSignature',
+      'contractId': signId,
+      's3Key': s3Key,
+    },
+  );
+
+  if (response.data['success'] == true) {
+    downloadAndUploadPdf(signId);
+  } else {
+    throw Exception(response.data['message'] ?? 'خطأ في الحفظ');
   }
-
-  Future uploadPdfToServer(String filePath, signId) async {
-    try {
-      setState(() {
-        isLoadingTxt = "جاري رفع الملف";
-      });
-      var dio = Dio();
-
-      // جهز الملف للرفع
-      String fileName = filePath.split('/').last;
-      FormData formData = FormData.fromMap({
-        "file": await MultipartFile.fromFile(
-          filePath,
-          filename: fileName,
-          contentType: MediaType('application', 'pdf'), // مهم!
-        ),
-        "id": signId,
-        "booking_id": widget.bookDets[0]['id'],
-      });
-
-      // ارفع الملف
-      var response = await dio.post(
-        'https://daltalifts.com/app2026/upload.php',
-        data: formData,
-        onSendProgress: (int sent, int total) {
-          print('Progress: ${(sent / total * 100).toStringAsFixed(0)}%');
-        },
-      );
-
-      if (response.data['success'] == true) {
-        setState(() {
-          isLoading = false;
-          isLoadingTxt = "إرسال العقد الى الواتس اب";
-          stt = '1';
-        });
-        Provider.of<AppProvider>(context, listen: false).jumpToTabx(1);
-      }
-
-      return response.data;
-    } catch (e) {
-      print('Upload Error: $e');
-      throw e;
-    }
-  }
+}
 
   // استخدام كامل:
   Future downloadAndUploadPdf(signId) async {
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    String? oid = prefx.getString("orderId");
     try {
       setState(() {
         isLoadingTxt = "جاري عمل بي دي اف";
@@ -137,32 +116,57 @@ class _ContractState extends State<Contract> {
 
       // اطلب PDF مباشرة من السيرفر
       var response = await dio.get(
-        'https://daltalifts.com/app2026/pdf/index.php?id=$signId&sign=1',
-        options: Options(
-          responseType: ResponseType.bytes, // ✅ مهم جداً
-        ),
+        'https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=$oid&ktype=1',
       );
-      print(response.headers);
-
-      // احفظ الملف
-      Directory appDocDir = await getApplicationDocumentsDirectory();
-      String filePath = '${appDocDir.path}/contract_$signId.pdf';
-
-      File file = File(filePath);
-      await file.writeAsBytes(response.data);
-
-      print('PDF Size: ${file.lengthSync()} bytes');
-      print('PDF saved to: $filePath');
-      uploadPdfToServer(filePath, signId);
+      print('https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=$oid&ktype=1');
+      print(response.data);
+      if (response.data['success'] == true) {
+        setState(() {
+          prefx.setString(
+            "orderId",
+            (1000 + Random().nextInt(9000)).toString(),
+          );
+          isLoading = false;
+          isLoadingTxt = "إرسال العقد الى الشركة";
+          stt = '1';
+        });
+        Provider.of<AppProvider>(context, listen: false).jumpToTabx(1);
+      }
+ 
     } catch (e) {
       print('Error: $e');
     }
   }
 
+Future<void> sendTelegramMessageDocs({
+  required String s3PdfUrl,
+  required String message,
+}) async {
+  const String botToken = '8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI';
+
+  try {
+    final response = await Dio().post(
+      'https://api.telegram.org/bot$botToken/sendDocument',
+      queryParameters: {
+        'chat_id': "-1003877690157",
+        'document': s3PdfUrl,
+        'caption': message,
+        'parse_mode': 'HTML',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      print('✅ تم الإرسال');
+    }
+  } on DioException catch (e) {
+    print('❌ خطأ: ${e.message}');
+  }
+}
+
   @override
   void initState() {
     widget.bookDets[0]['stt'] == '1'
-        ? isLoadingTxt = "إرسال العقد الى الواتس اب"
+        ? isLoadingTxt = "إرسال العقد الى الشركة"
         : isLoadingTxt = "تحميل العقد";
     if (widget.bookDets[0]['stt'] == '1') {
       batchController.text = widget.bookDets[0]['a16'];
@@ -174,7 +178,6 @@ class _ContractState extends State<Contract> {
 
   @override
   Widget build(BuildContext context) {
-    print(stt);
     return Scaffold(
       backgroundColor: Colors.white,
       body: widget.bookDets.isEmpty
@@ -264,7 +267,7 @@ class _ContractState extends State<Contract> {
                             widget.bookDets[0]['stt'] == '1' ||
                                 stt.toString() == '1'
                             ? Image.network(
-                                "https://daltalifts.com/erp2026/assets/signatures/signature_${widget.bookDets[0]['contract_id']}.png",
+                                "https://delta-lifts.s3.me-south-1.amazonaws.com/Mobile_App/signatures/IIP_Contracts/signature_${widget.bookDets[0]['contract_id']}.png",
                               )
                             : Stack(
                                 children: [
@@ -313,8 +316,27 @@ class _ContractState extends State<Contract> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: GestureDetector(
         onTap: () async {
-          if (isLoadingTxt == "إرسال العقد الى الواتس اب") {
-            print("Go To Whatsapp");
+          if (isLoadingTxt == "إرسال العقد الى الشركة") {
+            String msg = """
+                          🔔 <b>تنبيه داخلي — عقد جديد للتنفيذ</b>
+
+                          نُفيدكم بأنه تم إصدار عقد توريد وتركيب مصعد جديد ويستلزم متابعتكم.
+
+                          📋 <b>تفاصيل العقد:</b>
+                          🔢 رقم العقد: <b>${widget.bookDets[0]['contract_id']}</b>
+                          👤 اسم العميل: <b>${widget.bookDets[0]['a1']}</b>
+                          📍 موقع التركيب: <b>${widget.bookDets[0]['city']}</b>
+                          🗓 تاريخ البدء: <b>${widget.bookDets[0]['date']}</b>
+
+                          يُرجى مراجعة العقد المرفق والتنسيق مع المسؤول لجدولة أعمال التركيب.
+                          """;
+            var response = await Dio().get(
+              'https://daltalifts.com/app2026/pdf/index.php?contractId=${widget.bookDets[0]['contract_id']}&sign=1&orderId=${widget.bookDets[0]['orderId']}&ktype=1',
+            );
+            sendTelegramMessageDocs(
+              s3PdfUrl: response.data['url'],
+              message: msg
+            );
           } else {
             if (batchController.text.trim().isNotEmpty &&
                 batchController1.text.trim().isNotEmpty &&
@@ -326,6 +348,7 @@ class _ContractState extends State<Contract> {
               });
               var data = {
                 "action": "addContract",
+                "type": "1",
                 "a2": widget.bookDets[0]['date'],
                 "a3": widget.bookDets[0]['a1'],
                 "a16": batchController.text.trim(),
@@ -353,7 +376,7 @@ class _ContractState extends State<Contract> {
           padding: EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             color:
-                isLoadingTxt == "إرسال العقد الى الواتس اب" ||
+                isLoadingTxt == "إرسال العقد الى الشركة" ||
                     widget.bookDets[0]['stt'] == '1'
                 ? Color(0xFF189D0E)
                 : AppColors.primary,

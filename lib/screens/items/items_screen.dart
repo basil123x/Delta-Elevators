@@ -165,7 +165,7 @@ class _ItemsScreenState extends State<ItemsScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                   image: DecorationImage(
                                     image: NetworkImage(
-                                      "https://daltalifts.com/erp2026/assets/items/${items[i]['id']}/images/1.jpg",
+                                      "https://delta-lifts.s3.me-south-1.amazonaws.com/Sys/items/${items[i]['id']}/1.jpg",
                                     ),
                                     fit: BoxFit.cover,
                                   ),

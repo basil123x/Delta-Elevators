@@ -12,6 +12,7 @@ class Processing extends StatefulWidget {
 
 class _ProcessingState extends State<Processing> {
   String caseTitle = "";
+  
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +48,7 @@ class _ProcessingState extends State<Processing> {
     }
     return Scaffold(
       backgroundColor: Colors.white,
-      body: widget.bookDets[0]['stt'] == '0'
-          ? ContractWait()
-          : SingleChildScrollView(
+      body:SingleChildScrollView(
               child: Column(
                 children: [OrderTimelineWidget(currentStatus: caseTitle)],
               ),

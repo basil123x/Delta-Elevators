@@ -13,7 +13,7 @@ if (keyPropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.delta_elevator"
+    namespace = "com.delta.io"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
     compileOptions {
@@ -24,11 +24,11 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
     defaultConfig {
-        applicationId = "com.delta_elevator"
+        applicationId = "com.delta.io"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
     signingConfigs {
         create("release") {

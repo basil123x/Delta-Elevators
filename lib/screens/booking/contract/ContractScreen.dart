@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/booking/contract/Contract.dart';
@@ -24,6 +26,7 @@ class _ContractScreenState extends State<ContractScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int currentPage = 0;
+  Timer? _timer;
 
   List bookDet = [];
   List myBooking = [];
@@ -34,6 +37,17 @@ class _ContractScreenState extends State<ContractScreen>
     getMyBookings();
     getBookingDet();
     _tabController = TabController(length: 2, vsync: this);
+    _timer = Timer.periodic(Duration(seconds: 5), (timer) {
+      getMyBookings();
+      getBookingDet();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future getBookingDet() async {
@@ -53,17 +67,16 @@ class _ContractScreenState extends State<ContractScreen>
     );
     setState(() {
       myBooking = result.data['data'];
+      if (myBooking.isNotEmpty && myBooking[0]['stx'] != "0" && myBooking[0]['stt'] != "0") {
+        _timer?.cancel();
+      }
     });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
+    print(myBooking);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: myBooking.isEmpty
@@ -100,6 +113,11 @@ class _ContractScreenState extends State<ContractScreen>
                       child: Container(
                         color: Colors.white,
                         child: TabBar(
+                          onTap: (index) {
+                            if (index == 1 && myBooking[0]['stt'] == "0") {
+                              _tabController.animateTo(0);
+                            }
+                          },
                           controller: _tabController,
                           labelColor: AppColors.primary,
                           unselectedLabelColor: Colors.grey,
@@ -115,9 +133,14 @@ class _ContractScreenState extends State<ContractScreen>
                             fontWeight: FontWeight.w600,
                             fontFamily: GoogleFonts.cairo().fontFamily,
                           ),
-                          tabs: const [
+                          tabs:  [
                             Tab(text: "توقيع العقد"),
-                            Tab(text: "مراحل التنفيذ"),
+                            Tab(
+                              child: Opacity(
+                                opacity: myBooking[0]['stt'] == "0" ? 0.3 : 1.0,
+                                child: Text("مراحل التنفيذ"),
+                              ),
+                            ),
                           ],
                         ),
                       ),

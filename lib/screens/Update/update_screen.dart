@@ -29,8 +29,6 @@ class _ForceUpdateScreenState extends State<ForceUpdateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print(widget.message);
-    print(widget.storeUrl);
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: Center(

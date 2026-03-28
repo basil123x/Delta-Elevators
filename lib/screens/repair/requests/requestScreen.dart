@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
@@ -35,6 +36,8 @@ class _RequestScreenState extends State<RequestScreen> {
     SharedPreferences prefx = await SharedPreferences.getInstance();
     setState(() {
       myAddId = prefx.getString("addId") ?? "";
+      dateController.text = intlx.DateFormat('yyyy-MM-dd').format(DateTime.now());
+      timeController.text = intlx.DateFormat('hh:mm a').format(DateTime.now());
     });
   }
 
@@ -107,48 +110,70 @@ class _RequestScreenState extends State<RequestScreen> {
     }
   }
 
-  Future<void> uploadImages(List<File> imageFiles) async {
-    final dio = Dio();
-    dio.options.connectTimeout = Duration(seconds: 60);
-    dio.options.receiveTimeout = Duration(seconds: 60);
+  Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
+  SharedPreferences prefx = await SharedPreferences.getInstance();
+  final dio = Dio();
+  dio.options.connectTimeout = const Duration(seconds: 60);
+  dio.options.receiveTimeout = const Duration(seconds: 60);
 
-    FormData formData = FormData();
+  List<String> s3Keys = [];
 
-    formData.fields.add(MapEntry('action', 'uploadImagesMain'));
+  // ارفع كل صورة على S3 مباشرة
+  for (int i = 0; i < imageFiles.length; i++) {
+    final ext = imageFiles[i].path.split('.').last;
 
-    for (int i = 0; i < imageFiles.length; i++) {
-      formData.files.add(
-        MapEntry(
-          'images[]',
-          await MultipartFile.fromFile(
-            imageFiles[i].path,
-            filename: 'image_$i.jpg',
-          ),
-        ),
-      );
-    }
-
-    final response = await dio.post(
+    // 1. اطلب presigned URL
+    final presignRes = await dio.post(
       "https://daltalifts.com/app2026/sql.php",
-      data: formData,
+      data: jsonEncode({
+        'action': 'getPresignedMaintenanceImageUrl',
+        'maintenanceId': maintenanceId,
+        'userId': prefx.getString("userId"),
+        'index': i+1,
+        'ext': ext,
+        'type': widget.type
+      }),
+      options: Options(contentType: 'application/json'),
     );
 
-    final resData = response.data is String
-        ? jsonDecode(response.data)
-        : response.data;
+    final presignData = presignRes.data is String
+        ? jsonDecode(presignRes.data)
+        : presignRes.data;
 
-    if (resData['success']) {
-      setState(() {
-        isLoading = false;
-      });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("تم إضافة طلب صيانة جديد")));
-      Navigator.pop(context);
-    } else {
-      print('فشل: ${resData['message']}');
+    if (!presignData['success']) {
+      print('فشل جلب presigned URL للصورة $i');
+      continue;
+    } 
+
+    
+
+    final uploadUrl = presignData['url'];
+    final s3Key = presignData['key'];
+
+    // 2. ارفع الصورة مباشرة على S3
+    final bytes = await imageFiles[i].readAsBytes();
+    await dio.put(
+      uploadUrl,
+      data: Stream.fromIterable([bytes]),
+      options: Options(
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Content-Length': bytes.length,
+        },
+      ),
+    );
+
+    s3Keys.add(s3Key);
+
+    if (presignData['success'] == true) {
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("تم إضافة طلب صيانة جديد")),
+      );
     }
   }
+
+}
 
   @override
   void initState() {
@@ -182,9 +207,9 @@ class _RequestScreenState extends State<RequestScreen> {
                 ),
                 SizedBox(height: 10),
                 widget.type == 'Urgent' ? MyInputCustom(
+                  iController: dateController,
                   iHint: "حدد التاريخ",
                   iEnabled: true,
-                  initVx: intlx.DateFormat('yyyy-MM-dd').format(DateTime.now()),
                 ) : MyInputCustom(
                   iController: dateController,
                   iHint: "حدد التاريخ",
@@ -202,9 +227,9 @@ class _RequestScreenState extends State<RequestScreen> {
                 ),
                 SizedBox(height: 10),
                 widget.type == 'Urgent' ? MyInputCustom(
+                  iController: timeController,
                   iHint: "حدد الوقت",
                   iEnabled: true,
-                  initVx: intlx.DateFormat('hh:mm a').format(DateTime.now()),
                 ) : MyInputCustom(
                   iController: timeController,
                   iHint: "حدد الوقت",
@@ -306,7 +331,7 @@ class _RequestScreenState extends State<RequestScreen> {
                                               onTap: () {
                                                 // حذف الصورة
                                                 app.allImagesList.removeAt(i);
-                                                app.notifyListeners(); // أو استخدم setState
+                                                app.notifyListeners(); 
                                               },
                                               child: Container(
                                                 width: 24,
@@ -383,7 +408,7 @@ class _RequestScreenState extends State<RequestScreen> {
                         for (var i = 0; i < app.allImagesList.length; i++) {
                           myAllImg.add(File(app.allImagesList[i]));
                         }
-                        uploadImages(myAllImg);
+                        uploadImages(myAllImg, result.data['data']['mainId'].toString());
                       } else {
                         setState(() {
                           isLoading = false;

@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:Delta/constants/app_colors.dart';
+import 'package:Delta/provider/app_provider.dart';
+import 'package:Delta/screens/repair/repair_contract.dart';
 import 'package:Delta/screens/repair/requests/requestScreen.dart';
+import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RepairScreen extends StatefulWidget {
   const RepairScreen({super.key});
@@ -13,12 +20,50 @@ class RepairScreen extends StatefulWidget {
 class _RepairScreenState extends State<RepairScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Timer? _timer;
+  String stx = "";
+  String name = '';
+
+  Future getUserProfile() async {
+    SharedPreferences _prefx = await SharedPreferences.getInstance();
+    String uid = _prefx.getString("userId") ?? "";
+    var result = await getDio().post(
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+      data: {"action": "profile", "uid": uid},
+    );
+    setState(() {
+      name = result.data['data']['a1'];
+    });
+  }
+
+  Future getContractStatus() async {
+    if (!mounted) return;
+    SharedPreferences _prefx = await SharedPreferences.getInstance();
+    String uid = _prefx.getString("userId") ?? "";
+    var result = await getDio().post(
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+      data: {"action": "getContract", "contractUserId": uid.toString()},
+    );
+    print(result.data);
+    if (!mounted) return;
+    setState(() {
+      stx = result.data['data'][0]['stx'].toString();
+      if (stx != '0') {
+        _timer?.cancel();
+      }
+    });
+  }
 
   @override
   void initState() {
+    getContractStatus();
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _timer = Timer.periodic(Duration(seconds: 5), (timer) {
+      getContractStatus();
+    });
   }
+  
 
   @override
   void dispose() {
@@ -33,8 +78,8 @@ class _RepairScreenState extends State<RepairScreen>
       child: Scaffold(
         backgroundColor: Colors.grey[50],
         appBar: AppBar(
-          title: const Text(
-            "الصيانة",
+          title: Text(
+            stx == '1' ? "طلب صيانة" : "عقد الصيانة",
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -44,7 +89,7 @@ class _RepairScreenState extends State<RepairScreen>
           centerTitle: true,
           backgroundColor: Colors.white,
           elevation: 0,
-          bottom: PreferredSize(
+          bottom: stx == '1' ? PreferredSize(
             preferredSize: const Size.fromHeight(60),
             child: Container(
               color: Colors.white,
@@ -70,17 +115,19 @@ class _RepairScreenState extends State<RepairScreen>
                 ],
               ),
             ),
-          ),
+          ) : null,
         ),
-        body: TabBarView(
+        body: stx == '1' ? TabBarView(
           physics: NeverScrollableScrollPhysics(),
           controller: _tabController,
           children: [
             RequestScreen(type: "Normal"),
             RequestScreen(type: "Urgent"),
           ],
-        ),
+        ) : RepairContract(),
       ),
     );
   }
 }
+
+

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/booking/contract/ContractScreen.dart';
@@ -21,6 +23,7 @@ class _BookingscreenState extends State<Bookingscreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List myBookings = [];
+  Timer? _timer;
 
   String getTimeAgo(String date, String time) {
     // دمج التاريخ والوقت
@@ -103,6 +106,8 @@ class _BookingscreenState extends State<Bookingscreen>
     });
   }
 
+  
+
   @override
   void initState() {
     super.initState();
@@ -112,6 +117,9 @@ class _BookingscreenState extends State<Bookingscreen>
       if (!_tabController.indexIsChanging) {
         getMyBookings();
       }
+    });
+    _timer = Timer.periodic(Duration(seconds: 5), (timer) {
+      getMyBookings();
     });
   }
 

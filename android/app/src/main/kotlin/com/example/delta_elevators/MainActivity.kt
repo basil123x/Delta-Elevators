@@ -1,4 +1,4 @@
-package com.delta_elevator
+package com.delta.io
 
 import io.flutter.embedding.android.FlutterActivity
 

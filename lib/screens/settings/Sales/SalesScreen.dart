@@ -22,6 +22,7 @@ class _SalesScreenState extends State<SalesScreen> {
   TextEditingController emailController = TextEditingController();
   GlobalKey<FormState> formkey = GlobalKey<FormState>();
   List<Map<String, dynamic>> salesMan = [
+    {"name": "محمد رأفت", "mobile": "30006374"},
     {"name": "خالد", "mobile": "33856188"},
     {"name": "نور", "mobile": "30006532"},
   ];

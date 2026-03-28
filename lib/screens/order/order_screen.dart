@@ -27,6 +27,7 @@ class _OrderScreenState extends State<OrderScreen> {
   List myOrders = [];
   bool isLoading = false;
   String? addId;
+  List oneAddress = [];
 
   Future getUserProfile() async {
     SharedPreferences _prefx = await SharedPreferences.getInstance();
@@ -43,6 +44,19 @@ class _OrderScreenState extends State<OrderScreen> {
       });
   }
 
+  
+
+  Future getOneAddress() async {
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    var result = await getDio().post(
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+      data: {"action": "getOneAddress", "id": prefx.getString("addId") ?? ''},
+    );
+    setState(() {
+      oneAddress = result.data['data'];
+    });
+  }
+
   Future getMyOrders() async {
     SharedPreferences _prefx = await SharedPreferences.getInstance();
     String uid = _prefx.getString("userId") ?? "";
@@ -56,16 +70,76 @@ class _OrderScreenState extends State<OrderScreen> {
       });
   }
 
+      Future<void> sendQuotationRequestToTelegram({
+        required String clientName,
+        required String phone,
+        required String city,
+        required String zone,
+        required String street,
+        required String building,
+        required String latitude,
+        required String longitude,
+        required List items,
+      }) async {
+        const String botToken = '8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI';
+        const String chatId = '-1003877690157';
+
+        // 1. الرسالة النصية
+        await Dio().post(
+          'https://api.telegram.org/bot$botToken/sendMessage',
+          queryParameters: {
+            'chat_id': chatId,
+            'text': """
+      🛗 <b>طلب عرض سعر جديد</b>
+
+      👤 <b>العميل:</b> $clientName
+      📞 <b>الهاتف:</b> $phone
+
+      📍 <b>العنوان:</b>
+      🏙 المدينة: $city
+      🗺 المنطقة: $zone
+      🛣 الشارع: $street
+      🏢 المبنى: $building
+
+      🛒 <b>الطلبات:</b> ${items.length} منتج
+      """,
+            'parse_mode': 'HTML',
+          },
+        );
+
+        // 2. صور المنتجات
+        for (var item in items) {
+          await Dio().post(
+            'https://api.telegram.org/bot$botToken/sendPhoto',
+            queryParameters: {
+              'chat_id': chatId,
+              'photo': "https://delta-lifts.s3.me-south-1.amazonaws.com/Sys/items/${item['id']}/1.jpg",
+              'caption': '🛗 ${item['a1']} - ${item['a3']}',
+            },
+          );
+        }
+
+        // 3. الموقع
+        await Dio().post(
+          'https://api.telegram.org/bot$botToken/sendLocation',
+          queryParameters: {
+            'chat_id': chatId,
+            'latitude': latitude,
+            'longitude': longitude,
+          },
+        );
+      }
+
   @override
   void initState() {
     getUserProfile();
     getMyOrders();
+    getOneAddress();
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
-    print(myOrders);
     final currentTab = Provider.of<AppProvider>(context);
     return Scaffold(
       backgroundColor: Colors.white,
@@ -194,7 +268,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                 borderRadius: BorderRadius.circular(10),
                                 image: DecorationImage(
                                   image: NetworkImage(
-                                    "https://daltalifts.com/erp2026/assets/items/${myOrders[i]['id']}/images/1.jpg",
+                                    "https://delta-lifts.s3.me-south-1.amazonaws.com/Sys/items/${myOrders[i]['id']}/1.jpg",
                                   ),
                                   fit: BoxFit.cover,
                                 ),
@@ -297,30 +371,13 @@ class _OrderScreenState extends State<OrderScreen> {
                   if (result.data['success'] == true) {
                     setState(() {
                       isLoading = false;
-                      prefx.setString(
-                        "orderId",
-                        (1000 + Random().nextInt(9000)).toString(),
-                      );
                     });
-                    List<String> playerIdsx = [];
-                    var playerIds = await getDio().post(
-                      "https://daltalifts.com/app2026/sql.php",
-                      data: {"action": "getPlayerIds"},
-                    );
-                    for (var i = 0; i < playerIds.data['data'].length; i++) {
-                      playerIdsx.add(playerIds.data['data'][i]['player_id']);
-                    }
-                    setState(() {});
-                    await OneSignalNotification.sendToMultipleUsers(
-                      subscriptionIds: playerIdsx,
-                      title: "طلب جديد",
-                      message: "تم حجز طلب جديد",
-                    );
+                    sendQuotationRequestToTelegram(clientName: nameController.text.trim(), phone: mobileController.text.trim(), city: oneAddress[0]['city'], zone: oneAddress[0]['zone'], street: oneAddress[0]['street'], building: oneAddress[0]['building'], latitude: oneAddress[0]['latitude'], longitude: oneAddress[0]['longitude'], items: myOrders);
                     currentTab.jumpToPagex(1);
                     showModalBottomSheet(
                       context: context,
                       backgroundColor: Colors.transparent,
-                      isScrollControlled: true, // ده المهم جداً!
+                      isScrollControlled: true,
                       builder: (context) {
                         return Container(
                           width: double.maxFinite,
