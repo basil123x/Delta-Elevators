@@ -54,24 +54,74 @@ class _AboutScreenState extends State<AboutScreen> {
                   ),
                 ),
                 padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  children: [
-                    SizedBox(height: 50),
-                    // ===== Grid الأيقونات =====
-                    Text(
-                      "دلتا لتكنولوجيا المصاعد والتجارة",
-                      style: TextStyle(
-                        fontSize: 27,
-                        fontWeight: FontWeight.bold,
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      SizedBox(height: 50),
+                      // ===== Grid الأيقونات =====
+                      Text(
+                        "دلتا لتكنولوجيا المصاعد والتجارة",
+                        style: TextStyle(
+                          fontSize: 27,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 20),
-                    Text(
-                      "شركة دلتا هي شركة متخصصة في تقديم حلول مبتكرة ومتطورة في مجالات التكنولوجيا والخدمات الرقمية. تسعى دلتا دائمًا إلى تمكين الأفراد والشركات من خلال توفير تقنيات حديثة تُسهم في تحسين الكفاءة وزيادة الإنتاجية. من خلال التركيز على الجودة والإبداع، تلتزم دلتا بتقديم أفضل المنتجات والخدمات التي تلبي احتياجات عملائها وتساعدهم على تحقيق أهدافهم بنجاح. سواء كان ذلك من خلال تطوير البرمجيات، تقديم الاستشارات التقنية، أو توفير الحلول الذكية، دلتا دائماً في المقدمة.",
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                      SizedBox(height: 20),
+                      Text(
+                        "شركة دلتا هي شركة متخصصة في تقديم حلول مبتكرة ومتطورة في مجالات التكنولوجيا والخدمات الرقمية. تسعى دلتا دائمًا إلى تمكين الأفراد والشركات من خلال توفير تقنيات حديثة تُسهم في تحسين الكفاءة وزيادة الإنتاجية. من خلال التركيز على الجودة والإبداع، تلتزم دلتا بتقديم أفضل المنتجات والخدمات التي تلبي احتياجات عملائها وتساعدهم على تحقيق أهدافهم بنجاح. سواء كان ذلك من خلال تطوير البرمجيات، تقديم الاستشارات التقنية، أو توفير الحلول الذكية، دلتا دائماً في المقدمة.",
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 100,),
+                      Container(
+                        margin: EdgeInsets.only(bottom: 20),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: List.generate(socialIcons.length, (i) {
+                            return GestureDetector(
+                              onTap: () async {
+                                switch (i) {
+                                  case 0:
+                                    await UrlHelper.openEmail(email: "info@daltalifts.com");
+                                    break;
+                                  case 1:
+                                    await UrlHelper.openWebsite(
+                                      "https://www.facebook.com/profile.php?id=61587296592205",
+                                    );
+                                    break;
+                                  case 2:
+                                    await UrlHelper.openWebsite(
+                                      "https://www.instagram.com/delta.aelevator",
+                                    );
+                                    break;
+                                  case 3:
+                                    await UrlHelper.openWebsite(
+                                      "https://www.snapchat.com/@delta_elevate",
+                                    );
+                                    break;
+                                  default:
+                                }
+                              },
+                              child: Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(50),
+                                ),
+                                child: Icon(
+                                  socialIcons[i]['icon'],
+                                  color: AppColors.primary,
+                                  size: 26,
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ],
+                    
+                  ),
                 ),
               ),
             ),
@@ -102,53 +152,6 @@ class _AboutScreenState extends State<AboutScreen> {
               ),
             ),
           ],
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: Container(
-          margin: EdgeInsets.only(bottom: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(socialIcons.length, (i) {
-              return GestureDetector(
-                onTap: () async {
-                  switch (i) {
-                    case 0:
-                      await UrlHelper.openEmail(email: "info@daltalifts.com");
-                      break;
-                    case 1:
-                      await UrlHelper.openWebsite(
-                        "https://www.facebook.com/profile.php?id=61587296592205",
-                      );
-                      break;
-                    case 2:
-                      await UrlHelper.openWebsite(
-                        "https://www.instagram.com/delta.aelevator",
-                      );
-                      break;
-                    case 3:
-                      await UrlHelper.openWebsite(
-                        "https://www.snapchat.com/@delta_elevate",
-                      );
-                      break;
-                    default:
-                  }
-                },
-                child: Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(50),
-                  ),
-                  child: Icon(
-                    socialIcons[i]['icon'],
-                    color: AppColors.primary,
-                    size: 26,
-                  ),
-                ),
-              );
-            }),
-          ),
         ),
       ),
     );

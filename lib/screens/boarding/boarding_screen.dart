@@ -97,172 +97,135 @@ class _BoardingScreenState extends State<BoardingScreen> {
                   ),
                 ],
               ),
+              
               Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: Container(
-                    color: Colors.white,
-                    width: double.maxFinite,
-                    height: 300,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TweenAnimationBuilder<double>(
-                          duration: const Duration(milliseconds: 500),
-                          curve: Curves.easeInOut,
-                          tween: Tween<double>(begin: 0, end: boardProgress),
-                          builder: (context, value, _) =>
-                              LinearProgressIndicator(
-                                value: value,
-                                backgroundColor: Colors.grey,
-                                color: Colors.orange,
-                              ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              Text(
-                                boardingItems[currentIndex]['title'],
-                                style: TextStyle(fontSize: 25),
-                              ),
-                              SizedBox(height: 10),
-                              Text(
-                                boardingItems[currentIndex]['subtitle'],
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey.shade400,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Spacer(),
-                        if (currentIndex != 1)
-                          GestureDetector(
-                            onTap: () {
-                              if (currentIndex == 0) {
-                                setState(() {
-                                  currentIndex = 1;
-                                });
-                              } else {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => IntroScreen(),
-                                  ),
-                                );
-                              }
-
-                              pageController.animateToPage(
-                                currentIndex,
-                                duration: Duration(milliseconds: 200),
-                                curve: Curves.easeInOut,
-                              );
-                            },
-                            child: Container(
-                              width: double.maxFinite,
-                              margin: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              padding: EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                currentIndex == 2 ? "ابدأ الأن" : "التالي",
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (currentIndex == 1)
-                          Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      currentIndex = 2;
-                                    });
-                                    pageController.animateToPage(
-                                      currentIndex,
-                                      duration: Duration(milliseconds: 200),
-                                      curve: Curves.easeInOut,
-                                    );
-                                  },
-                                  child: Container(
-                                    width: double.maxFinite,
-                                    margin: EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                    ),
-                                    padding: EdgeInsets.symmetric(vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      "التالي",
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      currentIndex = 0;
-                                    });
-                                    pageController.animateToPage(
-                                      currentIndex,
-                                      duration: Duration(milliseconds: 200),
-                                      curve: Curves.easeInOut,
-                                    );
-                                  },
-                                  child: Container(
-                                    width: double.maxFinite,
-                                    margin: EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                    ),
-                                    padding: EdgeInsets.symmetric(vertical: 10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      "السابق",
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
+  bottom: 0,
+  left: 0,
+  right: 0,
+  child: Directionality(
+    textDirection: TextDirection.rtl,
+    child: Container(
+      color: Colors.white,
+      alignment: Alignment.bottomCenter,
+      width: double.maxFinite,
+      height: MediaQuery.of(context).size.height * 0.3,
+      child: SingleChildScrollView( // ← ضيف ده
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOut,
+              tween: Tween<double>(begin: 0, end: boardProgress),
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                backgroundColor: Colors.grey,
+                color: Colors.orange,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    boardingItems[currentIndex]['title'],
+                    style: TextStyle(fontSize: 20),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    boardingItems[currentIndex]['subtitle'],
+                    style: TextStyle(fontSize: 15, color: Colors.grey.shade400),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 12),
+            // الأزرار
+            if (currentIndex != 1)
+              GestureDetector(
+                onTap: () {
+                  if (currentIndex == 0) {
+                    setState(() { currentIndex = 1; });
+                  } else {
+                    Navigator.pushReplacement(context,
+                        MaterialPageRoute(builder: (context) => IntroScreen()));
+                  }
+                  pageController.animateToPage(currentIndex,
+                      duration: Duration(milliseconds: 200),
+                      curve: Curves.easeInOut);
+                },
+                child: Container(
+                  width: double.maxFinite,
+                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    currentIndex == 2 ? "ابدأ الأن" : "التالي",
+                    style: TextStyle(fontSize: 20, color: Colors.white),
                   ),
                 ),
               ),
+            if (currentIndex == 1)
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() { currentIndex = 2; });
+                        pageController.animateToPage(currentIndex,
+                            duration: Duration(milliseconds: 200),
+                            curve: Curves.easeInOut);
+                      },
+                      child: Container(
+                        margin: EdgeInsets.symmetric(horizontal: 10),
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text("التالي",
+                            style: TextStyle(fontSize: 20, color: Colors.white)),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() { currentIndex = 0; });
+                        pageController.animateToPage(currentIndex,
+                            duration: Duration(milliseconds: 200),
+                            curve: Curves.easeInOut);
+                      },
+                      child: Container(
+                        margin: EdgeInsets.symmetric(horizontal: 10),
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primary),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text("السابق",
+                            style: TextStyle(fontSize: 20, color: AppColors.primary)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            SizedBox(height: 10),
+          ],
+        ),
+      ),
+    ),
+  ),
+),
             ],
           ),
         ),

@@ -94,69 +94,72 @@ class _ContractScreenState extends State<ContractScreen>
                     }
                   });
                 }
-                return Scaffold(
-                  backgroundColor: Colors.grey[50],
-                  appBar: AppBar(
-                    title: Text(
-                      "طلب رقم ${widget.orderId}",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                return GestureDetector(
+                  onTap: () => FocusScope.of(context).unfocus(),
+                  child: Scaffold(
+                    backgroundColor: Colors.grey[50],
+                    appBar: AppBar(
+                      title: Text(
+                        "طلب رقم ${widget.orderId}",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
                       ),
-                    ),
-                    centerTitle: true,
-                    backgroundColor: Colors.white,
-                    elevation: 0,
-                    bottom: PreferredSize(
-                      preferredSize: const Size.fromHeight(60),
-                      child: Container(
-                        color: Colors.white,
-                        child: TabBar(
-                          onTap: (index) {
-                            if (index == 1 && myBooking[0]['stt'] == "0") {
-                              _tabController.animateTo(0);
-                            }
-                          },
-                          controller: _tabController,
-                          labelColor: AppColors.primary,
-                          unselectedLabelColor: Colors.grey,
-                          indicatorColor: AppColors.primary,
-                          indicatorWeight: 3,
-                          labelStyle: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: GoogleFonts.cairo().fontFamily,
-                          ),
-                          unselectedLabelStyle: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: GoogleFonts.cairo().fontFamily,
-                          ),
-                          tabs:  [
-                            Tab(text: "توقيع العقد"),
-                            Tab(
-                              child: Opacity(
-                                opacity: myBooking[0]['stt'] == "0" ? 0.3 : 1.0,
-                                child: Text("مراحل التنفيذ"),
-                              ),
+                      centerTitle: true,
+                      backgroundColor: Colors.white,
+                      elevation: 0,
+                      bottom: PreferredSize(
+                        preferredSize: const Size.fromHeight(60),
+                        child: Container(
+                          color: Colors.white,
+                          child: TabBar(
+                            onTap: (index) {
+                              if (index == 1 && myBooking[0]['stt'] == "0") {
+                                _tabController.animateTo(0);
+                              }
+                            },
+                            controller: _tabController,
+                            labelColor: AppColors.primary,
+                            unselectedLabelColor: Colors.grey,
+                            indicatorColor: AppColors.primary,
+                            indicatorWeight: 3,
+                            labelStyle: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: GoogleFonts.cairo().fontFamily,
                             ),
-                          ],
+                            unselectedLabelStyle: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: GoogleFonts.cairo().fontFamily,
+                            ),
+                            tabs:  [
+                              Tab(text: "توقيع العقد"),
+                              Tab(
+                                child: Opacity(
+                                  opacity: myBooking[0]['stt'] == "0" ? 0.3 : 1.0,
+                                  child: Text("مراحل التنفيذ"),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  body: TabBarView(
-                    physics: NeverScrollableScrollPhysics(),
-                    controller: _tabController,
-                    children: [
-                      myBooking[0]['stx'] == "0"
-                          ? ContractWait()
-                          : Contract(bookDets: bookDet),
-                      myBooking[0]['stx'] == "0"
-                          ? ContractWait()
-                          : Processing(bookDets: bookDet),
-                    ],
+                    body: TabBarView(
+                      physics: NeverScrollableScrollPhysics(),
+                      controller: _tabController,
+                      children: [
+                        myBooking[0]['stx'] == "0"
+                            ? ContractWait()
+                            : Contract(bookDets: bookDet),
+                        myBooking[0]['stx'] == "0"
+                            ? ContractWait()
+                            : Processing(bookDets: bookDet),
+                      ],
+                    ),
                   ),
                 );
               },

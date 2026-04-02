@@ -50,9 +50,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 setState(() {
                   notifications.clear();
                 });
+                SharedPreferences prefx = await SharedPreferences.getInstance();
                 await getDio().post(
                   "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                  data: {"action": "delNotify"},
+                  data: {"action": "delNotify", "uid": prefx.getString("userId")},
                 );
               },
               icon: Icon(Iconsax.trash, color: Colors.red),

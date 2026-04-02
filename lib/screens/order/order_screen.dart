@@ -113,7 +113,7 @@ class _OrderScreenState extends State<OrderScreen> {
             'https://api.telegram.org/bot$botToken/sendPhoto',
             queryParameters: {
               'chat_id': chatId,
-              'photo': "https://delta-lifts.s3.me-south-1.amazonaws.com/Sys/items/${item['id']}/1.jpg",
+              'photo': "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${item['id']}/1.jpg",
               'caption': '🛗 ${item['a1']} - ${item['a3']}',
             },
           );
@@ -154,7 +154,7 @@ class _OrderScreenState extends State<OrderScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 300, child: AddressesDisplayWidget()),
+            SizedBox(height: 320, child: Expanded(child: AddressesDisplayWidget())),
             SizedBox(height: 10),
             Container(
               margin: EdgeInsets.symmetric(horizontal: 10),
@@ -268,7 +268,7 @@ class _OrderScreenState extends State<OrderScreen> {
                                 borderRadius: BorderRadius.circular(10),
                                 image: DecorationImage(
                                   image: NetworkImage(
-                                    "https://delta-lifts.s3.me-south-1.amazonaws.com/Sys/items/${myOrders[i]['id']}/1.jpg",
+                                    "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${myOrders[i]['id']}/1.jpg",
                                   ),
                                   fit: BoxFit.cover,
                                 ),

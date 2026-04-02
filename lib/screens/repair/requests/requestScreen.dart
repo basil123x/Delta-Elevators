@@ -31,6 +31,7 @@ class _RequestScreenState extends State<RequestScreen> {
   bool isLoading = false;
   String isLoadingTxt = "";
   String myAddId = "";
+  List<File> myAllImg = [];
 
   Future getAddNow() async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
@@ -165,11 +166,17 @@ class _RequestScreenState extends State<RequestScreen> {
 
     s3Keys.add(s3Key);
 
+    setState(() {
+        myAllImg.clear();
+      });
+
     if (presignData['success'] == true) {
       setState(() => isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("تم إضافة طلب صيانة جديد")),
       );
+      
+      
     }
   }
 
@@ -192,7 +199,7 @@ class _RequestScreenState extends State<RequestScreen> {
             margin: EdgeInsets.all(10),
             child: Column(
               children: [
-                SizedBox(height: 300, child: AddressesDisplayWidget()),
+                SizedBox(height: 320, child: AddressesDisplayWidget()),
                 MyInputCustom(
                   iMax: 4,
                   iController: descController,
@@ -404,7 +411,7 @@ class _RequestScreenState extends State<RequestScreen> {
                         setState(() {
                           isLoadingTxt = "جاري رفع صور أعطال الصيانة";
                         });
-                        List<File> myAllImg = [];
+                        
                         for (var i = 0; i < app.allImagesList.length; i++) {
                           myAllImg.add(File(app.allImagesList[i]));
                         }

@@ -134,6 +134,7 @@ class _BookingscreenState extends State<Bookingscreen>
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text(
           "الحجوزات",
           style: TextStyle(
@@ -311,7 +312,7 @@ class _BookingscreenState extends State<Bookingscreen>
                                 Text(
                                   "عرض طلب #${myBookings[index]['id']}",
                                   style: const TextStyle(
-                                    fontSize: 18,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.black87,
                                   ),

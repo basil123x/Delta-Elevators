@@ -65,6 +65,7 @@ class _ContractState extends State<Contract> {
   setState(() => isLoadingTxt = "جاري رفع التوقيع");
 
   final Uint8List? signatureBytes = await signatureController.toPngBytes();
+  print("ssssssss $signId");
 
   // 1. اجيب presigned URL من السيرفر
   var res = await getDio().post(
@@ -118,7 +119,6 @@ class _ContractState extends State<Contract> {
       var response = await dio.get(
         'https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=$oid&ktype=1',
       );
-      print('https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=$oid&ktype=1');
       print(response.data);
       if (response.data['success'] == true) {
         setState(() {
@@ -267,7 +267,7 @@ Future<void> sendTelegramMessageDocs({
                             widget.bookDets[0]['stt'] == '1' ||
                                 stt.toString() == '1'
                             ? Image.network(
-                                "https://delta-lifts.s3.me-south-1.amazonaws.com/Mobile_App/signatures/IIP_Contracts/signature_${widget.bookDets[0]['contract_id']}.png",
+                                "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/signatures/IIP_Contracts/signature_${widget.bookDets[0]['contract_id']}.png",
                               )
                             : Stack(
                                 children: [

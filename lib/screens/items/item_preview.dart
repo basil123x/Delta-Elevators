@@ -22,7 +22,7 @@ class _ItemPreviewScreenState extends State<ItemPreviewScreen> {
               color: Colors.black45,
               image: DecorationImage(
                 image: NetworkImage(
-                  "https://delta-lifts.s3.me-south-1.amazonaws.com/Sys/items/${widget.id}/1.jpg",
+                  "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${widget.id}/1.jpg",
                 ),
                 fit: BoxFit.contain,
               ),

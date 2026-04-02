@@ -24,6 +24,7 @@ class _IntroScreenState extends State<IntroScreen> {
             Text(
               "تابع خطوات تركيب مصعدك بسلاسة ودقة",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
             Spacer(),
             GestureDetector(

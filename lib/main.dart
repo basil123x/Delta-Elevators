@@ -31,7 +31,7 @@ void main() async {
   ]);
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
   OneSignal.initialize("aca3707d-a491-4e81-95eb-46ef15ea1ba4");
-  OneSignal.Notifications.requestPermission(false);
+  OneSignal.Notifications.requestPermission(true);
   runApp(MyApp());
 }
 

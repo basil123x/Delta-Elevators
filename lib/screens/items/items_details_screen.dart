@@ -118,7 +118,7 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
                         child: Container(
                           width: double.maxFinite,
                           height: 200,
-                          child: Image.network("https://delta-lifts.s3.me-south-1.amazonaws.com/Sys/items/${itemDetails[0]['id'] ?? ""}/1.jpg"),
+                          child: Image.network("https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${itemDetails[0]['id'] ?? ""}/1.jpg"),
                         ),
                       ),
                       SizedBox(height: 10),

@@ -255,7 +255,7 @@ Future<void> sendTelegramMessageDocs({
                             widget.bookDets[0]['stt'] == '1' ||
                                 stt.toString() == '1'
                             ? Image.network(
-                                "https://delta-lifts.s3.me-south-1.amazonaws.com/Mobile_App/signatures/signature_${widget.bookDets[0]['RepairContract_id']}.png",
+                                "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/signatures/signature_${widget.bookDets[0]['RepairContract_id']}.png",
                               )
                             : Stack(
                                 children: [

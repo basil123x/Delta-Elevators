@@ -28,165 +28,168 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
     final screenHeight = MediaQuery.of(context).size.height;
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: AppColors.primary,
-        appBar: AppBar(
-          title: Text("شكاوي وإقتراحات", style: TextStyle(color: Colors.white)),
-          centerTitle: true,
-          forceMaterialTransparency: true,
+      child: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Scaffold(
           backgroundColor: AppColors.primary,
-          iconTheme: IconThemeData(color: Colors.white),
-        ),
-        body: Form(
-          key: formkey,
-          child: Stack(
-            children: [
-              Positioned(
-                top: screenHeight * 0.18,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(25),
-                      topRight: Radius.circular(25),
+          appBar: AppBar(
+            title: Text("شكاوي وإقتراحات", style: TextStyle(color: Colors.white)),
+            centerTitle: true,
+            forceMaterialTransparency: true,
+            backgroundColor: AppColors.primary,
+            iconTheme: IconThemeData(color: Colors.white),
+          ),
+          body: Form(
+            key: formkey,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: screenHeight * 0.18,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(25),
+                        topRight: Radius.circular(25),
+                      ),
                     ),
-                  ),
-                  child: Column(
-                    children: [
-                      SizedBox(height: 50),
-
-                      Expanded(
-                        child: Container(
-                          margin: EdgeInsets.all(15),
-                          child: SingleChildScrollView(
-                            child: Column(
-                              children: [
-                                MyInputCustom(
-                                  iController: userController,
-                                  iHint: "إسمك",
-                                  iPref: Iconsax.user,
-                                  isTyping: TextInputType.name,
-                                  iValid: (val) {
-                                    if (val == '') {
-                                      return 'الرجاء إكتب إسمك';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                SizedBox(height: 20),
-                                MyInputCustom(
-                                  iController: mobileController,
-                                  iHint: "رقم هاتفك",
-                                  iPref: Iconsax.mobile,
-                                  isTyping: TextInputType.phone,
-                                  iValid: (val) {
-                                    if (val == '') {
-                                      return 'الرجاء إكتب رقم هاتفك';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                SizedBox(height: 20),
-                                MyInputCustom(
-                                  iController: emailController,
-                                  iHint: "إكتب رسالتك هنا...",
-                                  iPref: Iconsax.sms,
-                                  isTyping: TextInputType.emailAddress,
-                                  iMax: 6,
-                                  iValid: (val) {
-                                    if (val == '') {
-                                      return 'الرجاء إكتب رسالتك';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                                SizedBox(height: 20),
-                              ],
+                    child: Column(
+                      children: [
+                        SizedBox(height: 50),
+        
+                        Expanded(
+                          child: Container(
+                            margin: EdgeInsets.all(15),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                children: [
+                                  MyInputCustom(
+                                    iController: userController,
+                                    iHint: "إسمك",
+                                    iPref: Iconsax.user,
+                                    isTyping: TextInputType.name,
+                                    iValid: (val) {
+                                      if (val == '') {
+                                        return 'الرجاء إكتب إسمك';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: 20),
+                                  MyInputCustom(
+                                    iController: mobileController,
+                                    iHint: "رقم هاتفك",
+                                    iPref: Iconsax.mobile,
+                                    isTyping: TextInputType.phone,
+                                    iValid: (val) {
+                                      if (val == '') {
+                                        return 'الرجاء إكتب رقم هاتفك';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: 20),
+                                  MyInputCustom(
+                                    iController: emailController,
+                                    iHint: "إكتب رسالتك هنا...",
+                                    iPref: Iconsax.sms,
+                                    isTyping: TextInputType.emailAddress,
+                                    iMax: 6,
+                                    iValid: (val) {
+                                      if (val == '') {
+                                        return 'الرجاء إكتب رسالتك';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: 20),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-
-              // ===== صورة البروفايل في المنتصف =====
-              Positioned(
-                top: screenHeight * 0.11,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.white,
-                        child: CircleAvatar(
-                          radius: 36,
-                          backgroundColor: AppColors.primary.withOpacity(0.2),
-                          child: Icon(
-                            Iconsax.note_2,
-                            size: 30,
-                            color: AppColors.primary,
+        
+                // ===== صورة البروفايل في المنتصف =====
+                Positioned(
+                  top: screenHeight * 0.11,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.white,
+                          child: CircleAvatar(
+                            radius: 36,
+                            backgroundColor: AppColors.primary.withOpacity(0.2),
+                            child: Icon(
+                              Iconsax.note_2,
+                              size: 30,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: GestureDetector(
-          onTap: () async {
-            if (formkey.currentState!.validate()) {
-              setState(() {
-                isLoading = true;
-              });
-              var result = await getDio().post(
-                "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                data: {
-                  "action": "addComplaint",
-                  "name": userController.text,
-                  "mobile": mobileController.text,
-                  "msg": emailController.text,
-                },
-              );
-              if (result.data['success'] == true) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      "شكرا على إقتراحاتك سيتم التواصل معك في أقرب وقت",
-                    ),
-                    backgroundColor: AppColors.primary,
-                  ),
-                );
-                Navigator.pop(context);
-              }
-            }
-          },
-          child: Container(
-            width: double.maxFinite,
-            height: 60,
-            margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            padding: EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
+              ],
             ),
-            alignment: Alignment.center,
-            child: isLoading
-                ? Center(child: CircularProgressIndicator(color: Colors.white))
-                : Text(
-                    "إرسال",
-                    style: TextStyle(fontSize: 20, color: Colors.white),
-                  ),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+          floatingActionButton: GestureDetector(
+            onTap: () async {
+              if (formkey.currentState!.validate()) {
+                setState(() {
+                  isLoading = true;
+                });
+                var result = await getDio().post(
+                  "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                  data: {
+                    "action": "addComplaint",
+                    "name": userController.text,
+                    "mobile": mobileController.text,
+                    "msg": emailController.text,
+                  },
+                );
+                if (result.data['success'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "شكرا على إقتراحاتك سيتم التواصل معك في أقرب وقت",
+                      ),
+                      backgroundColor: AppColors.primary,
+                    ),
+                  );
+                  Navigator.pop(context);
+                }
+              }
+            },
+            child: Container(
+              width: double.maxFinite,
+              height: 60,
+              margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: isLoading
+                  ? Center(child: CircularProgressIndicator(color: Colors.white))
+                  : Text(
+                      "إرسال",
+                      style: TextStyle(fontSize: 20, color: Colors.white),
+                    ),
+            ),
           ),
         ),
       ),

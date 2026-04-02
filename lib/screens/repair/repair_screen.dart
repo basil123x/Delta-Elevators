@@ -44,7 +44,6 @@ class _RepairScreenState extends State<RepairScreen>
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "getContract", "contractUserId": uid.toString()},
     );
-    print(result.data);
     if (!mounted) return;
     setState(() {
       stx = result.data['data'][0]['stx'].toString();
@@ -61,6 +60,7 @@ class _RepairScreenState extends State<RepairScreen>
     _tabController = TabController(length: 2, vsync: this);
     _timer = Timer.periodic(Duration(seconds: 5), (timer) {
       getContractStatus();
+      print("SSSSSSSSS $stx");
     });
   }
   
