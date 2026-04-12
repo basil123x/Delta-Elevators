@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/booking/BookingScreen.dart';
@@ -8,9 +6,9 @@ import 'package:Delta/screens/order/order_screen.dart';
 import 'package:Delta/screens/settings/Profile/profile_screen.dart';
 import 'package:Delta/screens/settings/settings_screen.dart';
 import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart';
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 
 class MainScreen extends StatefulWidget {
@@ -21,11 +19,26 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  final autoSizeGroup = AutoSizeGroup();
   List<Widget> pages = [
     HomeScreen(),
     Bookingscreen(),
     OrderScreen(),
     SettingsScreen(),
+  ];
+
+  List icons = [
+    Iconsax.home,
+    Iconsax.calendar_search,
+    Iconsax.note_add,
+    Iconsax.setting,
+  ];
+
+  List iconsTxt = [
+    "الرئيسية",
+    "الحجوزات",
+    "تقديم طلب",
+    "الإعدادات",
   ];
 
   PageController pageController = PageController();
@@ -89,23 +102,39 @@ class _MainScreenState extends State<MainScreen> {
               ),
               child: Icon(Iconsax.user, color: Colors.white),
             ),
-            floatingActionButtonLocation:
-                FloatingActionButtonLocation.centerDocked,
-            bottomNavigationBar: AnimatedBottomNavigationBar(
+            floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+            bottomNavigationBar: AnimatedBottomNavigationBar.builder(
               gapLocation: GapLocation.center,
               notchSmoothness: NotchSmoothness.verySmoothEdge,
               leftCornerRadius: 32,
               rightCornerRadius: 32,
-              icons: [
-                Iconsax.home,
-                Iconsax.calendar_search,
-                Iconsax.note_add,
-                Iconsax.setting,
-              ],
-              activeColor: AppColors.primary,
-              inactiveColor: Colors.grey.shade500,
-              activeIndex: currentPage,
-              onTap: (i) {
+              itemCount: icons.length, tabBuilder: (int index, bool isActive) {
+              
+          final color = isActive
+              ? AppColors.primary
+              : Colors.grey.shade500;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icons[index],
+                size: 24,
+                color: color,
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: AutoSizeText(
+                  iconsTxt[index],
+                  maxLines: 1,
+                  style: TextStyle(color: color),
+                  group: autoSizeGroup,
+                ),
+              )
+            ],
+          );
+        }, activeIndex: currentPage, onTap: (i) {
                 setState(() {
                   currentPage = i;
                 });
@@ -116,8 +145,7 @@ class _MainScreenState extends State<MainScreen> {
                 );
                 // حدّث الـ Provider
                 app.jumpToPagex(i);
-              },
-            ),
+              },),
           );
         },
       ),

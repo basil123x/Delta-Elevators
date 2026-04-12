@@ -1,3 +1,8 @@
+import 'package:Delta/widgets/Order_Completed.dart';
+import 'package:Delta/widgets/Order_Importing.dart';
+import 'package:Delta/widgets/Order_Installation.dart';
+import 'package:Delta/widgets/Order_Playing.dart';
+import 'package:Delta/widgets/Order_Waiting.dart';
 import 'package:flutter/material.dart';
 
 // ═══════════════════════════════════════════
@@ -63,7 +68,7 @@ enum OrderStatus {
     required this.description,
   });
 }
-
+bool isEnabled = false;
 // ═══════════════════════════════════════════
 //  الألوان
 // ═══════════════════════════════════════════
@@ -93,7 +98,7 @@ void main() {
               child: Column(
                 children: [
                   // مثال: المرحلة الثانية هي الحالية
-                  OrderTimelineWidget(currentStatus: 'processing'),
+                  OrderTimelineWidget(currentStatus: 'processing', bookId: '0',),
                 ],
               ),
             ),
@@ -110,14 +115,16 @@ void main() {
 class OrderTimelineWidget extends StatelessWidget {
   /// currentStatus: اسم الـ enum مثلاً 'processing' أو 'completed'
   final String currentStatus;
+  final String bookId;
 
-  const OrderTimelineWidget({super.key, required this.currentStatus});
+  const OrderTimelineWidget({super.key, required this.currentStatus, required this.bookId});
 
   @override
   Widget build(BuildContext context) {
+    
     // إيجاد الـ index الحالي
     final currentIndex = OrderStatus.values.indexWhere(
-      (e) => e.name == currentStatus.toLowerCase(),
+      (e) => e.name.toLowerCase() == currentStatus.toLowerCase(),
     );
 
     return Container(
@@ -160,6 +167,7 @@ class OrderTimelineWidget extends StatelessWidget {
               isActive: isActive,
               isCurrent: isCurrent,
               isLast: isLast,
+              bookId: bookId
             );
           }),
         ],
@@ -176,16 +184,19 @@ class _TimelineStep extends StatelessWidget {
   final bool isActive;
   final bool isCurrent;
   final bool isLast;
+  final String bookId;
 
   const _TimelineStep({
     required this.status,
     required this.isActive,
     required this.isCurrent,
     required this.isLast,
+    required this.bookId,
   });
 
   @override
   Widget build(BuildContext context) {
+    
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,6 +209,7 @@ class _TimelineStep extends StatelessWidget {
 
               // الخط الواصل (إلا في الخطوة الأخيرة)
               if (!isLast)
+              
                 Expanded(
                   child: Container(
                     width: 2.5,
@@ -224,7 +236,7 @@ class _TimelineStep extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(bottom: 24),
-              child: _buildContent(),
+              child: _buildContent(bookId),
             ),
           ),
         ],
@@ -263,7 +275,33 @@ class _TimelineStep extends StatelessWidget {
   }
 
   // ── المحتوى ──
-  Widget _buildContent() {
+  Widget _buildContent(bookId) {
+    Widget caseContainer = Container();
+    switch (status.toString()) {
+      case 'OrderStatus.importing':
+        isEnabled = true;
+        caseContainer = OrderImporting(bookId: bookId,);
+        break;
+      case 'OrderStatus.installation':
+        isEnabled = true;
+        caseContainer = OrderInstallation(bookId: bookId);
+        break;
+      case 'OrderStatus.waiting':
+        isEnabled = true;
+        caseContainer = OrderWaiting(bookId: bookId);
+        break;
+      case 'OrderStatus.playing':
+        isEnabled = true;
+        caseContainer = OrderPlaying(bookId: bookId);
+        break;
+      case 'OrderStatus.completed':
+        isEnabled = true;
+        caseContainer = OrderCompleted(bookId: bookId,);
+        break;
+      default:
+        isEnabled = false;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -304,7 +342,15 @@ class _TimelineStep extends StatelessWidget {
         const SizedBox(height: 10),
 
         // الـ Badge (اكتمل / قيد الانتظار)
-        _buildBadge(),
+        Row(
+          children: [
+            _buildBadge(),
+            SizedBox(width: 10,),
+            Visibility(
+              visible: isActive && isEnabled,
+              child: caseContainer)
+          ],
+        )
       ],
     );
   }

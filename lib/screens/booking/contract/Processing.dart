@@ -50,7 +50,7 @@ class _ProcessingState extends State<Processing> {
       backgroundColor: Colors.white,
       body:SingleChildScrollView(
               child: Column(
-                children: [OrderTimelineWidget(currentStatus: caseTitle)],
+                children: [OrderTimelineWidget(currentStatus: caseTitle, bookId: widget.bookDets[0]['id'])],
               ),
             ),
     );

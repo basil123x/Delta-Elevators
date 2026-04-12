@@ -33,9 +33,6 @@ class Contract extends StatefulWidget {
 class _ContractState extends State<Contract> {
   String signText = "قم بالتوقيع هنا";
   String stt = "";
-  TextEditingController batchController = TextEditingController();
-  TextEditingController batchController1 = TextEditingController();
-  TextEditingController batchController2 = TextEditingController();
   bool isLoading = false;
   String isLoadingTxt = "تحميل العقد";
   String pdfSend = "";
@@ -119,7 +116,6 @@ class _ContractState extends State<Contract> {
       var response = await dio.get(
         'https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=$oid&ktype=1',
       );
-      print(response.data);
       if (response.data['success'] == true) {
         setState(() {
           prefx.setString(
@@ -168,16 +164,12 @@ Future<void> sendTelegramMessageDocs({
     widget.bookDets[0]['stt'] == '1'
         ? isLoadingTxt = "إرسال العقد الى الشركة"
         : isLoadingTxt = "تحميل العقد";
-    if (widget.bookDets[0]['stt'] == '1') {
-      batchController.text = widget.bookDets[0]['a16'];
-      batchController1.text = widget.bookDets[0]['a17'];
-      batchController2.text = widget.bookDets[0]['a18'];
-    }
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
+    print(widget.bookDets);
     return Scaffold(
       backgroundColor: Colors.white,
       body: widget.bookDets.isEmpty
@@ -209,44 +201,6 @@ Future<void> sendTelegramMessageDocs({
                       ),
                       tileColor: Colors.grey.shade100,
                       title: Text("التاريخ: ${widget.bookDets[0]['date']}"),
-                    ),
-                    SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: BatchInp(
-                            batchController: batchController,
-                            text: "الاولى",
-                            isEnabled:
-                                widget.bookDets[0]['stt'] != '1' &&
-                                    stt.toString() != '1'
-                                ? true
-                                : false,
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: BatchInp(
-                            batchController: batchController1,
-                            text: "الثانية",
-                            isEnabled:
-                                widget.bookDets[0]['stt'] != '1' &&
-                                    stt.toString() != '1'
-                                ? true
-                                : false,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 10),
-                    BatchInp(
-                      batchController: batchController2,
-                      text: "الثالثة",
-                      isEnabled:
-                          widget.bookDets[0]['stt'] != '1' &&
-                              stt.toString() != '1'
-                          ? true
-                          : false,
                     ),
                     SizedBox(height: 10),
                     ClipRRect(
@@ -338,9 +292,7 @@ Future<void> sendTelegramMessageDocs({
               message: msg
             );
           } else {
-            if (batchController.text.trim().isNotEmpty &&
-                batchController1.text.trim().isNotEmpty &&
-                batchController2.text.trim().isNotEmpty &&
+            if (
                 signatureController.value.isNotEmpty) {
               setState(() {
                 isLoading = true;
@@ -350,10 +302,7 @@ Future<void> sendTelegramMessageDocs({
                 "action": "addContract",
                 "type": "1",
                 "a2": widget.bookDets[0]['date'],
-                "a3": widget.bookDets[0]['a1'],
-                "a16": batchController.text.trim(),
-                "a17": batchController1.text.trim(),
-                "a18": batchController2.text.trim(),
+                "a3": widget.bookDets[0]['a1']
               };
               var response = await getDio().post(
                 "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
@@ -364,7 +313,7 @@ Future<void> sendTelegramMessageDocs({
               }
             } else {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("يرجى كتابة الدفعات والتوقيع")),
+                SnackBar(content: Text("يرجى كتابة التوقيع")),
               );
             }
           }
@@ -396,53 +345,6 @@ Future<void> sendTelegramMessageDocs({
                   isLoadingTxt,
                   style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
-        ),
-      ),
-    );
-  }
-}
-
-class BatchInp extends StatelessWidget {
-  final TextEditingController batchController;
-  final String text;
-  final bool isEnabled;
-  const BatchInp({
-    super.key,
-    required this.batchController,
-    required this.text,
-    required this.isEnabled,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-      child: TextField(
-        controller: batchController,
-        keyboardType: TextInputType.number,
-        textAlign: TextAlign.center,
-        enabled: isEnabled,
-        decoration: InputDecoration(
-          hintText: text,
-          hintStyle: TextStyle(color: AppColors.textHint, letterSpacing: 2),
-          filled: true,
-          fillColor: Colors.grey.shade100,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 20,
-          ),
         ),
       ),
     );

@@ -4,11 +4,12 @@ import 'dart:typed_data';
 
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
+import 'package:Delta/screens/repair/repair_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' as intlx;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:signature/signature.dart';
@@ -25,10 +26,6 @@ class _RepairContractState extends State<RepairContract> {
   String stt = "";
   String stx = "";
   String signId = "";
-  
-  TextEditingController batchController = TextEditingController();
-  TextEditingController batchController1 = TextEditingController();
-  TextEditingController batchController2 = TextEditingController();
   bool isLoading = false;
   String isLoadingTxt = "تحميل العقد";
   String pdfSend = "";
@@ -45,6 +42,7 @@ class _RepairContractState extends State<RepairContract> {
   String userName = "";
   String userPhone = "";
   String contractDate = "";
+  List maintContSt = [];
 
   Future getUserProfile() async {
     SharedPreferences _prefx = await SharedPreferences.getInstance();
@@ -56,7 +54,26 @@ class _RepairContractState extends State<RepairContract> {
     setState(() {
       userName = result.data['data']['a1'];
       userPhone = result.data['data']['a2'];
-      contractDate = DateFormat("yyyy-MM-dd").format(DateTime.now()).toString();
+      contractDate = intlx.DateFormat("yyyy-MM-dd").format(DateTime.now()).toString();
+    });
+  }
+
+  Future getMaintContSt() async {
+    SharedPreferences _prefx = await SharedPreferences.getInstance();
+    String uid = _prefx.getString("userId") ?? "";
+    var data = {
+          "action": "getCurrentContractMaint",
+          "userId": uid
+      };
+    var result = await getDio().post(
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+      data: data,
+    );
+    setState(() {
+      maintContSt = result.data['data'];
+      if (maintContSt.isNotEmpty) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => RepairScreen()));
+      }
     });
   }
 
@@ -177,6 +194,7 @@ Future downloadAndUploadPdf(signId) async {
   @override
   void initState() {
     getUserProfile();
+    getMaintContSt();
     super.initState();
   }
 
@@ -184,217 +202,187 @@ Future downloadAndUploadPdf(signId) async {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        body: Container(
-                margin: EdgeInsets.all(13),
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadiusGeometry.circular(10),
-                        ),
-                        tileColor: Colors.grey.shade100,
-                        title: Text("الإسم: $userName"),
-                      ),
-                      SizedBox(height: 10),
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadiusGeometry.circular(10),
-                        ),
-                        tileColor: Colors.grey.shade100,
-                        title: Text("رقم الهاتف: $userPhone"),
-                      ),
-                      SizedBox(height: 10),
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadiusGeometry.circular(10),
-                        ),
-                        tileColor: Colors.grey.shade100,
-                        title: Text("التاريخ: $contractDate"),
-                      ),
-                      SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: BatchInp(
-                              batchController: batchController,
-                              text: "الاولى",
-                              isEnabled:true,
-                            ),
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            title: Text("توقيع العقد"),
+            backgroundColor: Colors.white,
+            centerTitle: true,
+          ),
+          body: Container(
+                  margin: EdgeInsets.all(13),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        ListTile(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadiusGeometry.circular(10),
                           ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: BatchInp(
-                              batchController: batchController1,
-                              text: "الثانية",
-                              isEnabled:true,
-                            ),
+                          tileColor: Colors.grey.shade100,
+                          title: Text("الإسم: $userName"),
+                        ),
+                        SizedBox(height: 10),
+                        ListTile(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadiusGeometry.circular(10),
                           ),
-                        ],
-                      ),
-                      SizedBox(height: 10),
-                      BatchInp(
-                        batchController: batchController2,
-                        text: "الثالثة",
-                        isEnabled:true,
-                      ),
-                      SizedBox(height: 10),
-                      ClipRRect(
-                        clipBehavior: Clip.none,
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          width: double.maxFinite,
-                          height: 150,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: AppColors.primary,
-                              width: 3,
-                            ),
+                          tileColor: Colors.grey.shade100,
+                          title: Text("رقم الهاتف: $userPhone"),
+                        ),
+                        SizedBox(height: 10),
+                        ListTile(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadiusGeometry.circular(10),
                           ),
-                          padding: EdgeInsets.all(2),
-                          child: Stack(
-                                  children: [
-                                    Positioned(
-                                      top: 0,
-                                      left: 0,
-                                      right: 0,
-                                      bottom: 0,
-                                      child: Center(
-                                        child: Text(
-                                          signText,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
+                          tileColor: Colors.grey.shade100,
+                          title: Text("التاريخ: $contractDate"),
+                        ),
+                        SizedBox(height: 10),
+                        ClipRRect(
+                          clipBehavior: Clip.none,
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: double.maxFinite,
+                            height: 150,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.primary,
+                                width: 3,
+                              ),
+                            ),
+                            padding: EdgeInsets.all(2),
+                            child: Stack(
+                                    children: [
+                                      Positioned(
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        child: Center(
+                                          child: Text(
+                                            signText,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-      
-                                    Signature(
-                                      height: 150,
-                                      controller: signatureController,
-                                      backgroundColor: Colors.transparent,
-                                    ),
-                                    if (signText.isEmpty)
-                                      IconButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            signText = "قم بالتوقيع هنا";
-                                            signatureController.clear();
-                                          });
-                                        },
-                                        icon: Icon(
-                                          Iconsax.trash,
-                                          color: Colors.red,
-                                        ),
+        
+                                      Signature(
+                                        height: 150,
+                                        controller: signatureController,
+                                        backgroundColor: Colors.transparent,
                                       ),
-                                  ],
-                                ),
+                                      if (signText.isEmpty)
+                                        IconButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              signText = "قم بالتوقيع هنا";
+                                              signatureController.clear();
+                                            });
+                                          },
+                                          icon: Icon(
+                                            Iconsax.trash,
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 100),
-                    ],
+                        SizedBox(height: 100),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: GestureDetector(
-          onTap: () async {
-            SharedPreferences prefx = await SharedPreferences.getInstance();
-            if (isLoadingTxt == "إرسال العقد الى الشركة") {
-              int totalbatches = int.parse(batchController.text.trim())+int.parse(batchController1.text.trim())+int.parse(batchController2.text.trim());
-              String signId = Provider.of<AppProvider>(context, listen: false).signId;
-              String msg = """
+          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+          floatingActionButton: GestureDetector(
+            onTap: () async {
+              SharedPreferences prefx = await SharedPreferences.getInstance();
+              if (isLoadingTxt == "إرسال العقد الى الشركة") {
+                String signId = Provider.of<AppProvider>(context, listen: false).signId;
+                String msg = """
                 🛗 <b>عقد صيانة مصاعد جديد</b>
-    
+          
                 نُفيدكم بإصدار عقد صيانة دورية جديد ويستلزم متابعتكم.
-    
+          
                 📋 <b>تفاصيل العقد:</b>
                 🔢 رقم العقد: <b>$signId</b>
                 👤 اسم العميل: <b>$userName</b>
                 📞 الهاتف: <b>$userPhone</b>
                 🗓 تاريخ بداية العقد: <b>$contractDate</b>
-    
-                💰 <b>قيمة العقد:</b>
-                - الدفعة الأولى: <b>${batchController.text.trim()} ر.ق</b>
-                - الدفعة الثانية: <b>${batchController1.text.trim()} ر.ق</b>
-                - الدفعة الثالثة: <b>${batchController2.text.trim()} ر.ق</b>
-                - الإجمالي: <b>$totalbatches ر.ق</b>
-    
+          
                 يُرجى مراجعة العقد المرفق والتنسيق مع المسؤول لجدولة زيارات الصيانة.
                 """;
-              var response = await Dio().get(
-                'https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=${prefx.getString("orderId")}&ktype=2',
-              );
-              sendTelegramMessageDocs(
-                s3PdfUrl: response.data['url'],
-                message: msg
-              );
-            } else {
-            if (batchController.text.trim().isNotEmpty &&
-                  batchController1.text.trim().isNotEmpty &&
-                  batchController2.text.trim().isNotEmpty &&
-                  signatureController.value.isNotEmpty) {
-                  SharedPreferences prefx = await SharedPreferences.getInstance();
-                  
-                setState(() {
-                  isLoading = true;
-                  isLoadingTxt = "جاري رفع العقد...";
-                });
-                var data = {
-                  "action": "addMaintenanceContract",
-                  "type": "5",
-                  "a2": contractDate,
-                  "a3": userName,
-                  "a16": batchController.text.trim(),
-                  "a17": batchController1.text.trim(),
-                  "a18": batchController2.text.trim(),
-                  "a19": DateFormat("yyyy-MM-dd").format(DateTime.now()).toString(),
-                  "a20": DateFormat("yyyy-MM-dd").format(DateTime.now().add(Duration(days: 365))).toString(),
-                  "a30": prefx.getString("userId"),
-                  
-                };
-
-                var response = await getDio().post(
-                  "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                  data: data,
+                var response = await Dio().get(
+                  'https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=${prefx.getString("orderId")}&ktype=2',
                 );
-                if (response.data['success'] == true) {
-                  Provider.of<AppProvider>(context, listen: false).getSignId(response.data['data']['id'].toString());
-                  uploadSignature(response.data['data']['id']);
-                }
+                sendTelegramMessageDocs(
+                  s3PdfUrl: response.data['url'],
+                  message: msg
+                );
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("يرجى كتابة الدفعات والتوقيع")),
-                );
-              }}
-          },
-          child: Container(
-            width: double.maxFinite,
-            height: 60,
-            margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            padding: EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color:
-                   AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
+              if (
+                    signatureController.value.isNotEmpty) {
+                    SharedPreferences prefx = await SharedPreferences.getInstance();
+                    
+                  setState(() {
+                    isLoading = true;
+                    isLoadingTxt = "جاري رفع العقد...";
+                  });
+                  var data = {
+                    "action": "addMaintenanceContract",
+                    "type": "5",
+                    "a2": contractDate,
+                    "a3": userName,
+                    "a19": intlx.DateFormat("yyyy-MM-dd").format(DateTime.now()).toString(),
+                    "a20": intlx.DateFormat("yyyy-MM-dd").format(DateTime.now().add(Duration(days: 365))).toString(),
+                    "a30": prefx.getString("userId"),
+                    
+                  };
+        
+                  var response = await getDio().post(
+                    "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                    data: data,
+                  );
+                  if (response.data['success'] == true) {
+                    Provider.of<AppProvider>(context, listen: false).getSignId(response.data['data']['id'].toString());
+                    uploadSignature(response.data['data']['id']);
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("يرجى كتابة الدفعات والتوقيع")),
+                  );
+                }}
+            },
+            child: Container(
+              width: double.maxFinite,
+              height: 60,
+              margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color:
+                     AppColors.primary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: isLoading
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: Colors.white),
+                        SizedBox(width: 20),
+                        Text(isLoadingTxt, style: TextStyle(color: Colors.white)),
+                      ],
+                    )
+                  : Text(
+                      isLoadingTxt,
+                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
             ),
-            alignment: Alignment.center,
-            child: isLoading
-                ? Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(color: Colors.white),
-                      SizedBox(width: 20),
-                      Text(isLoadingTxt, style: TextStyle(color: Colors.white)),
-                    ],
-                  )
-                : Text(
-                    isLoadingTxt,
-                    style: TextStyle(fontSize: 18, color: Colors.white),
-                  ),
           ),
         ),
       ),

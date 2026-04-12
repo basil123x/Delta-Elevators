@@ -90,9 +90,14 @@ class _BookingscreenState extends State<Bookingscreen>
     }
   }
 
-  Future getMyBookings() async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    String uid = _prefx.getString("userId") ?? "";
+  Future<void> getMyBookings() async {
+  // ✅ لو الـ widget اتشال، وقف
+  if (!mounted) return;
+
+  try {
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    String uid = prefx.getString("userId") ?? "";
+
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {
@@ -101,10 +106,23 @@ class _BookingscreenState extends State<Bookingscreen>
         "indexChanged": _tabController.index,
       },
     );
+
+    // ✅ تحقق تاني بعد الـ await لأن الـ widget ممكن يتشال خلال الـ request
+    if (!mounted) return;
+
     setState(() {
-      myBookings = result.data['data'];
+      myBookings = result.data['data'] ?? [];
     });
+
+  } on DioException catch (e) {
+    if (!mounted) return;
+    // ✅ مش بتعمل setState بـ error، بس توقف الـ loading
+    debugPrint("Booking error: ${e.response?.statusCode} - ${e.message}");
+  } catch (e) {
+    if (!mounted) return;
+    debugPrint("Unexpected error: $e");
   }
+}
 
   
 
@@ -125,6 +143,7 @@ class _BookingscreenState extends State<Bookingscreen>
 
   @override
   void dispose() {
+    _timer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -248,6 +267,7 @@ class _BookingscreenState extends State<Bookingscreen>
               child: Column(
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Icon Container with gradient
                       Container(

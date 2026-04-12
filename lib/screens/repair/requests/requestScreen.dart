@@ -111,26 +111,22 @@ class _RequestScreenState extends State<RequestScreen> {
     }
   }
 
-  Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
+Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
   SharedPreferences prefx = await SharedPreferences.getInstance();
   final dio = Dio();
   dio.options.connectTimeout = const Duration(seconds: 60);
   dio.options.receiveTimeout = const Duration(seconds: 60);
 
-  List<String> s3Keys = [];
-
-  // ارفع كل صورة على S3 مباشرة
   for (int i = 0; i < imageFiles.length; i++) {
     final ext = imageFiles[i].path.split('.').last;
 
-    // 1. اطلب presigned URL
     final presignRes = await dio.post(
       "https://daltalifts.com/app2026/sql.php",
       data: jsonEncode({
         'action': 'getPresignedMaintenanceImageUrl',
         'maintenanceId': maintenanceId,
         'userId': prefx.getString("userId"),
-        'index': i+1,
+        'index': i + 1,
         'ext': ext,
         'type': widget.type
       }),
@@ -141,17 +137,10 @@ class _RequestScreenState extends State<RequestScreen> {
         ? jsonDecode(presignRes.data)
         : presignRes.data;
 
-    if (!presignData['success']) {
-      print('فشل جلب presigned URL للصورة $i');
-      continue;
-    } 
-
-    
+    if (!presignData['success']) continue;
 
     final uploadUrl = presignData['url'];
-    final s3Key = presignData['key'];
 
-    // 2. ارفع الصورة مباشرة على S3
     final bytes = await imageFiles[i].readAsBytes();
     await dio.put(
       uploadUrl,
@@ -163,23 +152,19 @@ class _RequestScreenState extends State<RequestScreen> {
         },
       ),
     );
-
-    s3Keys.add(s3Key);
-
-    setState(() {
-        myAllImg.clear();
-      });
-
-    if (presignData['success'] == true) {
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("تم إضافة طلب صيانة جديد")),
-      );
-      
-      
-    }
   }
 
+    
+  myAllImg.clear();
+  Provider.of<AppProvider>(context, listen: false).allImagesList.clear();
+  descController.clear();
+  dateController.text = intlx.DateFormat('yyyy-MM-dd').format(DateTime.now());
+  timeController.text = intlx.DateFormat('hh:mm a').format(DateTime.now());
+  isLoading = false;
+  setState(() {});
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text("تم إضافة طلب صيانة جديد")),
+  );
 }
 
   @override
@@ -190,6 +175,7 @@ class _RequestScreenState extends State<RequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print(myAllImg);
     return Form(
       key: globalKey,
       child: Scaffold(

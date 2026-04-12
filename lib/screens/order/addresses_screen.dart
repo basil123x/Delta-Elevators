@@ -79,11 +79,14 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
     final gradient = gradients[0 % gradients.length];
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => AddressesListScreen()),
         );
+        if (result == true) {
+          await getOneAddress(); // ← هنا الحل
+        }
       },
       child: Padding(
         padding: const EdgeInsets.only(bottom: 16),
@@ -101,7 +104,9 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
           ),
           child: Consumer<AppProvider>(
             builder: (context, app, child) {
-              getOneAddress();
+              if (app.currentAdd.isNotEmpty && app.currentAdd != oneAddress[0]['id'].toString()) {
+                Future.microtask(() => getOneAddress());
+              }
               return Column(
                 children: [
                   // Content
@@ -194,6 +199,9 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
           ),
           child: Consumer<AppProvider>(
             builder: (context, app, child) {
+              if (app.currentAdd.isNotEmpty && oneAddress.isEmpty) {
+                Future.microtask(() => getOneAddress());
+              }
               return Container(
                 padding: EdgeInsets.all(10),
                 child: Column(

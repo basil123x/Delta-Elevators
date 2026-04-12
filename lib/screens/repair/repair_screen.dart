@@ -36,30 +36,30 @@ class _RepairScreenState extends State<RepairScreen>
     });
   }
 
-  Future getContractStatus() async {
-    if (!mounted) return;
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    String uid = _prefx.getString("userId") ?? "";
-    var result = await getDio().post(
-      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-      data: {"action": "getContract", "contractUserId": uid.toString()},
-    );
-    if (!mounted) return;
-    setState(() {
-      stx = result.data['data'][0]['stx'].toString();
-      if (stx != '0') {
-        _timer?.cancel();
-      }
-    });
-  }
+  // Future getContractStatus() async {
+  //   if (!mounted) return;
+  //   SharedPreferences _prefx = await SharedPreferences.getInstance();
+  //   String uid = _prefx.getString("userId") ?? "";
+  //   var result = await getDio().post(
+  //     "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+  //     data: {"action": "getContract", "contractUserId": uid.toString()},
+  //   );
+  //   if (!mounted) return;
+  //   setState(() {
+  //     stx = result.data['data'][0]['stx'].toString();
+  //     if (stx != '0') {
+  //       _timer?.cancel();
+  //     }
+  //   });
+  // }
 
   @override
   void initState() {
-    getContractStatus();
+    // getContractStatus();
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _timer = Timer.periodic(Duration(seconds: 5), (timer) {
-      getContractStatus();
+      // getContractStatus();
       print("SSSSSSSSS $stx");
     });
   }
@@ -79,7 +79,7 @@ class _RepairScreenState extends State<RepairScreen>
         backgroundColor: Colors.grey[50],
         appBar: AppBar(
           title: Text(
-            stx == '1' ? "طلب صيانة" : "عقد الصيانة",
+            "طلب صيانة",
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -89,7 +89,7 @@ class _RepairScreenState extends State<RepairScreen>
           centerTitle: true,
           backgroundColor: Colors.white,
           elevation: 0,
-          bottom: stx == '1' ? PreferredSize(
+          bottom:PreferredSize(
             preferredSize: const Size.fromHeight(60),
             child: Container(
               color: Colors.white,
@@ -115,16 +115,16 @@ class _RepairScreenState extends State<RepairScreen>
                 ],
               ),
             ),
-          ) : null,
+          ),
         ),
-        body: stx == '1' ? TabBarView(
+        body:TabBarView(
           physics: NeverScrollableScrollPhysics(),
           controller: _tabController,
           children: [
             RequestScreen(type: "Normal"),
             RequestScreen(type: "Urgent"),
           ],
-        ) : RepairContract(),
+        ),
       ),
     );
   }

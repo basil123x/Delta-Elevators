@@ -2,6 +2,7 @@ import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/screens/home/notifications_screen.dart';
 import 'package:Delta/screens/home/search_screen.dart';
 import 'package:Delta/screens/items/items_screen.dart';
+import 'package:Delta/screens/repair/repair_first.dart';
 import 'package:Delta/screens/repair/repair_screen.dart';
 import 'package:Delta/screens/settings/About/about_screen.dart';
 import 'package:Delta/screens/settings/Complaints/Complaints_screen.dart';
@@ -28,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List promosImages = [];
   List<Map<dynamic, dynamic>> services = [
     {"icon": Iconsax.box, "txt": "المنتجات", "onTap": ItemsScreen()},
-    {"icon": Iconsax.briefcase, "txt": "صيانة", "onTap": RepairScreen()},
+    {"icon": Iconsax.briefcase, "txt": "صيانة", "onTap": RepairFirst()},
     {"icon": Iconsax.trend_up, "txt": "قسم المبيعات", "onTap": SalesScreen()},
     {
       "icon": Iconsax.note_2,

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/splash_screen.dart';
@@ -23,6 +24,17 @@ class MyHttpOverrides extends HttpOverrides {
 }
 
 void main() async {
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('🔴 FLUTTER ERROR: ${details.exception}');
+    debugPrint('🔴 STACK: ${details.stack}');
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('🔴 PLATFORM ERROR: $error');
+    debugPrint('🔴 STACK: $stack');
+    return true; // true = اتعاملنا معاه، متوقفش
+  };
   HttpOverrides.global = MyHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([

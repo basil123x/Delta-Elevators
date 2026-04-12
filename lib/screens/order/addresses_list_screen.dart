@@ -31,7 +31,8 @@ class _AddressesListScreenState extends State<AddressesListScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: GestureDetector(
         onTap: () {
-          Navigator.pop(context);
+          
+          Navigator.pop(context, true);
         },
         child: Container(
           width: double.maxFinite,

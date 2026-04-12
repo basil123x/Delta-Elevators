@@ -6,6 +6,7 @@ import 'package:Delta/screens/booking/contract/Contract.dart';
 import 'package:Delta/screens/booking/contract/ContractScreen.dart';
 import 'package:Delta/screens/booking/contract/ContractWait.dart';
 import 'package:Delta/screens/booking/contract/Processing.dart';
+import 'package:Delta/screens/booking/contract/Quotation.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -52,7 +53,7 @@ class _ContractScreenState extends State<ContractScreen>
 
   Future getBookingDet() async {
     var response = await getDio().post(
-      "https://daltalifts.com/app2026/sql.php",
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "getMyBookingDet", "bookId": widget.orderId},
     );
     setState(() {
@@ -73,10 +74,31 @@ class _ContractScreenState extends State<ContractScreen>
     });
   }
 
+  Widget getSwitchPage1() {
+    switch (myBooking[0]['stx']) {
+      case "0":
+        return ContractWait();
+      case "1":
+        return QuotationScreen(bookDets: bookDet);
+      case "2":
+        return Contract(bookDets: bookDet);
+      default:
+        return Contract(bookDets: bookDet);
+    }
+  }
+  Widget getSwitchPage2() {
+    switch (myBooking[0]['stx']) {
+      case "0":
+        return ContractWait();
+      default:
+        return Processing(bookDets: bookDet);
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
-    print(myBooking);
+    print(widget.orderId);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: myBooking.isEmpty
@@ -100,7 +122,7 @@ class _ContractScreenState extends State<ContractScreen>
                     backgroundColor: Colors.grey[50],
                     appBar: AppBar(
                       title: Text(
-                        "طلب رقم ${widget.orderId}",
+                        myBooking[0]['stx'] == "1" || myBooking[0]['stx'] == "0" ? "طلب عرض سعر" : "طلب رقم ${widget.orderId}",
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -110,7 +132,7 @@ class _ContractScreenState extends State<ContractScreen>
                       centerTitle: true,
                       backgroundColor: Colors.white,
                       elevation: 0,
-                      bottom: PreferredSize(
+                      bottom: myBooking[0]['stx'] == "1" || myBooking[0]['stx'] == "0" ? null : PreferredSize(
                         preferredSize: const Size.fromHeight(60),
                         child: Container(
                           color: Colors.white,
@@ -152,12 +174,8 @@ class _ContractScreenState extends State<ContractScreen>
                       physics: NeverScrollableScrollPhysics(),
                       controller: _tabController,
                       children: [
-                        myBooking[0]['stx'] == "0"
-                            ? ContractWait()
-                            : Contract(bookDets: bookDet),
-                        myBooking[0]['stx'] == "0"
-                            ? ContractWait()
-                            : Processing(bookDets: bookDet),
+                        getSwitchPage1(),
+                        getSwitchPage2()
                       ],
                     ),
                   ),

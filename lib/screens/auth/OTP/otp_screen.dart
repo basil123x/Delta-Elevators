@@ -66,6 +66,7 @@ class _OTPScreenState extends State<OTPScreen> {
   }
 
   Future sendOTP() async {
+    
     await getDio().post(
       'https://graph.facebook.com/v22.0/1106981455822224/messages',
       options: Options(
@@ -128,6 +129,7 @@ class _OTPScreenState extends State<OTPScreen> {
 
   @override
   Widget build(BuildContext context) {
+    print("OOOOOOOOOOOO $currentOtp");
     return Directionality(
       textDirection: TextDirection.rtl,
       child: GestureDetector(

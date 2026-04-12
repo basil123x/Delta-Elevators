@@ -154,7 +154,7 @@ class _OrderScreenState extends State<OrderScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 320, child: Expanded(child: AddressesDisplayWidget())),
+            SizedBox(height: 320, child: AddressesDisplayWidget()),
             SizedBox(height: 10),
             Container(
               margin: EdgeInsets.symmetric(horizontal: 10),
