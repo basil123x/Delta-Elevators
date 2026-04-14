@@ -20,8 +20,29 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
   TextEditingController mobileController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   GlobalKey<FormState> formkey = GlobalKey<FormState>();
-
   bool isLoading = false;
+
+  String buildTelegramMessage({
+    required String name,
+    required String phone,
+    required String message,
+  }) {
+    final now = DateTime.now();
+    final formatted = '${now.day}/${now.month}/${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+
+    return '''
+  📬 *شكوى / إقتراح جديد*
+
+  👤 *الاسم:* $name
+  📱 *رقم الهاتف:* $phone
+
+  💬 *الرسالة:*
+  $message
+
+  ━━━━━━━━━━━━━━
+  🕐 $formatted
+  '''.trim();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -160,6 +181,13 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                     "msg": emailController.text,
                   },
                 );
+                final text = buildTelegramMessage(name: userController.text.trim(),phone: mobileController.text.trim(),message: emailController.text);
+                final url = 'https://api.telegram.org/bot8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI/sendMessage';
+                await Dio().post(url, data: {
+                  'chat_id': "-1003877690157",
+                  'text': text,
+                  'parse_mode': 'Markdown',
+                });
                 if (result.data['success'] == true) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(

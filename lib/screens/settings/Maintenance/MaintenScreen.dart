@@ -1,6 +1,7 @@
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/booking/contract/ContractScreen.dart';
+import 'package:Delta/screens/settings/Maintenance/MaintenanceDetails.dart' hide AppColors;
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -169,9 +170,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ContractScreen(
-                    orderId: myMaintenance[index]['id'].toString(),
-                  ),
+                  builder: (context) => MaintenanceDetailScreen(maintenanceId: myMaintenance[index]['id'],),
                 ),
               );
             },
@@ -297,9 +296,7 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ContractScreen(
-                                orderId: myMaintenance[index]['id'].toString(),
-                              ),
+                              builder: (context) => MaintenanceDetailScreen(maintenanceId: myMaintenance[index]['id'],),
                             ),
                           );
                         },

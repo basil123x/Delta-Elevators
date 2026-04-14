@@ -3,6 +3,7 @@ import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/home/home_screen.dart';
 import 'package:Delta/screens/settings/About/about_screen.dart';
 import 'package:Delta/screens/settings/Addresses/Addresses_Screen.dart';
+import 'package:Delta/screens/settings/Complaints/Complaints_Details.dart';
 import 'package:Delta/screens/settings/Complaints/Complaints_screen.dart';
 import 'package:Delta/screens/settings/Maintenance/maintenScreen.dart';
 import 'package:Delta/screens/settings/Profile/profile_screen.dart';
@@ -36,7 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {"text": "العناوين", "icon": Iconsax.location, "onTap": AddressesScreen()},
     {"text": "حول الشركة", "icon": Iconsax.info_circle, "onTap": AboutScreen()},
     {"text": "الإشعارات", "icon": Iconsax.notification, "onTap": HomeScreen()},
-    {"text": "شكاوي", "icon": Iconsax.note_2, "onTap": ComplaintScreen()},
+    {"text": "شكاوي", "icon": Iconsax.note_2, "onTap": ComplaintDetails()},
     {"text": "تسجيل الخروج", "icon": Iconsax.logout, "onTap": HomeScreen()},
     {"text": "حذف الحساب", "icon": Iconsax.trash, "onTap": HomeScreen()},
   ];
