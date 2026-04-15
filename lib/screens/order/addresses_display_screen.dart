@@ -96,12 +96,14 @@ class _AddressesDisplayListState extends State<AddressesDisplayList> {
         : GestureDetector(
             onTap: () async {
               SharedPreferences prefx = await SharedPreferences.getInstance();
-              setState(() {
+              
                 currentAddress = index;
                 currentAddressId = address[index]['id'];
-              });
+              
               prefx.setString('addId', address[index]['id']);
               currentAdd.getCurrentAddress(address[index]['id']);
+              
+              setState(() {});
             },
             child: Padding(
               padding: const EdgeInsets.only(bottom: 16),

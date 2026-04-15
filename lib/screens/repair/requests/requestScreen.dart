@@ -384,7 +384,7 @@ Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
                       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
                       data: {
                         "action": "addMaintenRequest",
-                        "addressId": myAddId,
+                        "addressId": _prefx.getString('addId'),
                         "descController": descController.text,
                         "dateController": dateController.text,
                         "timeController": timeController.text,
