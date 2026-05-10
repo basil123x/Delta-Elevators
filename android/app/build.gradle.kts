@@ -27,7 +27,7 @@ android {
         applicationId = "com.delta_elevator"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
-        versionCode = 10
+        versionCode = 12
         versionName = "1.3.1"
     }
     signingConfigs {

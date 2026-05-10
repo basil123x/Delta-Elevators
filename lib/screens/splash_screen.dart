@@ -5,6 +5,7 @@ import 'package:Delta/screens/Update/update_screen.dart';
 import 'package:Delta/screens/auth/login/login_screen.dart';
 import 'package:Delta/screens/boarding/boarding_screen.dart';
 import 'package:Delta/screens/main/main_screen.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -43,9 +44,16 @@ class _SplashScreenState extends State<SplashScreen> {
     try {
       final dio = Dio();
       String platform = "";
+      final plugin = DeviceInfoPlugin();
+      final android = await plugin.androidInfo;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Manufacturer Is: ${android.manufacturer}")));
       if (Platform.isIOS) {
         setState(() {
           platform = "IOS";
+        });
+      } else if (android.manufacturer == 'HUAWEI') {
+        setState(() {
+          platform = "HUAWEI";
         });
       } else {
         setState(() {
