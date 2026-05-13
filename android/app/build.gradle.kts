@@ -31,13 +31,15 @@ android {
         versionName = "1.3.1"
     }
     signingConfigs {
-        create("release") {
+    create("release") {
+        if (keyPropertiesFile.exists()) {
             keyAlias = keyProperties["keyAlias"] as String
             keyPassword = keyProperties["keyPassword"] as String
             storeFile = file(keyProperties["storeFile"] as String)
             storePassword = keyProperties["storePassword"] as String
         }
     }
+}
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")

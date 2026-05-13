@@ -1,6 +1,10 @@
-import 'package:Delta/constants/app_colors.dart';
-import 'package:Delta/screens/boarding/intro_screen.dart';
+import 'package:Delta/screens/auth/login/login_screen.dart';
+import 'package:Delta/screens/boarding/onboarding_page.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Delta onboarding accent (brand orange).
+const Color _kOnboardingOrange = Color(0xFFF37021);
 
 class BoardingScreen extends StatefulWidget {
   const BoardingScreen({super.key});
@@ -10,225 +14,454 @@ class BoardingScreen extends StatefulWidget {
 }
 
 class _BoardingScreenState extends State<BoardingScreen> {
-  int currentIndex = 0;
-  double boardProgress = 0.0;
-  PageController pageController = PageController();
+  static const String _prefsKeySeenOnboarding = 'seen_onboarding';
 
-  List<Map<String, dynamic>> boardingItems = [
-    {
-      "img": "Home",
-      "title": "مرحبا بك في دلتا لتكنولوجيا المصاعد والتجارة",
-      "subtitle":
-          "تطبيقنا يوفر أفضل خدمات صيانة وتركيب المصاعد بأعلى معايير الجودة و الأمان بكفاءة دائمة.",
-    },
-    {
-      "img": "repair",
-      "title": "استمتع بميزات رائعة مثل الصيانة الممتازة وطلب مصعدك بسهولة",
-      "subtitle":
-          "يمكنك الأن طلب مصعد بتشكيلات و اشكال مختلفة و الحصور أيضاً على الصيانة بشكل سريع وفوري",
-    },
-    {
-      "img": "order",
-      "title": "تابع خطوات تركيب مصعدك بسلاسة و دقة يومياً معنا",
-      "subtitle":
-          "استمتع بتركيب مصعد بسلاسة مع دلتا لتكنولوجيا المصاعد والتجارة , نقدم لك خطوات يومية دقيقة لضمان التركيب المثالي",
-    },
-  ];
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  List<OnboardingPage> get _pages => OnboardingPage.flow;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _markOnboardingSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsKeySeenOnboarding, true);
+  }
+
+  void _goToLogin() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  Future<void> _completeOnboarding() async {
+    await _markOnboardingSeen();
+    if (!mounted) return;
+    _goToLogin();
+  }
+
+  void _onNext() {
+    if (_currentPage >= _pages.length - 1) return;
+    _pageController.nextPage(
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _onPrevious() {
+    if (_currentPage <= 0) return;
+    _pageController.previousPage(
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    switch (currentIndex) {
-      case 0:
-        boardProgress = 0.2;
-        break;
-      case 1:
-        boardProgress = 0.5;
-        break;
-      case 2:
-        boardProgress = 1;
-        break;
-      default:
-    }
+    final page = _pages[_currentPage];
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.white,
         body: SafeArea(
-          child: Stack(
-            clipBehavior: Clip.none,
+          child: Column(
             children: [
-              Column(
-                children: [
-                  Visibility(
-                    visible: currentIndex == 2 ? false : true,
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => IntroScreen(),
+              SizedBox(
+                height: 48,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (page.showSkip)
+                      Positioned(
+                        top: 0,
+                        right: 8,
+                        child: TextButton(
+                          onPressed: _completeOnboarding,
+                          child: Text(
+                            'تخطي',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        );
-                      },
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
                         ),
-                        alignment: Alignment.centerRight,
-                        child: Text("تخطي"),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 6,
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: _pages.length,
+                        onPageChanged: (i) => setState(() => _currentPage = i),
+                        itemBuilder: (context, index) {
+                          print(_pages[index].imageAsset);
+                          return _OnboardingImagePanel(
+                            assetPath: _pages[index].imageAsset,
+                          );
+                        },
                       ),
                     ),
-                  ),
-                  SizedBox(height: 20),
-                  Expanded(
-                    child: PageView(
-                      controller: pageController,
-                      onPageChanged: (val) {
-                        setState(() {
-                          currentIndex = val;
-                        });
-                      },
-                      children: List.generate(boardingItems.length, (i) {
-                        return Image.asset(
-                          'assets/img/${boardingItems[i]['img']}.png',
-                        );
-                      }),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                      child: Column(
+                        children: [
+                          _ProgressLine(
+                            pageCount: _pages.length,
+                            currentIndex: _currentPage,
+                            accent: _kOnboardingOrange,
+                          ),
+                          const SizedBox(height: 10),
+                          _PageDots(
+                            count: _pages.length,
+                            currentIndex: _currentPage,
+                            accent: _kOnboardingOrange,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              
-              Positioned(
-  bottom: 0,
-  left: 0,
-  right: 0,
-  child: Directionality(
-    textDirection: TextDirection.rtl,
-    child: Container(
-      color: Colors.white,
-      alignment: Alignment.bottomCenter,
-      width: double.maxFinite,
-      height: MediaQuery.of(context).size.height * 0.3,
-      child: SingleChildScrollView( // ← ضيف ده
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeInOut,
-              tween: Tween<double>(begin: 0, end: boardProgress),
-              builder: (context, value, _) => LinearProgressIndicator(
-                value: value,
-                backgroundColor: Colors.grey,
-                color: Colors.orange,
+              Container(
+                width: double.infinity,
+                height: 2,
+                color: _kOnboardingOrange,
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Text(
-                    boardingItems[currentIndex]['title'],
-                    style: TextStyle(fontSize: 20),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    boardingItems[currentIndex]['subtitle'],
-                    style: TextStyle(fontSize: 15, color: Colors.grey.shade400),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 12),
-            // الأزرار
-            if (currentIndex != 1)
-              GestureDetector(
-                onTap: () {
-                  if (currentIndex == 0) {
-                    setState(() { currentIndex = 1; });
-                  } else {
-                    Navigator.pushReplacement(context,
-                        MaterialPageRoute(builder: (context) => IntroScreen()));
-                  }
-                  pageController.animateToPage(currentIndex,
-                      duration: Duration(milliseconds: 200),
-                      curve: Curves.easeInOut);
-                },
-                child: Container(
-                  width: double.maxFinite,
-                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  padding: EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    currentIndex == 2 ? "ابدأ الأن" : "التالي",
-                    style: TextStyle(fontSize: 20, color: Colors.white),
+              Expanded(
+                flex: 4,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(24, 20, 24, 16 + bottomInset),
+                  child: Column(
+                    children: [
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 320),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        transitionBuilder: (child, anim) {
+                          return FadeTransition(
+                            opacity: anim,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0, 0.06),
+                                end: Offset.zero,
+                              ).animate(anim),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Column(
+                          key: ValueKey<int>(_currentPage),
+                          children: [
+                            Text(
+                              page.title,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                height: 1.35,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              page.subtitle,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                height: 1.5,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 280),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: _BottomActions(
+                          key: ValueKey<String>(
+                            '${page.showPreviousButton}_${page.primaryLabel}',
+                          ),
+                          showPrevious: page.showPreviousButton,
+                          primaryLabel: page.primaryLabel,
+                          onPrimary: _currentPage == _pages.length - 1
+                              ? _completeOnboarding
+                              : _onNext,
+                          onPrevious: _onPrevious,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            if (currentIndex == 1)
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() { currentIndex = 2; });
-                        pageController.animateToPage(currentIndex,
-                            duration: Duration(milliseconds: 200),
-                            curve: Curves.easeInOut);
-                      },
-                      child: Container(
-                        margin: EdgeInsets.symmetric(horizontal: 10),
-                        padding: EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text("التالي",
-                            style: TextStyle(fontSize: 20, color: Colors.white)),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() { currentIndex = 0; });
-                        pageController.animateToPage(currentIndex,
-                            duration: Duration(milliseconds: 200),
-                            curve: Curves.easeInOut);
-                      },
-                      child: Container(
-                        margin: EdgeInsets.symmetric(horizontal: 10),
-                        padding: EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.primary),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text("السابق",
-                            style: TextStyle(fontSize: 20, color: AppColors.primary)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            SizedBox(height: 10),
-          ],
-        ),
-      ),
-    ),
-  ),
-),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _OnboardingImagePanel extends StatelessWidget {
+  const _OnboardingImagePanel({required this.assetPath});
+
+  static const Color _panelBg = Color(0xFFF5F5F5);
+
+  final String assetPath;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenH = MediaQuery.sizeOf(context).height;
+    final targetH = screenH * 0.55;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = targetH.clamp(160.0, constraints.maxHeight);
+        final w = (constraints.maxWidth - 32).clamp(200.0, constraints.maxWidth);
+
+        return Center(
+          child: Container(
+            width: w,
+            height: h,
+            decoration: BoxDecoration(
+              color: _panelBg,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: _kOnboardingOrange.withValues(alpha: 0.22),
+                  blurRadius: 36,
+                  spreadRadius: -4,
+                  offset: const Offset(0, 14),
+                ),
+                BoxShadow(
+                  color: _kOnboardingOrange.withValues(alpha: 0.08),
+                  blurRadius: 48,
+                  spreadRadius: 2,
+                  offset: Offset.zero,
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Image.asset(
+                  assetPath,
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) => Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 64,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProgressLine extends StatelessWidget {
+  const _ProgressLine({
+    required this.pageCount,
+    required this.currentIndex,
+    required this.accent,
+  });
+
+  final int pageCount;
+  final int currentIndex;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = (currentIndex + 1) / pageCount;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      height: 3,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: FractionallySizedBox(
+          widthFactor: fraction,
+          child: Container(
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PageDots extends StatelessWidget {
+  const _PageDots({
+    required this.count,
+    required this.currentIndex,
+    required this.accent,
+  });
+
+  final int count;
+  final int currentIndex;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (i) {
+        final active = i == currentIndex;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: active ? 22 : 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: active ? accent : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(99),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _BottomActions extends StatelessWidget {
+  const _BottomActions({
+    super.key,
+    required this.showPrevious,
+    required this.primaryLabel,
+    required this.onPrimary,
+    required this.onPrevious,
+  });
+
+  final bool showPrevious;
+  final String primaryLabel;
+  final VoidCallback onPrimary;
+  final VoidCallback onPrevious;
+
+  @override
+  Widget build(BuildContext context) {
+    if (showPrevious) {
+      return Row(
+        children: [
+          Expanded(
+            child: _FilledOrangeButton(
+              label: primaryLabel,
+              onPressed: onPrimary,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: _OutlinedButton(
+              label: 'السابق',
+              onPressed: onPrevious,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return _FilledOrangeButton(
+      label: primaryLabel,
+      onPressed: onPrimary,
+    );
+  }
+}
+
+class _FilledOrangeButton extends StatelessWidget {
+  const _FilledOrangeButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: double.infinity,
+      height: 52,
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: _kOnboardingOrange,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+}
+
+class _OutlinedButton extends StatelessWidget {
+  const _OutlinedButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _kOnboardingOrange,
+          side: const BorderSide(color: _kOnboardingOrange, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        child: Text(label),
       ),
     );
   }

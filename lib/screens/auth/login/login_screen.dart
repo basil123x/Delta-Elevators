@@ -1,15 +1,13 @@
 import 'dart:math';
 
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/screens/auth/OTP/otp_screen.dart';
+import 'package:Delta/screens/auth/auth_design.dart';
+import 'package:Delta/screens/auth/auth_wave_clipper.dart';
 import 'package:Delta/screens/auth/register/register_screen.dart';
-import 'package:Delta/screens/main/main_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:iconsax/iconsax.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,18 +17,41 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  TextEditingController phoneController = TextEditingController();
+  static const Color _orange = Color(0xFFF37021);
+  static const Color _textDark = Color(0xFF1A1A2E);
+
+  final TextEditingController phoneController = TextEditingController();
+  final FocusNode _phoneFocus = FocusNode();
   bool isValidPhone = false;
   bool isLoading = false;
+  int _phoneLength = 0;
 
   @override
   void initState() {
     super.initState();
-    phoneController.addListener(validatePhone);
+    phoneController.addListener(_onPhoneChanged);
+    _phoneFocus.addListener(_onFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    phoneController.removeListener(_onPhoneChanged);
+    _phoneFocus.removeListener(_onFocusChanged);
+    _phoneFocus.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChanged() => setState(() {});
+
+  void _onPhoneChanged() {
+    setState(() {
+      _phoneLength = phoneController.text.length;
+    });
+    validatePhone();
   }
 
   static bool isValidQatarPhone(String phone) {
-    // Remove any spaces or special characters
     final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
     return cleanPhone.length == 8 && RegExp(r'^\d{8}$').hasMatch(cleanPhone);
   }
@@ -44,8 +65,123 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _submit() async {
+    setState(() => isLoading = true);
+    try {
+      final result = await getDio().post(
+        "https://daltalifts.com/app2026/sql.php",
+        options: Options(
+          headers: {"Content-Type": "application/json"},
+        ),
+        data: {
+          "action": "checkUser",
+          "phone": phoneController.text.trim(),
+        },
+      );
+
+      final response = authResponseAsMap(result.data);
+      // API may return `id` as String; never use it as a List index without parsing.
+      // ignore: unused_local_variable
+      final safeRowIndex =
+          int.tryParse(response['id']?.toString() ?? '') ?? 0;
+
+      final success = response['success'] == true ||
+          response['success'] == 1 ||
+          response['success'] == 'true';
+
+      if (!mounted) return;
+      if (success) {
+        setState(() => isLoading = false);
+        final otp = 100000 + Random().nextInt(900000);
+        Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (context) => OTPScreen(
+              mobile: phoneController.text.trim(),
+              otp: otp,
+              keylogin: "Login",
+            ),
+          ),
+        );
+      } else {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AuthDesign.orange,
+            content: const Text(
+              "المستخدم ليس مسجلا فقط قم بالتسجيل الأن",
+            ),
+          ),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (context) => const RegisterScreen(),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Color _phoneFieldBorderColor() {
+    if (_phoneLength == 0) return const Color(0xFFEFEFEF);
+    if (_phoneLength == 8) return const Color(0xFF4CAF50);
+    return const Color(0xFFFF4B4B);
+  }
+
+  Widget _buildValidationIcon() {
+    if (phoneController.text.isEmpty) {
+      return const SizedBox(width: 8);
+    }
+    final isValid = phoneController.text.length == 8;
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isValid ? const Color(0xFF4CAF50) : const Color(0xFFFF4B4B),
+      ),
+      child: Icon(
+        isValid ? Icons.check : Icons.close,
+        color: Colors.white,
+        size: 14,
+      ),
+    );
+  }
+
+  Widget _qatarFlagBadge() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: Image.asset(
+        'assets/img/qatar.png',
+        width: 24,
+        height: 16,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 24,
+          height: 16,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: const Color(0xFFE0E0E0)),
+          ),
+          child: Row(
+            children: [
+              Container(width: 8, color: const Color(0xFF8D1B3D)),
+              Expanded(child: Container(color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final phoneFocused = _phoneFocus.hasFocus;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: GestureDetector(
@@ -53,229 +189,278 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Scaffold(
           resizeToAvoidBottomInset: true,
           backgroundColor: Colors.white,
-          appBar: AppBar(
-            forceMaterialTransparency: true,
-            automaticallyImplyLeading: true,
-          ),
-          extendBodyBehindAppBar: true,
-          body: Center(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(height: MediaQuery.paddingOf(context).top),
+              Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
                 children: [
-                  Image.asset('assets/img/logo.png', width: 180),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        "تسجيل",
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        " الدخول",
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    "قم بإدخال رقم هاتفك لتسجيل الدخول",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  SizedBox(height: 30),
-                  Container(
-                    margin: EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(8),
-                      ],
-                      decoration: InputDecoration(
-                        hintText: '12345678',
-                        hintStyle: TextStyle(
-                          color: AppColors.textHint,
-                          letterSpacing: 2,
-                        ),
-                        prefixIcon: Container(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 34,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(9),
-                                  image: DecorationImage(
-                                    image: AssetImage('assets/img/qatar.png'),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '+974',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 1,
-                                height: 20,
-                                // color: AppColors.lightGrey,
-                              ),
-                            ],
-                          ),
-                        ),
-                        suffixIcon: Container(
-                          padding: isValidPhone
-                              ? EdgeInsets.symmetric(horizontal: 0, vertical: 0)
-                              : EdgeInsets.all(0),
-                          child: IconButton(
-                            onPressed: () {},
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            splashRadius: 20,
-                            icon: Icon(
-                              isValidPhone
-                                  ? Iconsax.tick_circle5
-                                  : Iconsax.close_circle5,
-                              color: isValidPhone
-                                  ? AppColors.success
-                                  : AppColors.error,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide(width: 1),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide(width: 1),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.all(20),
+                  ClipPath(
+                    clipper: AuthWaveHeaderClipper(),
                     child: Container(
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text("ليس لديك حساب ؟"),
-                          SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => RegisterScreen(),
-                                ),
-                              );
-                            },
-                            child: Text("إنشاء حساب"),
-                          ),
-                        ],
-                      ),
+                      width: double.infinity,
+                      height: 200,
+                      color: _orange,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () async {
-                      setState(() {
-                        isLoading = true;
-                      });
-                      var result = await getDio().post(
-                        "https://daltalifts.com/app2026/sql.php",
-                        options: Options(
-                          headers: {"Content-Type": "application/json"},
+                  Positioned(
+                    bottom: -40,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          border: Border.all(
+                            color: const Color(0xFFF37021),
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF37021).withValues(alpha: 0.25),
+                              blurRadius: 20,
+                              spreadRadius: 4,
+                            ),
+                          ],
                         ),
-                        data: {
-                          "action": "checkUser",
-                          "phone": phoneController.text.trim(),
-                        },
-                      );
-                      if (result.data['success'] == true) {
-                        setState(() {
-                          isLoading = false;
-                        });
-                        int otp = 100000 + Random().nextInt(900000);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => OTPScreen(
-                              mobile: phoneController.text.trim(),
-                              otp: otp,
-                              keylogin: "Login",
+                        padding: const EdgeInsets.all(12),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Image.asset(
+                            'assets/img/logo.png',
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.apartment_rounded,
+                              color: _orange.withValues(alpha: 0.85),
+                              size: 40,
                             ),
                           ),
-                        );
-                      } else {
-                        setState(() {
-                          isLoading = false;
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: AppColors.primary,
-                            content: Text(
-                              "المستخدم ليس مسجلا فقط قم بالتسجيل الأن",
-                            ),
-                          ),
-                        );
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => RegisterScreen(),
-                          ),
-                        );
-                      }
-                    },
-                    child: Container(
-                      width: double.maxFinite,
-                      margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        "تسجيل الدخول",
-                        style: TextStyle(fontSize: 20, color: Colors.white),
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 50),
+              Expanded(
+                child: AnimatedPadding(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(bottom: bottomInset),
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'DELTA ELEVATORS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'أهلاً بك ',
+                                style: TextStyle(
+                                  color: _textDark,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 26,
+                                ),
+                              ),
+                              TextSpan(
+                                text: 'مجدداً',
+                                style: const TextStyle(
+                                  color: _orange,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 26,
+                                ),
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'سجل دخولك للمتابعة',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Text(
+                          'رقم الهاتف',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF555555),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: phoneFocused
+                                ? const Color(0xFFFFF8F4)
+                                : const Color(0xFFF8F8F8),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: _phoneFieldBorderColor(),
+                              width: 1.5,
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              _qatarFlagBadge(),
+                              const SizedBox(width: 8),
+                              const Text(
+                                '+974',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: _textDark,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                width: 1,
+                                height: 28,
+                                color: const Color(0xFFE8E8E8),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: phoneController,
+                                  focusNode: _phoneFocus,
+                                  keyboardType: TextInputType.number,
+                                  textDirection: TextDirection.rtl,
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textDark,
+                                  ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(8),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    hintText: '12345678',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFF9E9E9E),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildValidationIcon(),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          height: 54,
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: isLoading ? null : _submit,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _orange,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor:
+                                  _orange.withValues(alpha: 0.65),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                            ),
+                            child: isLoading
+                                ? const Center(
+                                    child: SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : const Center(
+                                    child: Text(
+                                      'تسجيل الدخول',
+                                      textDirection: TextDirection.rtl,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          textDirection: TextDirection.rtl,
+                          children: [
+                            Text(
+                              'ليس لديك حساب؟',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (context) => const RegisterScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                ' أنشئ حساباً الآن',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: _orange,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: MediaQuery.sizeOf(context).height * 0.08),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -44,11 +44,15 @@ void main() async {
   OneSignal.Debug.setLogLevel(OSLogLevel.verbose);
   OneSignal.initialize("aca3707d-a491-4e81-95eb-46ef15ea1ba4");
   OneSignal.Notifications.requestPermission(true);
-  runApp(MyApp());
+  final prefs = await SharedPreferences.getInstance();
+  final hasSeenOnboarding = prefs.getBool('seen_onboarding') ?? false;
+  runApp(MyApp(hasSeenOnboarding: hasSeenOnboarding));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.hasSeenOnboarding = false});
+
+  final bool hasSeenOnboarding;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -124,7 +128,7 @@ class _MyAppState extends State<MyApp> {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: ThemeData(textTheme: GoogleFonts.cairoTextTheme()),
-        home: SplashScreen(),
+        home: SplashScreen(hasSeenOnboarding: widget.hasSeenOnboarding),
       ),
     );
   }

@@ -12,7 +12,10 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({super.key, this.hasSeenOnboarding = false});
+
+  /// When true, unauthenticated users skip [BoardingScreen] and go to login.
+  final bool hasSeenOnboarding;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -30,12 +33,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
   _timer() async {
     Timer.periodic(Duration(seconds: 5), (timer) {
+      final Widget next = userId != null
+          ? MainScreen()
+          : (widget.hasSeenOnboarding
+              ? LoginScreen()
+              : BoardingScreen());
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) =>
-              userId != null ? MainScreen() : BoardingScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => next),
       );
     });
   }

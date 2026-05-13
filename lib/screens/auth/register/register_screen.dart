@@ -1,13 +1,10 @@
 import 'dart:math';
 
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/screens/auth/OTP/otp_screen.dart';
+import 'package:Delta/screens/auth/auth_wave_clipper.dart';
 import 'package:Delta/screens/auth/login/login_screen.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:iconsax/iconsax.dart';
-import 'package:intl/intl.dart' as intlx;
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -17,33 +14,153 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  TextEditingController nameController = TextEditingController();
-  TextEditingController phoneController = TextEditingController();
-  bool isValidPhone = false;
+  static const Color _orange = Color(0xFFF37021);
+  static const Color _textDark = Color(0xFF1A1A2E);
+
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+  final FocusNode _nameFocus = FocusNode();
+  final FocusNode _phoneFocus = FocusNode();
+
+  int _nameLength = 0;
+  int _phoneLength = 0;
 
   @override
   void initState() {
     super.initState();
-    phoneController.addListener(validatePhone);
+    nameController.addListener(_onNameChanged);
+    phoneController.addListener(_onPhoneChanged);
+    _nameFocus.addListener(_onFocusChanged);
+    _phoneFocus.addListener(_onFocusChanged);
   }
 
-  static bool isValidQatarPhone(String phone) {
-    // Remove any spaces or special characters
-    final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
-    return cleanPhone.length == 8 && RegExp(r'^\d{8}$').hasMatch(cleanPhone);
+  @override
+  void dispose() {
+    nameController.removeListener(_onNameChanged);
+    phoneController.removeListener(_onPhoneChanged);
+    _nameFocus.removeListener(_onFocusChanged);
+    _phoneFocus.removeListener(_onFocusChanged);
+    nameController.dispose();
+    phoneController.dispose();
+    _nameFocus.dispose();
+    _phoneFocus.dispose();
+    super.dispose();
   }
 
-  void validatePhone() {
-    final isValid = isValidQatarPhone(phoneController.text);
-    if (isValidPhone != isValid) {
-      setState(() {
-        isValidPhone = isValid;
-      });
+  void _onFocusChanged() => setState(() {});
+
+  void _onNameChanged() {
+    setState(() {
+      _nameLength = nameController.text.length;
+    });
+  }
+
+  void _onPhoneChanged() {
+    setState(() {
+      _phoneLength = phoneController.text.length;
+    });
+  }
+
+  Color _nameFieldBorderColor() {
+    if (_nameLength == 0) return const Color(0xFFEFEFEF);
+    if (_nameLength >= 3) return const Color(0xFF4CAF50);
+    return const Color(0xFFFF4B4B);
+  }
+
+  Widget _buildNameValidationIcon() {
+    if (nameController.text.isEmpty) {
+      return const SizedBox(width: 8);
     }
+    final ok = nameController.text.length >= 3;
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: ok ? const Color(0xFF4CAF50) : const Color(0xFFFF4B4B),
+      ),
+      child: Icon(
+        ok ? Icons.check : Icons.close,
+        color: Colors.white,
+        size: 14,
+      ),
+    );
+  }
+
+  Color _phoneFieldBorderColor() {
+    if (_phoneLength == 0) return const Color(0xFFEFEFEF);
+    if (_phoneLength == 8) return const Color(0xFF4CAF50);
+    return const Color(0xFFFF4B4B);
+  }
+
+  Widget _buildPhoneValidationIcon() {
+    if (phoneController.text.isEmpty) {
+      return const SizedBox(width: 8);
+    }
+    final isValid = phoneController.text.length == 8;
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: isValid ? const Color(0xFF4CAF50) : const Color(0xFFFF4B4B),
+      ),
+      child: Icon(
+        isValid ? Icons.check : Icons.close,
+        color: Colors.white,
+        size: 14,
+      ),
+    );
+  }
+
+  Widget _qatarFlagBadge() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: Image.asset(
+        'assets/img/qatar.png',
+        width: 24,
+        height: 16,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: 24,
+          height: 16,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: const Color(0xFFE0E0E0)),
+          ),
+          child: Row(
+            children: [
+              Container(width: 8, color: const Color(0xFF8D1B3D)),
+              Expanded(child: Container(color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _goOtp() {
+    final otp = 100000 + Random().nextInt(900000);
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => OTPScreen(
+          mobile: phoneController.text.trim(),
+          name: nameController.text.trim(),
+          otp: otp,
+          keylogin: "Register",
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final topPad = MediaQuery.paddingOf(context).top;
+    final nameFocused = _nameFocus.hasFocus;
+    final phoneFocused = _phoneFocus.hasFocus;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: GestureDetector(
@@ -51,238 +168,358 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Scaffold(
           resizeToAvoidBottomInset: true,
           backgroundColor: Colors.white,
-          appBar: AppBar(
-            forceMaterialTransparency: true,
-            automaticallyImplyLeading: true,
-          ),
-          extendBodyBehindAppBar: true,
-          body: Center(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+          body: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Image.asset('assets/img/logo.png', width: 180),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  SizedBox(height: topPad),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
                     children: [
-                      Text(
-                        "انشاء",
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
+                      ClipPath(
+                        clipper: AuthWaveHeaderClipper(),
+                        child: Container(
+                          width: double.infinity,
+                          height: 200,
+                          color: _orange,
                         ),
                       ),
-                      Text(
-                        " حساب",
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                      Positioned(
+                        bottom: -40,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white,
+                              border: Border.all(
+                                color: const Color(0xFFF37021),
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFF37021).withValues(alpha: 0.25),
+                                  blurRadius: 20,
+                                  spreadRadius: 4,
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(12),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Image.asset(
+                                'assets/img/logo.png',
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => Icon(
+                                  Icons.apartment_rounded,
+                                  color: _orange.withValues(alpha: 0.85),
+                                  size: 40,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  SizedBox(height: 20),
-                  Text(
-                    "سعداء بانضمامك معنا ونتمنى لك تجربة مميزة",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Container(
-                    margin: EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: TextField(
-                      controller: nameController,
-                      keyboardType: TextInputType.name,
-                      decoration: InputDecoration(
-                        hintText: 'قم بإدخال إسمك الشخصي',
-                        hintStyle: TextStyle(color: AppColors.textHint),
-                        prefixIcon: Container(
-                          padding: isValidPhone
-                              ? EdgeInsets.symmetric(horizontal: 0, vertical: 0)
-                              : EdgeInsets.all(0),
-                          child: IconButton(
-                            onPressed: () {},
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            splashRadius: 20,
-                            icon: Icon(Iconsax.user, size: 24),
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Container(
-                    margin: EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(8),
-                      ],
-                      decoration: InputDecoration(
-                        hintText: '12345678',
-                        hintStyle: TextStyle(
-                          color: AppColors.textHint,
-                          letterSpacing: 2,
-                        ),
-                        prefixIcon: Container(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 34,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(9),
-                                  image: DecorationImage(
-                                    image: AssetImage('assets/img/qatar.png'),
+                  const SizedBox(height: 50),
+                  Expanded(
+                    child: AnimatedPadding(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOut,
+                      padding: EdgeInsets.only(bottom: bottomInset),
+                      child: SingleChildScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'DELTA ELEVATORS',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade600,
+                                letterSpacing: 2,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'أنشئ ',
+                                    style: TextStyle(
+                                      color: _textDark,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 26,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'حسابك',
+                                    style: TextStyle(
+                                      color: _orange,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 26,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'سعداء بانضمامك معنا',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            Text(
+                              'الاسم الكامل',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF555555),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOut,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                color: nameFocused
+                                    ? const Color(0xFFFFF8F4)
+                                    : const Color(0xFFF8F8F8),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: _nameFieldBorderColor(),
+                                  width: 1.5,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Row(
+                                textDirection: TextDirection.rtl,
+                                children: [
+                                  Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: const Color(0xFFEEEEEE),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.person_outline_rounded,
+                                      color: _orange,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: nameController,
+                                      focusNode: _nameFocus,
+                                      keyboardType: TextInputType.name,
+                                      textDirection: TextDirection.rtl,
+                                      textAlign: TextAlign.right,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: _textDark,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        hintText: 'قم بإدخال إسمك الشخصي',
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        hintStyle: TextStyle(
+                                          color: Color(0xFF9E9E9E),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildNameValidationIcon(),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              'رقم الهاتف',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF555555),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOut,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                color: phoneFocused
+                                    ? const Color(0xFFFFF8F4)
+                                    : const Color(0xFFF8F8F8),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: _phoneFieldBorderColor(),
+                                  width: 1.5,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Row(
+                                textDirection: TextDirection.rtl,
+                                children: [
+                                  _qatarFlagBadge(),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '+974',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: _textDark,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    width: 1,
+                                    height: 28,
+                                    color: const Color(0xFFE8E8E8),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: phoneController,
+                                      focusNode: _phoneFocus,
+                                      keyboardType: TextInputType.number,
+                                      textDirection: TextDirection.rtl,
+                                      textAlign: TextAlign.right,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: _textDark,
+                                      ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(8),
+                                      ],
+                                      decoration: const InputDecoration(
+                                        hintText: '12345678',
+                                        border: InputBorder.none,
+                                        isDense: true,
+                                        contentPadding: EdgeInsets.zero,
+                                        hintStyle: TextStyle(
+                                          color: Color(0xFF9E9E9E),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _buildPhoneValidationIcon(),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            SizedBox(
+                              height: 54,
+                              width: double.infinity,
+                              child: FilledButton(
+                                onPressed: _goOtp,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: _orange,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                ),
+                                child: const Center(
+                                  child: Text(
+                                    'إنشاء الحساب',
+                                    textDirection: TextDirection.rtl,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '+974',
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 1,
-                                height: 20,
-                                // color: AppColors.lightGrey,
-                              ),
-                            ],
-                          ),
-                        ),
-                        suffixIcon: Container(
-                          padding: isValidPhone
-                              ? EdgeInsets.symmetric(horizontal: 0, vertical: 0)
-                              : EdgeInsets.all(0),
-                          child: IconButton(
-                            onPressed: () {},
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            splashRadius: 20,
-                            icon: Icon(
-                              isValidPhone
-                                  ? Iconsax.tick_circle5
-                                  : Iconsax.close_circle5,
-                              color: isValidPhone
-                                  ? AppColors.success
-                                  : AppColors.error,
-                              size: 24,
                             ),
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.all(20),
-                    child: Container(
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text("لدي حساب بالفعل ؟"),
-                          SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => LoginScreen(),
+                            const SizedBox(height: 28),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              textDirection: TextDirection.rtl,
+                              children: [
+                                Text(
+                                  'لدي حساب بالفعل؟',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
                                 ),
-                              );
-                            },
-                            child: Text("تسجيل الدخول"),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () async {
-                      int otp = 100000 + Random().nextInt(900000);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => OTPScreen(
-                            mobile: phoneController.text.trim(),
-                            name: nameController.text.trim(),
-                            otp: otp,
-                            keylogin: "Register",
-                          ),
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (context) => const LoginScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: Text(
+                                    ' تسجيل الدخول',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: _orange,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(
+                              height: MediaQuery.sizeOf(context).height * 0.08,
+                            ),
+                          ],
                         ),
-                      );
-                    },
-                    child: Container(
-                      width: double.maxFinite,
-                      margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        "إنشاء الحساب",
-                        style: TextStyle(fontSize: 20, color: Colors.white),
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
+              Positioned(
+                top: topPad + 4,
+                right: 12,
+                child: IconButton(
+                  onPressed: () => Navigator.maybePop(context),
+                  icon: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 18,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

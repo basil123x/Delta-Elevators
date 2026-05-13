@@ -1,0 +1,6 @@
+Array
+(
+    [contractId] => 278
+    [sign] => 1
+    [oid] => 9988
+)
