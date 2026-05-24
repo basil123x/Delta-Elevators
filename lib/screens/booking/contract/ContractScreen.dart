@@ -3,17 +3,13 @@ import 'dart:async';
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/booking/contract/Contract.dart';
-import 'package:Delta/screens/booking/contract/ContractScreen.dart';
 import 'package:Delta/screens/booking/contract/ContractWait.dart';
 import 'package:Delta/screens/booking/contract/Processing.dart';
 import 'package:Delta/screens/booking/contract/Quotation.dart';
 import 'package:Delta/services/DioServiceCert.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ContractScreen extends StatefulWidget {
   final String orderId;

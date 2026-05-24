@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:Delta/screens/auth/OTP/otp_screen.dart';
-import 'package:Delta/screens/auth/auth_wave_clipper.dart';
 import 'package:Delta/screens/auth/login/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -154,368 +153,359 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Widget _authOverlapLogo() {
+    return CircleAvatar(
+      radius: 40,
+      backgroundColor: Colors.white,
+      child: CircleAvatar(
+        radius: 36,
+        backgroundColor: _orange.withOpacity(0.2),
+        child: ClipOval(
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Image.asset(
+              'assets/img/logo.png',
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  Icon(Icons.apartment_rounded, color: _orange, size: 40),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final topPad = MediaQuery.paddingOf(context).top;
     final nameFocused = _nameFocus.hasFocus;
     final phoneFocused = _phoneFocus.hasFocus;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final whiteCardTop = screenHeight * 0.18;
+    final logoTop = screenHeight * 0.11;
 
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          backgroundColor: Colors.white,
-          body: Stack(
+      child: Scaffold(
+        backgroundColor: _orange,
+        resizeToAvoidBottomInset: false,
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(height: topPad),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.center,
-                    children: [
-                      ClipPath(
-                        clipper: AuthWaveHeaderClipper(),
-                        child: Container(
-                          width: double.infinity,
-                          height: 200,
-                          color: _orange,
+              Positioned(
+                top: whiteCardTop,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(25),
+                      topRight: Radius.circular(25),
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      top: 56,
+                      bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'DELTA ELEVATORS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      Positioned(
-                        bottom: -40,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              border: Border.all(
-                                color: const Color(0xFFF37021),
-                                width: 3,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFF37021).withValues(alpha: 0.25),
-                                  blurRadius: 20,
-                                  spreadRadius: 4,
+                        const SizedBox(height: 16),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'أنشئ ',
+                                style: TextStyle(
+                                  color: _textDark,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 26,
                                 ),
-                              ],
+                              ),
+                              TextSpan(
+                                text: 'حسابك',
+                                style: TextStyle(
+                                  color: _orange,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 26,
+                                ),
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'سعداء بانضمامك معنا',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        Text(
+                          'الاسم الكامل',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF555555),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: nameFocused
+                                ? const Color(0xFFFFF8F4)
+                                : const Color(0xFFF8F8F8),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: _nameFieldBorderColor(),
+                              width: 1.5,
                             ),
-                            padding: const EdgeInsets.all(12),
-                            child: Image.asset(
-                              'assets/images/logo.png',
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Image.asset(
-                                'assets/img/logo.png',
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => Icon(
-                                  Icons.apartment_rounded,
-                                  color: _orange.withValues(alpha: 0.85),
-                                  size: 40,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFEEEEEE),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.person_outline_rounded,
+                                  color: _orange,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: nameController,
+                                  focusNode: _nameFocus,
+                                  keyboardType: TextInputType.name,
+                                  textDirection: TextDirection.rtl,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textDark,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    hintText: 'قم بإدخال إسمك الشخصي',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFF9E9E9E),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildNameValidationIcon(),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'رقم الهاتف',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF555555),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: phoneFocused
+                                ? const Color(0xFFFFF8F4)
+                                : const Color(0xFFF8F8F8),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: _phoneFieldBorderColor(),
+                              width: 1.5,
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              _qatarFlagBadge(),
+                              const SizedBox(width: 8),
+                              Text(
+                                '+974',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: _textDark,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                width: 1,
+                                height: 28,
+                                color: const Color(0xFFE8E8E8),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: phoneController,
+                                  focusNode: _phoneFocus,
+                                  keyboardType: TextInputType.number,
+                                  textDirection: TextDirection.rtl,
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: _textDark,
+                                  ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(8),
+                                  ],
+                                  decoration: const InputDecoration(
+                                    hintText: '12345678',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFF9E9E9E),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildPhoneValidationIcon(),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          height: 54,
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: _goOtp,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _orange,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                'إنشاء الحساب',
+                                textDirection: TextDirection.rtl,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 50),
-                  Expanded(
-                    child: AnimatedPadding(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      padding: EdgeInsets.only(bottom: bottomInset),
-                      child: SingleChildScrollView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        const SizedBox(height: 28),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          textDirection: TextDirection.rtl,
                           children: [
                             Text(
-                              'DELTA ELEVATORS',
-                              textAlign: TextAlign.center,
+                              'لدي حساب بالفعل؟',
                               style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade600,
-                                letterSpacing: 2,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: 'أنشئ ',
-                                    style: TextStyle(
-                                      color: _textDark,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 26,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'حسابك',
-                                    style: TextStyle(
-                                      color: _orange,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 26,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'سعداء بانضمامك معنا',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 14,
                                 color: Colors.grey.shade600,
                               ),
                             ),
-                            const SizedBox(height: 28),
-                            Text(
-                              'الاسم الكامل',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF555555),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOut,
-                              height: 54,
-                              decoration: BoxDecoration(
-                                color: nameFocused
-                                    ? const Color(0xFFFFF8F4)
-                                    : const Color(0xFFF8F8F8),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: _nameFieldBorderColor(),
-                                  width: 1.5,
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute<void>(
+                                    builder: (context) => const LoginScreen(),
+                                  ),
+                                );
+                              },
+                              child: Text(
+                                ' تسجيل الدخول',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: _orange,
                                 ),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Row(
-                                textDirection: TextDirection.rtl,
-                                children: [
-                                  Container(
-                                    width: 34,
-                                    height: 34,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: const Color(0xFFEEEEEE),
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      Icons.person_outline_rounded,
-                                      color: _orange,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: nameController,
-                                      focusNode: _nameFocus,
-                                      keyboardType: TextInputType.name,
-                                      textDirection: TextDirection.rtl,
-                                      textAlign: TextAlign.right,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: _textDark,
-                                      ),
-                                      decoration: const InputDecoration(
-                                        hintText: 'قم بإدخال إسمك الشخصي',
-                                        border: InputBorder.none,
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        hintStyle: TextStyle(
-                                          color: Color(0xFF9E9E9E),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _buildNameValidationIcon(),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'رقم الهاتف',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF555555),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOut,
-                              height: 54,
-                              decoration: BoxDecoration(
-                                color: phoneFocused
-                                    ? const Color(0xFFFFF8F4)
-                                    : const Color(0xFFF8F8F8),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: _phoneFieldBorderColor(),
-                                  width: 1.5,
-                                ),
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Row(
-                                textDirection: TextDirection.rtl,
-                                children: [
-                                  _qatarFlagBadge(),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '+974',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: _textDark,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Container(
-                                    width: 1,
-                                    height: 28,
-                                    color: const Color(0xFFE8E8E8),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: phoneController,
-                                      focusNode: _phoneFocus,
-                                      keyboardType: TextInputType.number,
-                                      textDirection: TextDirection.rtl,
-                                      textAlign: TextAlign.right,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: _textDark,
-                                      ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                        LengthLimitingTextInputFormatter(8),
-                                      ],
-                                      decoration: const InputDecoration(
-                                        hintText: '12345678',
-                                        border: InputBorder.none,
-                                        isDense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        hintStyle: TextStyle(
-                                          color: Color(0xFF9E9E9E),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _buildPhoneValidationIcon(),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-                            SizedBox(
-                              height: 54,
-                              width: double.infinity,
-                              child: FilledButton(
-                                onPressed: _goOtp,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: _orange,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    'إنشاء الحساب',
-                                    textDirection: TextDirection.rtl,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              textDirection: TextDirection.rtl,
-                              children: [
-                                Text(
-                                  'لدي حساب بالفعل؟',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute<void>(
-                                        builder: (context) => const LoginScreen(),
-                                      ),
-                                    );
-                                  },
-                                  child: Text(
-                                    ' تسجيل الدخول',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: _orange,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(
-                              height: MediaQuery.sizeOf(context).height * 0.08,
                             ),
                           ],
                         ),
-                      ),
+                        SizedBox(
+                          height: MediaQuery.sizeOf(context).height * 0.08,
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
               Positioned(
-                top: topPad + 4,
-                right: 12,
+                top: logoTop,
+                left: 0,
+                right: 0,
+                child: Center(child: _authOverlapLogo()),
+              ),
+              Positioned(
+                top: topInset + 4,
+                right: 8,
                 child: IconButton(
                   onPressed: () => Navigator.maybePop(context),
                   icon: const Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 18,
-                    color: Color(0xFF1A1A2E),
+                    color: Colors.white,
                   ),
                 ),
               ),

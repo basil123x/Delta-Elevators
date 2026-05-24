@@ -5,7 +5,7 @@ class AppProvider with ChangeNotifier {
   int _currentTab1 = 0;
   String _currentAdd = "";
   String _signId = "";
-  List _allImagesList = [];
+  final List _allImagesList = [];
 
   int get currentTab => _currentTab;
   int get currentTab1 => _currentTab1;

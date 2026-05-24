@@ -8,12 +8,12 @@ class QuantityCounter extends StatefulWidget {
   final ValueChanged<int>? onChanged;
 
   const QuantityCounter({
-    Key? key,
+    super.key,
     this.initialValue = 0,
     this.min = 0,
     this.max = 99,
     this.onChanged,
-  }) : super(key: key);
+  });
 
   @override
   State<QuantityCounter> createState() => _QuantityCounterState();

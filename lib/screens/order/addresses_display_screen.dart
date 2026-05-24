@@ -26,7 +26,7 @@ class Address {
 }
 
 class AddressesDisplayList extends StatefulWidget {
-  const AddressesDisplayList({Key? key}) : super(key: key);
+  const AddressesDisplayList({super.key});
 
   @override
   State<AddressesDisplayList> createState() => _AddressesDisplayListState();

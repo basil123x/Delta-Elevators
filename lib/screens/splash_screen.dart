@@ -25,9 +25,9 @@ class _SplashScreenState extends State<SplashScreen> {
   String? userId;
 
   Future getLogin() async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
+    SharedPreferences prefx = await SharedPreferences.getInstance();
     setState(() {
-      userId = _prefx.getString('userId');
+      userId = prefx.getString('userId');
     });
   }
 

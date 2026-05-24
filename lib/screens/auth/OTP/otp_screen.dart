@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:Delta/screens/auth/auth_design.dart';
-import 'package:Delta/screens/auth/auth_wave_clipper.dart';
 import 'package:Delta/screens/main/main_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:Delta/services/OneSignalServices.dart';
@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' as intlx;
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 
 class OTPScreen extends StatefulWidget {
   final String? name;
@@ -30,14 +31,19 @@ class OTPScreen extends StatefulWidget {
   State<OTPScreen> createState() => _OTPScreenState();
 }
 
-class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
+class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin, CodeAutoFill {
   static const int _otpLength = 6;
   static const Color _orange = Color(0xFFF37021);
   static const Color _textDark = Color(0xFF1A1A2E);
 
-  final List<TextEditingController> _digitControllers =
-      List.generate(_otpLength, (_) => TextEditingController());
-  final List<FocusNode> _digitFocus = List.generate(_otpLength, (_) => FocusNode());
+  final List<TextEditingController> _digitControllers = List.generate(
+    _otpLength,
+    (_) => TextEditingController(),
+  );
+  final List<FocusNode> _digitFocus = List.generate(
+    _otpLength,
+    (_) => FocusNode(),
+  );
 
   bool isLoading = false;
   int? currentOtp;
@@ -66,9 +72,7 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
       TweenSequenceItem(tween: Tween(begin: -10.0, end: 10.0), weight: 1),
       TweenSequenceItem(tween: Tween(begin: 10.0, end: -10.0), weight: 1),
       TweenSequenceItem(tween: Tween(begin: -10.0, end: 0.0), weight: 1),
-    ]).animate(
-      CurvedAnimation(parent: _shakeController, curve: Curves.linear),
-    );
+    ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.linear));
 
     if (widget.mobile == '11111111') {
       currentOtp = 111111;
@@ -81,6 +85,29 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
       _digitFocus[i].addListener(_otpFieldListener);
       _digitControllers[i].addListener(_otpFieldListener);
     }
+    if (Platform.isAndroid) {
+      listenForCode(smsCodeRegexPattern: r'\d{6}');
+    }
+  }
+
+  @override
+  void codeUpdated() {
+    if (!mounted) return;
+    final raw = code;
+    if (raw == null || raw.isEmpty) return;
+    final match = RegExp(r'\d{6}').firstMatch(raw);
+    final six = match?.group(0) ?? raw.replaceAll(RegExp(r'\D'), '');
+    if (six.length != 6) return;
+    debugPrint('📲 Auto-received OTP: $six');
+    for (var i = 0; i < _otpLength; i++) {
+      _digitControllers[i].text = six[i];
+    }
+    setState(() {});
+    Future<void>.delayed(const Duration(milliseconds: 300), () async {
+      if (mounted && !isLoading) {
+        await _verifyOtp();
+      }
+    });
   }
 
   void startTimer() {
@@ -155,7 +182,35 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
     return const Color(0xFFEFEFEF);
   }
 
+  void _distributeCode(String fullCode) {
+    final digits = fullCode.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return;
+
+    for (int i = 0; i < _otpLength && i < digits.length; i++) {
+      _digitControllers[i].text = digits[i];
+      _digitControllers[i].selection = TextSelection.collapsed(
+        offset: _digitControllers[i].text.length,
+      );
+    }
+
+    setState(() {});
+
+    final lastIndex = (digits.length - 1).clamp(0, _otpLength - 1);
+    FocusScope.of(context).requestFocus(_digitFocus[lastIndex]);
+
+    if (digits.length >= _otpLength) {
+      Future<void>.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) _verifyOtp();
+      });
+    }
+  }
+
   void _onDigitChanged(int index, String value) {
+    if (value.length > 1) {
+      _distributeCode(value);
+      return;
+    }
+
     final digits = value.replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) {
       _digitControllers[index].clear();
@@ -167,8 +222,9 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
     }
     final last = digits.substring(digits.length - 1);
     _digitControllers[index].text = last;
-    _digitControllers[index].selection =
-        TextSelection.collapsed(offset: _digitControllers[index].text.length);
+    _digitControllers[index].selection = TextSelection.collapsed(
+      offset: _digitControllers[index].text.length,
+    );
 
     if (index < _otpLength - 1) {
       FocusScope.of(context).requestFocus(_digitFocus[index + 1]);
@@ -204,9 +260,7 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
         final oid = 1000 + math.Random().nextInt(9000);
         final result = await getDio().post(
           "https://daltalifts.com/app2026/sql.php",
-          options: Options(
-            headers: {"Content-Type": "application/json"},
-          ),
+          options: Options(headers: {"Content-Type": "application/json"}),
           data: {
             "action": "register",
             "name": widget.name,
@@ -221,7 +275,8 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
         );
         final prefx = await SharedPreferences.getInstance();
         final regBody = authResponseAsMap(result.data);
-        final regOk = regBody['success'] == true ||
+        final regOk =
+            regBody['success'] == true ||
             regBody['success'] == 1 ||
             regBody['success'] == 'true';
         if (regOk) {
@@ -263,9 +318,7 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute<void>(
-              builder: (context) => MainScreen(),
-            ),
+            MaterialPageRoute<void>(builder: (context) => MainScreen()),
           );
         } else {
           if (!mounted) return;
@@ -277,9 +330,7 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
       } else {
         final result = await getDio().post(
           "https://daltalifts.com/app2026/sql.php",
-          options: Options(
-            headers: {"Content-Type": "application/json"},
-          ),
+          options: Options(headers: {"Content-Type": "application/json"}),
           data: {
             "action": "login",
             "phone": widget.mobile,
@@ -288,7 +339,8 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
         );
         final prefx = await SharedPreferences.getInstance();
         final loginBody = authResponseAsMap(result.data);
-        final loginOk = loginBody['success'] == true ||
+        final loginOk =
+            loginBody['success'] == true ||
             loginBody['success'] == 1 ||
             loginBody['success'] == 'true';
         if (loginOk) {
@@ -303,29 +355,30 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
           });
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute<void>(
-              builder: (context) => MainScreen(),
-            ),
+            MaterialPageRoute<void>(builder: (context) => MainScreen()),
           );
         } else {
           if (!mounted) return;
           setState(() => isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("المستخدم ليس مسجلاً")),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("المستخدم ليس مسجلاً")));
         }
       }
     } else {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("رمز التحقق غير صحيح")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("رمز التحقق غير صحيح")));
       await _playShake();
     }
   }
 
   @override
   void dispose() {
+    if (Platform.isAndroid) {
+      cancel();
+    }
     _timer?.cancel();
     _shakeController.dispose();
     for (var i = 0; i < _otpLength; i++) {
@@ -341,322 +394,339 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Widget _authOverlapLogo() {
+    return CircleAvatar(
+      radius: 40,
+      backgroundColor: Colors.white,
+      child: CircleAvatar(
+        radius: 36,
+        backgroundColor: _orange.withOpacity(0.2),
+        child: ClipOval(
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Image.asset(
+              'assets/img/logo.png',
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+                  Icon(Icons.apartment_rounded, color: _orange, size: 40),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final topPad = MediaQuery.paddingOf(context).top;
     print(currentOtp);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final topInset = MediaQuery.paddingOf(context).top;
+    final whiteCardTop = screenHeight * 0.18;
+    final logoTop = screenHeight * 0.11;
+
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          backgroundColor: Colors.white,
-          body: Stack(
+      child: Scaffold(
+        backgroundColor: _orange,
+        resizeToAvoidBottomInset: false,
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
             clipBehavior: Clip.none,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(height: topPad),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.center,
-                    children: [
-                      ClipPath(
-                        clipper: AuthWaveHeaderClipper(),
-                        child: Container(
-                          width: double.infinity,
-                          height: 200,
-                          color: _orange,
+              Positioned(
+                top: whiteCardTop,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(25),
+                      topRight: Radius.circular(25),
+                    ),
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      top: 56,
+                      bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'DELTA ELEVATORS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade600,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      Positioned(
-                        bottom: -40,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                              border: Border.all(
-                                color: const Color(0xFFF37021),
-                                width: 3,
+                        const SizedBox(height: 16),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'تحقق من ',
+                                style: TextStyle(
+                                  color: _textDark,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 26,
+                                ),
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFF37021).withValues(alpha: 0.25),
-                                  blurRadius: 20,
-                                  spreadRadius: 4,
+                              TextSpan(
+                                text: 'هويتك',
+                                style: const TextStyle(
+                                  color: _orange,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 26,
                                 ),
-                              ],
-                            ),
-                            padding: const EdgeInsets.all(12),
-                            child: Image.asset(
-                              'assets/images/logo.png',
-                              fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => Image.asset(
-                                'assets/img/logo.png',
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => Icon(
-                                  Icons.apartment_rounded,
-                                  color: _orange.withValues(alpha: 0.85),
-                                  size: 40,
-                                ),
+                              ),
+                            ],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _maskedPhoneSubtitle,
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                            height: 1.45,
+                          ),
+                        ),
+                        const SizedBox(height: 28),
+                        AnimatedBuilder(
+                          animation: _shakeController,
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: Offset(_shakeAnim.value, 0),
+                              child: child,
+                            );
+                          },
+                          child: Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: AutofillGroup(
+                              onDisposeAction: AutofillContextAction.commit,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(_otpLength, (i) {
+                                  return Padding(
+                                    padding: EdgeInsets.only(
+                                      left: i < _otpLength - 1 ? 6 : 0,
+                                    ),
+                                    child: SizedBox(
+                                      width: 42,
+                                      height: 52,
+                                      child: TextField(
+                                        controller: _digitControllers[i],
+                                        focusNode: _digitFocus[i],
+                                        autofillHints: i == 0
+                                            ? [AutofillHints.oneTimeCode]
+                                            : null,
+                                        textDirection: TextDirection.ltr,
+                                        textAlign: TextAlign.center,
+                                        keyboardType: TextInputType.number,
+                                        textInputAction: i == 0
+                                            ? TextInputAction.next
+                                            : null,
+                                        maxLength: i == 0 ? null : 1,
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: _textDark,
+                                        ),
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.digitsOnly,
+                                        ],
+                                        decoration: InputDecoration(
+                                          counterText: '',
+                                          filled: true,
+                                          fillColor: const Color(0xFFF8F8F8),
+                                          contentPadding: EdgeInsets.zero,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: _otpCellBorderColor(i),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: _otpCellBorderColor(i),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            borderSide: BorderSide(
+                                              color: _otpCellBorderColor(i),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                        ),
+                                        onChanged: i == 0
+                                            ? (v) {
+                                                if (v.length > 1) {
+                                                  _distributeCode(v);
+                                                  return;
+                                                }
+                                                _onDigitChanged(0, v);
+                                              }
+                                            : (v) => _onDigitChanged(i, v),
+                                        onSubmitted: (_) {
+                                          if (i < _otpLength - 1) {
+                                            _digitFocus[i + 1].requestFocus();
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 50),
-                  Expanded(
-                    child: AnimatedPadding(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      padding: EdgeInsets.only(bottom: bottomInset),
-                      child: SingleChildScrollView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'DELTA ELEVATORS',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade600,
-                                letterSpacing: 2,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text.rich(
-                              TextSpan(
-                                children: [
-                                  TextSpan(
-                                    text: 'تحقق من ',
-                                    style: TextStyle(
-                                      color: _textDark,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 26,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: 'هويتك',
-                                    style: const TextStyle(
-                                      color: _orange,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 26,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _maskedPhoneSubtitle,
-                              textAlign: TextAlign.center,
-                              textDirection: TextDirection.rtl,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade600,
-                                height: 1.45,
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-                            AnimatedBuilder(
-                              animation: _shakeController,
-                              builder: (context, child) {
-                                return Transform.translate(
-                                  offset: Offset(_shakeAnim.value, 0),
-                                  child: child,
-                                );
-                              },
-                              child: Directionality(
-                                textDirection: TextDirection.ltr,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: List.generate(_otpLength, (i) {
-                                    return Padding(
-                                      padding: EdgeInsets.only(
-                                        left: i < _otpLength - 1 ? 6 : 0,
-                                      ),
-                                      child: SizedBox(
-                                        width: 42,
-                                        height: 52,
-                                        child: TextField(
-                                          controller: _digitControllers[i],
-                                          focusNode: _digitFocus[i],
-                                          textDirection: TextDirection.ltr,
-                                          textAlign: TextAlign.center,
-                                          keyboardType: TextInputType.number,
-                                          maxLength: 1,
-                                          style: const TextStyle(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.bold,
-                                            color: _textDark,
-                                          ),
-                                          inputFormatters: [
-                                            FilteringTextInputFormatter.digitsOnly,
-                                          ],
-                                          decoration: InputDecoration(
-                                            counterText: '',
-                                            filled: true,
-                                            fillColor: const Color(0xFFF8F8F8),
-                                            contentPadding: EdgeInsets.zero,
-                                            border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                              borderSide: BorderSide(
-                                                color: _otpCellBorderColor(i),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                              borderSide: BorderSide(
-                                                color: _otpCellBorderColor(i),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(12),
-                                              borderSide: BorderSide(
-                                                color: _otpCellBorderColor(i),
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                          ),
-                                          onChanged: (v) => _onDigitChanged(i, v),
-                                          onSubmitted: (_) {
-                                            if (i < _otpLength - 1) {
-                                              _digitFocus[i + 1].requestFocus();
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            if (canResend)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                textDirection: TextDirection.rtl,
-                                children: [
-                                  Text(
-                                    'لم يصلك الرمز؟ ',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                  GestureDetector(
-                                    onTap: () async {
-                                      setState(() {
-                                        currentOtp =
-                                            100000 + math.Random().nextInt(900000);
-                                      });
-                                      await sendOTP();
-                                      startTimer();
-                                      for (final c in _digitControllers) {
-                                        c.clear();
-                                      }
-                                      if (mounted) {
-                                        FocusScope.of(context)
-                                            .requestFocus(_digitFocus.first);
-                                      }
-                                    },
-                                    child: const Text(
-                                      'إعادة الإرسال',
-                                      style: TextStyle(
-                                        color: _orange,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            else
+                        const SizedBox(height: 20),
+                        if (canResend)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            textDirection: TextDirection.rtl,
+                            children: [
                               Text(
-                                'لم يصلك الرمز؟ إعادة الإرسال ($_secondsLeft)',
-                                textAlign: TextAlign.center,
+                                'لم يصلك الرمز؟ ',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey.shade600,
                                 ),
                               ),
-                            const SizedBox(height: 28),
-                            SizedBox(
-                              height: 54,
-                              width: double.infinity,
-                              child: FilledButton(
-                                onPressed: isLoading ? null : _verifyOtp,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: _orange,
-                                  foregroundColor: Colors.white,
-                                  disabledBackgroundColor:
-                                      _orange.withValues(alpha: 0.65),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                              GestureDetector(
+                                onTap: () async {
+                                  setState(() {
+                                    currentOtp =
+                                        100000 + math.Random().nextInt(900000);
+                                  });
+                                  await sendOTP();
+                                  startTimer();
+                                  for (final c in _digitControllers) {
+                                    c.clear();
+                                  }
+                                  if (mounted) {
+                                    FocusScope.of(
+                                      context,
+                                    ).requestFocus(_digitFocus.first);
+                                  }
+                                },
+                                child: const Text(
+                                  'إعادة الإرسال',
+                                  style: TextStyle(
+                                    color: _orange,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
                                   ),
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
                                 ),
-                                child: isLoading
-                                    ? const Center(
-                                        child: SizedBox(
-                                          height: 24,
-                                          width: 24,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      )
-                                    : const Center(
-                                        child: Text(
-                                          'تأكيد',
-                                          textDirection: TextDirection.rtl,
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            'لم يصلك الرمز؟ إعادة الإرسال ($_secondsLeft)',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          height: 54,
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: isLoading ? null : _verifyOtp,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: _orange,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: _orange.withValues(
+                                alpha: 0.65,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
                               ),
                             ),
-                            SizedBox(
-                              height: MediaQuery.sizeOf(context).height * 0.08,
-                            ),
-                          ],
+                            child: isLoading
+                                ? const Center(
+                                    child: SizedBox(
+                                      height: 24,
+                                      width: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : const Center(
+                                    child: Text(
+                                      'تأكيد',
+                                      textDirection: TextDirection.rtl,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                          ),
                         ),
-                      ),
+                        SizedBox(
+                          height: MediaQuery.sizeOf(context).height * 0.08,
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
               Positioned(
-                top: topPad + 4,
-                right: 12,
+                top: logoTop,
+                left: 0,
+                right: 0,
+                child: Center(child: _authOverlapLogo()),
+              ),
+              Positioned(
+                top: topInset + 4,
+                right: 8,
                 child: IconButton(
                   onPressed: () => Navigator.maybePop(context),
                   icon: const Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 18,
-                    color: Color(0xFF1A1A2E),
+                    color: Colors.white,
                   ),
                 ),
               ),

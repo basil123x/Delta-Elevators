@@ -1,14 +1,11 @@
 import 'dart:async';
 
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/booking/contract/ContractScreen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -90,6 +87,41 @@ class _BookingscreenState extends State<Bookingscreen>
     }
   }
 
+  int _progressPercentFromBooking(dynamic booking) {
+    final parsed = int.tryParse(booking['progress']?.toString() ?? '');
+    if (parsed != null && parsed >= 0 && parsed <= 100) return parsed;
+    final stl = booking['stl']?.toString() ?? '0';
+    if (stl == '9') return 100;
+    if (stl == '0') return 0;
+    final step = int.tryParse(stl);
+    if (step != null && step >= 1 && step <= 8) {
+      return (step * 100 ~/ 9).clamp(5, 95);
+    }
+    return 65;
+  }
+
+  String _elevatorTypeLabel(dynamic booking) {
+    final v =
+        booking['elevator_type'] ??
+        booking['type'] ??
+        booking['service_type'] ??
+        booking['stt'];
+    if (v == null || v.toString().isEmpty) return 'مصعد';
+    return v.toString();
+  }
+
+  void _openBookingDetail(dynamic booking) {
+    Provider.of<AppProvider>(context, listen: false).jumpToTabx(0);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ContractScreen(
+          orderId: booking['id'].toString(),
+        ),
+      ),
+    );
+  }
+
   Future<void> getMyBookings() async {
   // ✅ لو الـ widget اتشال، وقف
   if (!mounted) return;
@@ -132,6 +164,7 @@ class _BookingscreenState extends State<Bookingscreen>
     _tabController = TabController(length: 3, vsync: this);
     getMyBookings();
     _tabController.addListener(() {
+      setState(() {});
       if (!_tabController.indexIsChanging) {
         getMyBookings();
       }
@@ -150,298 +183,126 @@ class _BookingscreenState extends State<Bookingscreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text(
-          "الحجوزات",
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Container(
-            color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: AppColors.primary,
-              indicatorWeight: 3,
-              labelStyle: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                fontFamily: GoogleFonts.cairo().fontFamily,
-              ),
-              unselectedLabelStyle: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                fontFamily: GoogleFonts.cairo().fontFamily,
-              ),
-              tabs: const [
-                Tab(text: "الكل"),
-                Tab(text: "قيد التنفيذ"),
-                Tab(text: "مكتملة"),
-              ],
-            ),
-          ),
-        ),
-      ),
-      body: myBookings.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SvgPicture.asset('assets/img/icons/no_address.svg'),
-                  SizedBox(height: 10),
-                  Text(
-                    "لا يوجد حجوزات بعد",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 10),
-                  Text("إحجز طلب ثم إرجع لاحقاً"),
-                ],
-              ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildBookingsList(),
-                _buildBookingsList(),
-                _buildBookingsList(),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildBookingsList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: myBookings.length,
-      itemBuilder: (context, index) {
-        return _buildBookingCard(index);
-      },
-    );
-  }
-
-  Widget _buildBookingCard(int index) {
     return Directionality(
-      textDirection: TextDirection.ltr,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.1),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF2F3F7),
+        body: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: myBookings.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SvgPicture.asset('assets/img/icons/no_address.svg'),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'لا يوجد حجوزات بعد',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text('إحجز طلب ثم إرجع لاحقاً'),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
+                      itemCount: myBookings.length,
+                      itemBuilder: (context, index) {
+                        return _buildBookingCard(myBookings[index]);
+                      },
+                    ),
             ),
           ],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () {
-              Provider.of<AppProvider>(context, listen: false).jumpToTabx(0);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ContractScreen(
-                    orderId: myBookings[index]['id'].toString(),
-                  ),
-                ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Icon Container with gradient
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.primary,
-                              AppColors.primary.withOpacity(0.7),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Iconsax.calendar_1,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 15),
-                      // Booking Info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                // Status Badge
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _getStatusColor(
-                                      myBookings[index]['stl'],
-                                    ).withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    _getStatusText(myBookings[index]['stl']),
-                                    style: TextStyle(
-                                      color: _getStatusColor(
-                                        myBookings[index]['stl'],
-                                      ),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  "عرض طلب #${myBookings[index]['id']}",
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Text(
-                                  getTimeAgo(
-                                    myBookings[index]['date'],
-                                    myBookings[index]['time'],
-                                  ),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                Icon(
-                                  Iconsax.clock,
-                                  size: 16,
-                                  color: Colors.grey[600],
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  // Divider
-                  Container(
-                    height: 1,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          Colors.grey[300]!,
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  // Bottom Row
-                  // Action Button
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primary.withOpacity(0.8),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ContractScreen(
-                                orderId: myBookings[index]['id'].toString(),
-                              ),
-                            ),
-                          );
-                        },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Iconsax.arrow_left_3,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                "عرض التفاصيل",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final topPad = MediaQuery.paddingOf(context).top;
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F0F1A),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        top: topPad + 16,
+        bottom: 20,
+        left: 16,
+        right: 16,
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'حجوزاتي',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            ),
+            child: Row(
+              children: [
+                _buildTab('الكل', 0),
+                _buildTab('قيد التنفيذ', 1),
+                _buildTab('مكتملة', 2),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, int index) {
+    final bool isActive = _tabController.index == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (_tabController.index != index) {
+            _tabController.animateTo(
+              index,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+            );
+          }
+        },
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFFF37021) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: isActive
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.45),
             ),
           ),
         ),
@@ -449,15 +310,299 @@ class _BookingscreenState extends State<Bookingscreen>
     );
   }
 
-  Color _getStatusColor(String index) {
-    switch (index) {
-      case "0":
-        return Colors.grey;
-      case "9":
-        return Colors.green;
-      default:
-        return Colors.orange;
-    }
+  Widget _buildBookingCard(dynamic booking) {
+    final stl = booking['stl']?.toString() ?? '';
+    final String statusText =
+        (booking['status']?.toString().isNotEmpty ?? false)
+            ? booking['status'].toString()
+            : _getStatusText(stl);
+
+    final bool isDone =
+        stl == '9' ||
+            statusText.contains('مكتمل') ||
+            statusText.toLowerCase().contains('complete');
+    final bool isWaiting =
+        stl == '0' ||
+            statusText.contains('انتظار') ||
+            statusText.contains('إنتظار') ||
+            statusText.toLowerCase().contains('wait');
+    final bool isProgress = !isDone && !isWaiting;
+
+    final Color stripColor = isDone
+        ? const Color(0xFF22C55E)
+        : isProgress
+            ? const Color(0xFFF37021)
+            : const Color(0xFF3B82F6);
+
+    final Color badgeBg = isDone
+        ? const Color(0xFFEDFAF4)
+        : isProgress
+            ? const Color(0xFFFFF7ED)
+            : const Color(0xFFEEF4FF);
+
+    final Color badgeColor = isDone
+        ? const Color(0xFF16A34A)
+        : isProgress
+            ? const Color(0xFFF37021)
+            : const Color(0xFF3B82F6);
+
+    final String badgeText = isDone
+        ? '✓ مكتمل'
+        : isProgress
+            ? '⏳ قيد التنفيذ'
+            : '🕐 قيد الانتظار';
+
+    final int progressPct =
+        isProgress ? _progressPercentFromBooking(booking) : 0;
+
+    final String timeLabel = getTimeAgo(
+      booking['date']?.toString() ?? '',
+      booking['time']?.toString() ?? '',
+    );
+
+    final String orderLabel =
+        'طلب #${booking['id'] ?? booking['order_id'] ?? booking['orderId'] ?? ''}';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _openBookingDetail(booking),
+            child: Column(
+              children: [
+                Container(
+                  height: 5,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerRight,
+                      end: Alignment.centerLeft,
+                      colors: isDone
+                          ? const [Color(0xFF22C55E), Color(0xFF16A34A)]
+                          : isProgress
+                              ? const [Color(0xFFF37021), Color(0xFFFF9A57)]
+                              : const [Color(0xFF3B82F6), Color(0xFF60A5FA)],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              badgeText,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: badgeColor,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            orderLabel,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1A1A2E),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _elevatorTypeLabel(booking),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1A1A2E),
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.elevator_rounded,
+                                size: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'النوع',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: stripColor,
+                            ),
+                          ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.trending_up_rounded,
+                                size: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'الحالة',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (isProgress) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '$progressPct%',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFF37021),
+                              ),
+                            ),
+                            Text(
+                              'نسبة الإنجاز',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: progressPct / 100,
+                            minHeight: 6,
+                            backgroundColor: const Color(0xFFF5F5F5),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFFF37021),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _openBookingDetail(booking),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF0E5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.arrow_back_ios_rounded,
+                                size: 12,
+                                color: Color(0xFFF37021),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isProgress ? 'تابع الطلب' : 'عرض التفاصيل',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFF37021),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.access_time_rounded,
+                            size: 12,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            timeLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   String _getStatusText(String index) {

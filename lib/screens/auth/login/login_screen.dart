@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:Delta/screens/auth/OTP/otp_screen.dart';
 import 'package:Delta/screens/auth/auth_design.dart';
-import 'package:Delta/screens/auth/auth_wave_clipper.dart';
 import 'package:Delta/screens/auth/register/register_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
@@ -177,288 +176,287 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget _authOverlapLogo() {
+    return CircleAvatar(
+      radius: 40,
+      backgroundColor: Colors.white,
+      child: CircleAvatar(
+        radius: 36,
+        backgroundColor: _orange.withOpacity(0.2),
+        child: ClipOval(
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: 50,
+            height: 50,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Image.asset(
+              'assets/img/logo.png',
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.apartment_rounded,
+                color: _orange,
+                size: 40,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final phoneFocused = _phoneFocus.hasFocus;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final whiteCardTop = screenHeight * 0.18;
+    final logoTop = screenHeight * 0.11;
 
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          backgroundColor: Colors.white,
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Scaffold(
+        backgroundColor: _orange,
+        resizeToAvoidBottomInset: false,
+        body: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              SizedBox(height: MediaQuery.paddingOf(context).top),
-              Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  ClipPath(
-                    clipper: AuthWaveHeaderClipper(),
-                    child: Container(
-                      width: double.infinity,
-                      height: 200,
-                      color: _orange,
+              Positioned(
+                top: whiteCardTop,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(25),
+                      topRight: Radius.circular(25),
                     ),
                   ),
-                  Positioned(
-                    bottom: -40,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(
-                            color: const Color(0xFFF37021),
-                            width: 3,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFF37021).withValues(alpha: 0.25),
-                              blurRadius: 20,
-                              spreadRadius: 4,
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => Image.asset(
-                            'assets/img/logo.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => Icon(
-                              Icons.apartment_rounded,
-                              color: _orange.withValues(alpha: 0.85),
-                              size: 40,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 50),
-              Expanded(
-                child: AnimatedPadding(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.only(bottom: bottomInset),
                   child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    padding: EdgeInsets.only(
+                      left: 24,
+                      right: 24,
+                      top: 56,
+                      bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          'DELTA ELEVATORS',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade600,
-                            letterSpacing: 2,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'أهلاً بك ',
-                                style: TextStyle(
-                                  color: _textDark,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 26,
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'مجدداً',
-                                style: const TextStyle(
-                                  color: _orange,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 26,
-                                ),
-                              ),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'سجل دخولك للمتابعة',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        Text(
-                          'رقم الهاتف',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF555555),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOut,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: phoneFocused
-                                ? const Color(0xFFFFF8F4)
-                                : const Color(0xFFF8F8F8),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: _phoneFieldBorderColor(),
-                              width: 1.5,
+                          Text(
+                            'DELTA ELEVATORS',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.grey.shade600,
+                              letterSpacing: 2,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            textDirection: TextDirection.rtl,
-                            children: [
-                              _qatarFlagBadge(),
-                              const SizedBox(width: 8),
-                              const Text(
-                                '+974',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: _textDark,
+                          const SizedBox(height: 16),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'أهلاً بك ',
+                                  style: TextStyle(
+                                    color: _textDark,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 26,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Container(
-                                width: 1,
-                                height: 28,
-                                color: const Color(0xFFE8E8E8),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: phoneController,
-                                  focusNode: _phoneFocus,
-                                  keyboardType: TextInputType.number,
-                                  textDirection: TextDirection.rtl,
-                                  textAlign: TextAlign.right,
+                                TextSpan(
+                                  text: 'مجدداً',
                                   style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                                    color: _orange,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 26,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'سجل دخولك للمتابعة',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          Text(
+                            'رقم الهاتف',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF555555),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOut,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: phoneFocused
+                                  ? const Color(0xFFFFF8F4)
+                                  : const Color(0xFFF8F8F8),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: _phoneFieldBorderColor(),
+                                width: 1.5,
+                              ),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Row(
+                              textDirection: TextDirection.rtl,
+                              children: [
+                                _qatarFlagBadge(),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  '+974',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
                                     color: _textDark,
                                   ),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(8),
-                                  ],
-                                  decoration: const InputDecoration(
-                                    hintText: '12345678',
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    hintStyle: TextStyle(
-                                      color: Color(0xFF9E9E9E),
-                                      fontWeight: FontWeight.w500,
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  width: 1,
+                                  height: 28,
+                                  color: const Color(0xFFE8E8E8),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: phoneController,
+                                    focusNode: _phoneFocus,
+                                    keyboardType: TextInputType.number,
+                                    textDirection: TextDirection.rtl,
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: _textDark,
+                                    ),
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(8),
+                                    ],
+                                    decoration: const InputDecoration(
+                                      hintText: '12345678',
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      hintStyle: TextStyle(
+                                        color: Color(0xFF9E9E9E),
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              _buildValidationIcon(),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        SizedBox(
-                          height: 54,
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: isLoading ? null : _submit,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: _orange,
-                              foregroundColor: Colors.white,
-                              disabledBackgroundColor:
-                                  _orange.withValues(alpha: 0.65),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                                const SizedBox(width: 8),
+                                _buildValidationIcon(),
+                              ],
                             ),
-                            child: isLoading
-                                ? const Center(
-                                    child: SizedBox(
-                                      height: 24,
-                                      width: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: Colors.white,
+                          ),
+                          const SizedBox(height: 28),
+                          SizedBox(
+                            height: 54,
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: isLoading ? null : _submit,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: _orange,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    _orange.withValues(alpha: 0.65),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                              ),
+                              child: isLoading
+                                  ? const Center(
+                                      child: SizedBox(
+                                        height: 24,
+                                        width: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.5,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : const Center(
+                                      child: Text(
+                                        'تسجيل الدخول',
+                                        textDirection: TextDirection.rtl,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
-                                  )
-                                : const Center(
-                                    child: Text(
-                                      'تسجيل الدخول',
-                                      textDirection: TextDirection.rtl,
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 28),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          textDirection: TextDirection.rtl,
-                          children: [
-                            Text(
-                              'ليس لديك حساب؟',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                              ),
                             ),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder: (context) => const RegisterScreen(),
-                                  ),
-                                );
-                              },
-                              child: const Text(
-                                ' أنشئ حساباً الآن',
+                          ),
+                          const SizedBox(height: 28),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Text(
+                                'ليس لديك حساب؟',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: _orange,
+                                  color: Colors.grey.shade600,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: MediaQuery.sizeOf(context).height * 0.08),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute<void>(
+                                      builder: (context) => const RegisterScreen(),
+                                    ),
+                                  );
+                                },
+                                child: const Text(
+                                  ' أنشئ حساباً الآن',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: _orange,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(
+                            height: MediaQuery.sizeOf(context).height * 0.08,
+                          ),
                       ],
                     ),
                   ),
                 ),
+              ),
+              Positioned(
+                top: logoTop,
+                left: 0,
+                right: 0,
+                child: Center(child: _authOverlapLogo()),
               ),
             ],
           ),

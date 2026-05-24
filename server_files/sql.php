@@ -25,6 +25,42 @@ function sanitize($data) {
     return mysqli_real_escape_string($conx, trim($data));
 }
 
+/** Last 8 digits for Qatar local numbers (handles +974 / 974 / spaces). */
+function custAppPhoneCanonical8($raw) {
+    $d = preg_replace('/\D/', '', (string)$raw);
+    if (strlen($d) >= 8) {
+        return substr($d, -8);
+    }
+    return $d;
+}
+
+/**
+ * Match cust_app.a2 whether DB stores "12345678", "97412345678", "+97412345678", etc.
+ */
+function buildCustAppPhoneWhere($conx, $rawPhone) {
+    $digits = preg_replace('/\D/', '', (string)$rawPhone);
+    $last8 = strlen($digits) >= 8 ? substr($digits, -8) : $digits;
+    $variants = array_unique(array_filter([
+        trim((string)$rawPhone),
+        $digits,
+        $last8,
+        '974' . $last8,
+        '+974' . $last8,
+        '00974' . $last8,
+    ], function ($v) {
+        return $v !== '' && $v !== null;
+    }));
+    $parts = [];
+    foreach ($variants as $v) {
+        $e = mysqli_real_escape_string($conx, $v);
+        $parts[] = "a2 = '$e'";
+    }
+    if (empty($parts)) {
+        return '(1=0)';
+    }
+    return '(' . implode(' OR ', $parts) . ')';
+}
+
 function sendResponse($success, $message, $data = null, $userType = null) {
     $response = [
         'success' => $success,
@@ -50,11 +86,17 @@ switch ($action) {
     case 'checkUser':
         checkUser($input);
         break;
+    case 'checkPhone':
+        checkPhoneExists($input);
+        break;
     case 'profile':
         getUserProfile($input);
         break;
     case 'updateProfile':
         updateProfile($input);
+        break;
+    case 'updateName':
+        updateNameOnly($input);
         break;
     case 'groups':
         getGroups($input);
@@ -92,6 +134,9 @@ switch ($action) {
         break;
     case 'getMyBookings':
         getMyBookings($input);
+        break;
+    case 'dashboard':
+        getDashboard($input);
         break;
     case 'getMyBookingOne':
         getMyBookingOne($input);
@@ -168,6 +213,12 @@ switch ($action) {
     case 'getPresignedMaintenanceImageUrl':
         getPresignedMaintenanceImageUrl($input);
         break;
+    case 'getPresignedProfilePhotoUrl':
+        getPresignedProfilePhotoUrl($input);
+        break;
+    case 'updateProfilePhoto':
+        updateProfilePhoto($input);
+        break;
     case 'getMaintenanceImages':
         getMaintenanceImages($input);
         break;
@@ -209,22 +260,21 @@ function handleLogin($input) {
         sendResponse(false, 'Phone and password are required');
     }
     
-    $phone = sanitize($input['phone']);
+    $phoneRaw = trim($input['phone']);
     $playerId = sanitize($input['playerId']);
-    
-    if (!preg_match('/^[0-9]{8}$/', $phone)) {
+    $phone8 = custAppPhoneCanonical8($phoneRaw);
+    if (!preg_match('/^[0-9]{8}$/', $phone8)) {
         sendResponse(false, 'رقم الهاتف يجب أن يكون 8 أرقام');
     }
 
-    
-    $userQuery = "SELECT id, a1, a2, a3, a4, a5, a6 FROM cust_app WHERE a2 = '$phone'";
+    $phoneWhere = buildCustAppPhoneWhere($conx, $phoneRaw);
+    $userQuery = "SELECT id, a1, a2, a3, a4, a5, a6 FROM cust_app WHERE $phoneWhere LIMIT 1";
     $userResult = mysqli_query($conx, $userQuery);
     
     // ✅ الإصلاح: التحقق من النتيجة
     if ($userResult && mysqli_num_rows($userResult) > 0) {
         $user = mysqli_fetch_assoc($userResult);
-        $userIdQuery = $conx->query("SELECT id FROM cust_app WHERE a2 = '$phone'")->fetch_assoc();
-        $idx = $userIdQuery['id'];
+        $idx = (int)$user['id'];
         $conx->query("UPDATE cust_app SET a7 = '$playerId' WHERE id = '$idx'");
         $loginData = [
             'a3' => (int)$user['a3'],
@@ -248,7 +298,8 @@ function handleRegister($input) {
     }
     
     $name = sanitize($input['name']);
-    $phone = sanitize($input['phone']);
+    $phoneRaw = trim($input['phone']);
+    $phoneNorm = sanitize(custAppPhoneCanonical8($phoneRaw));
     $created_at = sanitize($input['created_at']);
     $uid = sanitize($input['uid']);
     $oid = sanitize($input['oid']);
@@ -257,7 +308,8 @@ function handleRegister($input) {
 
 
     
-    $userQuery = "SELECT * FROM cust_app WHERE a2 = '$phone'";
+    $phoneWhere = buildCustAppPhoneWhere($conx, $phoneRaw);
+    $userQuery = "SELECT * FROM cust_app WHERE $phoneWhere LIMIT 1";
     $userResult = $conx->query($userQuery);
 
     if ($userResult && mysqli_num_rows($userResult) > 0) {
@@ -267,13 +319,13 @@ function handleRegister($input) {
         if ($hasName) {
             sendResponse(false, 'المستخدم موجود بالفعل');
         }
-        $delQuery = "DELETE FROM cust_app WHERE a2 = '$phone'";
+        $delQuery = "DELETE FROM cust_app WHERE $phoneWhere";
         if (!mysqli_query($conx, $delQuery)) {
             sendResponse(false, 'حدث خطأ أثناء التسجيل');
         }
     }
 
-    $insertQuery = "INSERT INTO cust_app (a1, a2, a3, a4, a5, a7,  stx) VALUES ('$name', '$phone', '$uid', '$oid', '$created_at', '$playerId', '1')";
+    $insertQuery = "INSERT INTO cust_app (a1, a2, a3, a4, a5, a7,  stx) VALUES ('$name', '$phoneNorm', '$uid', '$oid', '$created_at', '$playerId', '1')";
     if (mysqli_query($conx, $insertQuery)) {
         sendResponse(true, 'تم التسجيل بنجاح');
     } else {
@@ -287,16 +339,44 @@ function handleRegister($input) {
 function checkUser($input) {
     global $conx;
 
-    $phone = sanitize($input['phone']);
-    
-    $userQuery = "SELECT * FROM cust_app WHERE a2 = '$phone'";
+    $phoneRaw = trim($input['phone']);
+    $phoneWhere = buildCustAppPhoneWhere($conx, $phoneRaw);
+    $userQuery = "SELECT * FROM cust_app WHERE $phoneWhere LIMIT 1";
     $userResult = $conx->query($userQuery);
     
     if ($userResult && mysqli_num_rows($userResult) > 0) {
-        sendResponse(true, 'تم التسجيل بنجاح');
+        sendResponse(true, 'المستخدم مسجل');
     } else {
-        sendResponse(false, 'المستخدم موجود بالفعل');
+        sendResponse(false, 'المستخدم غير مسجل');
     }
+}
+
+/**
+ * checkPhone — JSON { "exists": bool }. Table cust_app, column a2 (TRIM match).
+ */
+function checkPhoneExists($input) {
+    global $conx;
+    $phone = isset($input['phone']) ? trim($input['phone']) : '';
+
+    header('Content-Type: application/json; charset=utf-8');
+    if ($phone === '') {
+        echo json_encode(array('exists' => false), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $stmt = $conx->prepare('SELECT id FROM cust_app WHERE TRIM(a2) = ? LIMIT 1');
+    if (!$stmt) {
+        echo json_encode(array('exists' => false), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $stmt->bind_param('s', $phone);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $exists = ($res && mysqli_num_rows($res) > 0);
+    $stmt->close();
+
+    echo json_encode(array('exists' => (bool)$exists), JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 
@@ -313,7 +393,7 @@ function getUserProfile($input) {
         $conx->query("UPDATE cust_app SET a7 = '$play' WHERE a3 = '$uid'");
     }
     
-    $userQuery = "SELECT a1, a2, a5 FROM cust_app WHERE a3 = '$uid'";
+    $userQuery = "SELECT a1, a2, a3, a4, a5, a6 FROM cust_app WHERE a3 = '$uid'";
     $userResult = $conx->query($userQuery);
     $user = mysqli_fetch_assoc($userResult);
     sendResponse(true, 'تم جلب بيانات المستخدم',$user);
@@ -524,6 +604,50 @@ function getMyBookings($input) {
 }
 
 /**
+ * Home dashboard: active / completed bookings (same stl rules as getMyBookings) + last booking date.
+ */
+function getDashboard($input) {
+    global $conx;
+    $uidRaw = isset($input['uid']) ? trim((string)$input['uid']) : '';
+    if ($uidRaw === '') {
+        sendResponse(true, '', array(
+            'active_orders' => 0,
+            'completed_orders' => 0,
+            'last_order_date' => '',
+        ));
+    }
+    $uid = sanitize($uidRaw);
+
+    $active = 0;
+    $completed = 0;
+    $lastDate = '';
+
+    $qActive = "SELECT COUNT(*) AS c FROM bookings WHERE uid = '$uid' AND stl IN ('1','2','3','4','5','6','7','8')";
+    $resA = $conx->query($qActive);
+    if ($resA && ($rowA = mysqli_fetch_assoc($resA))) {
+        $active = (int)$rowA['c'];
+    }
+
+    $qDone = "SELECT COUNT(*) AS c FROM bookings WHERE uid = '$uid' AND stl = '9'";
+    $resD = $conx->query($qDone);
+    if ($resD && ($rowD = mysqli_fetch_assoc($resD))) {
+        $completed = (int)$rowD['c'];
+    }
+
+    $qLast = "SELECT MAX(`date`) AS last_date FROM bookings WHERE uid = '$uid'";
+    $resL = $conx->query($qLast);
+    if ($resL && ($rowL = mysqli_fetch_assoc($resL)) && $rowL['last_date'] !== null && $rowL['last_date'] !== '') {
+        $lastDate = $rowL['last_date'];
+    }
+
+    sendResponse(true, '', array(
+        'active_orders' => $active,
+        'completed_orders' => $completed,
+        'last_order_date' => $lastDate,
+    ));
+}
+
+/**
  * get My Booking
  */
 function getMyBookingOne($input) {
@@ -648,6 +772,20 @@ function updateProfile($input) {
     $mobile = sanitize($input['mobile']);
     $conx->query("UPDATE cust_app SET a1 = '$name', a2 = '$mobile' WHERE a3 = '$uid' ");
     sendResponse(true, 'تم تحديث بياناتك بنجاح');
+}
+
+/**
+ * Update display name only (cust_app.a1). Accepts userId or uid.
+ */
+function updateNameOnly($input) {
+    global $conx;
+    $userId = sanitize(isset($input['userId']) ? $input['userId'] : (isset($input['uid']) ? $input['uid'] : ''));
+    $name = sanitize(isset($input['name']) ? $input['name'] : '');
+    if ($userId === '' || $name === '') {
+        sendResponse(false, 'بيانات ناقصة');
+    }
+    $conx->query("UPDATE cust_app SET a1 = '$name' WHERE a3 = '$userId' ");
+    sendResponse(true, 'تم تحديث الاسم');
 }
 
 /**
@@ -956,6 +1094,44 @@ function getPresignedMaintenanceImageUrl($input) {
     $url = $s3->presignedUploadUrl($key, 'image/jpeg');
 
     echo json_encode(['success' => true, 'url' => $url, 'key' => $key]);
+}
+
+/**
+ * Presigned PUT for profile photo (cust_app.a6). Client uploads then calls updateProfilePhoto.
+ */
+function getPresignedProfilePhotoUrl($input) {
+    $uid = isset($input['userId']) ? sanitize($input['userId']) : (isset($input['uid']) ? sanitize($input['uid']) : '');
+    $extRaw = isset($input['ext']) ? $input['ext'] : 'jpg';
+    $ext = preg_replace('/[^a-z0-9]/i', '', $extRaw);
+    if ($ext === '') {
+        $ext = 'jpg';
+    }
+    $ts = isset($input['ts']) ? sanitize($input['ts']) : (string)round(microtime(true) * 1000);
+    if ($uid === '') {
+        echo json_encode(['success' => false, 'message' => 'uid required']);
+        exit;
+    }
+    $s3 = S3Storage::getInstance();
+    $key = "Mobile_App/Profile/{$uid}/photo_{$ts}.{$ext}";
+    $mime = (strtolower($ext) === 'png') ? 'image/png' : 'image/jpeg';
+    $url = $s3->presignedUploadUrl($key, $mime);
+    $publicUrl = $s3->url($key);
+    echo json_encode(['success' => true, 'url' => $url, 'key' => $key, 'publicUrl' => $publicUrl]);
+    exit;
+}
+
+/**
+ * Save profile image public URL to cust_app.a6 (mysqli).
+ */
+function updateProfilePhoto($input) {
+    global $conx;
+    $uid = sanitize($input['uid'] ?? '');
+    $photo = sanitize($input['photo'] ?? '');
+    if ($uid === '' || $photo === '') {
+        sendResponse(false, 'بيانات ناقصة');
+    }
+    $conx->query("UPDATE cust_app SET a6 = '$photo' WHERE a3 = '$uid'");
+    sendResponse(true, 'تم تحديث الصورة');
 }
 
 function getMaintenanceImages($input) {

@@ -27,7 +27,7 @@ class Address {
 }
 
 class AddressesDisplayWidget extends StatefulWidget {
-  const AddressesDisplayWidget({Key? key}) : super(key: key);
+  const AddressesDisplayWidget({super.key});
 
   @override
   State<AddressesDisplayWidget> createState() => _AddressesDisplayWidgetState();
@@ -369,7 +369,7 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
   }
 
   Widget _buildActionButtonsEmpty(List<Color> gradient) {
-    return Container(
+    return SizedBox(
       height: 50,
       child: _buildActionButton(
         icon: Iconsax.add_circle,

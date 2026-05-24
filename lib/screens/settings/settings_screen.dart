@@ -44,8 +44,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String name = "";
 
   Future getUserProfile({String? playId}) async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    String uid = _prefx.getString("userId") ?? "";
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    String uid = prefx.getString("userId") ?? "";
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "profile", "uid": uid, "playId": playId},
@@ -60,9 +60,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       isLoading = i;
     });
     final currentTab = Provider.of<AppProvider>(context, listen: false);
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    _prefx.remove("userId");
-    _prefx.remove("orderId");
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    prefx.remove("userId");
+    prefx.remove("orderId");
     currentTab.jumpToPagex(0);
     Navigator.pushReplacement(
       context,
@@ -75,14 +75,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       isLoading = i;
     });
     final currentTab = Provider.of<AppProvider>(context, listen: false);
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    var uid = _prefx.get("userId");
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    var uid = prefx.get("userId");
     await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "deleteAccount", "userId": uid},
     );
-    _prefx.remove("userId");
-    _prefx.remove("orderId");
+    prefx.remove("userId");
+    prefx.remove("orderId");
     currentTab.jumpToPagex(0);
     Navigator.pushReplacement(
       context,
@@ -91,8 +91,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future getNotifyStatus() async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    isNotify = _prefx.getInt('isNotify') ?? 0;
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    isNotify = prefx.getInt('isNotify') ?? 0;
     setState(() {});
   }
 
@@ -151,13 +151,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       itemBuilder: (context, i) {
                         return GestureDetector(
                           onTap: () async {
-                            SharedPreferences _prefx =
+                            SharedPreferences prefx =
                                 await SharedPreferences.getInstance();
                             switch (i) {
                               case 4:
                                 if (isNotify == 4) {
                                   isNotify = -1;
-                                  _prefx.setInt('isNotify', isNotify);
+                                  prefx.setInt('isNotify', isNotify);
                                   getUserProfile(playId: "");
                                   getNotifyStatus();
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -169,7 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   setState(() {});
                                 } else {
                                   isNotify = 4;
-                                  _prefx.setInt('isNotify', isNotify);
+                                  prefx.setInt('isNotify', isNotify);
                                   final playerId =
                                       OneSignal.User.pushSubscription.id;
                                   getUserProfile(playId: playerId);

@@ -63,9 +63,9 @@ class LocationService {
         Placemark place = placemarks[0];
 
         String address = '';
-        if (place.street != null) address += place.street! + ', ';
-        if (place.subLocality != null) address += place.subLocality! + ', ';
-        if (place.locality != null) address += place.locality! + ', ';
+        if (place.street != null) address += '${place.street!}, ';
+        if (place.subLocality != null) address += '${place.subLocality!}, ';
+        if (place.locality != null) address += '${place.locality!}, ';
         if (place.country != null) address += place.country!;
 
         return address;
@@ -116,6 +116,8 @@ class LocationService {
 
 // مثال للاستخدام في Widget
 class LocationExample extends StatefulWidget {
+  const LocationExample({super.key});
+
   @override
   _LocationExampleState createState() => _LocationExampleState();
 }

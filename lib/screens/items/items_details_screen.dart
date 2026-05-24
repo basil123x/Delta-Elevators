@@ -115,7 +115,7 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
                             ),
                           );
                         },
-                        child: Container(
+                        child: SizedBox(
                           width: double.maxFinite,
                           height: 200,
                           child: Image.network("https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${itemDetails[0]['id'] ?? ""}/1.jpg"),
@@ -153,7 +153,7 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
                       ),
                       Visibility(
                         visible: itemSela.isNotEmpty ? true : false,
-                        child: Container(
+                        child: SizedBox(
                           height: 150,
                           child: ListView(
                             scrollDirection: Axis.horizontal,

@@ -24,8 +24,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
   List myMaintenance = [];
 
   Future getMyMaintenance() async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    String uid = _prefx.getString("userId") ?? "";
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    String uid = prefx.getString("userId") ?? "";
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {

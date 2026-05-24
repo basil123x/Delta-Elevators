@@ -265,7 +265,7 @@ Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
                             color: AppColors.primary,
                             strokeWidth: 2,
                           ),
-                          child: Container(
+                          child: SizedBox(
                             width: 65,
                             height: 65,
                             child: Center(child: Icon(Iconsax.camera)),
@@ -373,9 +373,9 @@ Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
               child: GestureDetector(
                 onTap: () async {
                   if (globalKey.currentState!.validate()) {
-                    SharedPreferences _prefx =
+                    SharedPreferences prefx =
                         await SharedPreferences.getInstance();
-                    String uid = _prefx.getString("userId") ?? "";
+                    String uid = prefx.getString("userId") ?? "";
                     setState(() {
                       isLoading = true;
                       isLoadingTxt = "جاري رفع طلب الصيانة";
@@ -384,7 +384,7 @@ Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
                       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
                       data: {
                         "action": "addMaintenRequest",
-                        "addressId": _prefx.getString('addId'),
+                        "addressId": prefx.getString('addId'),
                         "descController": descController.text,
                         "dateController": dateController.text,
                         "timeController": timeController.text,

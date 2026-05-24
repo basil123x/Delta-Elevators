@@ -15,7 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CameraWorking extends StatefulWidget {
-  const CameraWorking({Key? key}) : super(key: key);
+  const CameraWorking({super.key});
 
   @override
   State<CameraWorking> createState() => _CameraWorkingState();
@@ -35,7 +35,7 @@ class _CameraWorkingState extends State<CameraWorking> {
 
   // Mode state
   bool isVideoMode = false;
-  Key _cameraKey = UniqueKey();
+  final Key _cameraKey = UniqueKey();
 
   Future<void> requestPermissions() async {
     Map<Permission, PermissionStatus> statuses = await [
@@ -359,7 +359,7 @@ class _CameraWorkingState extends State<CameraWorking> {
                           ),
                         ),
                       ),
-                      onPreparingCamera: (_) => Container(
+                      onPreparingCamera: (_) => SizedBox(
                         width: 80,
                         height: 80,
                         child: CircularProgressIndicator(color: Colors.white),

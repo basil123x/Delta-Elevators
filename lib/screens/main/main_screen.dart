@@ -1,14 +1,10 @@
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/booking/BookingScreen.dart';
 import 'package:Delta/screens/home/home_screen.dart';
 import 'package:Delta/screens/order/order_screen.dart';
 import 'package:Delta/screens/settings/Profile/profile_screen.dart';
 import 'package:Delta/screens/settings/settings_screen.dart';
-import 'package:animated_bottom_navigation_bar/animated_bottom_navigation_bar.dart';
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
-import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 
 class MainScreen extends StatefulWidget {
@@ -19,30 +15,43 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  final autoSizeGroup = AutoSizeGroup();
-  List<Widget> pages = [
-    HomeScreen(),
-    Bookingscreen(),
-    OrderScreen(),
-    SettingsScreen(),
+  static const Color _orange = Color(0xFFF37021);
+
+  final List<Widget> pages = [
+    const HomeScreen(),
+    const Bookingscreen(),
+    const OrderScreen(),
+    const SettingsScreen(),
   ];
 
-  List icons = [
-    Iconsax.home,
-    Iconsax.calendar_search,
-    Iconsax.note_add,
-    Iconsax.setting,
-  ];
-
-  List iconsTxt = [
-    "الرئيسية",
-    "الحجوزات",
-    "تقديم طلب",
-    "الإعدادات",
-  ];
-
-  PageController pageController = PageController();
+  final PageController pageController = PageController();
   int currentPage = 0;
+
+  /// Bottom slots: 0 home, 1 bookings, 2 FAB (profile), 3 order, 4 settings → PageView 0..3
+  int _pageIndexFromNavSlot(int navSlot) {
+    if (navSlot < 2) return navSlot;
+    return navSlot - 1;
+  }
+
+  void _onNavTap(BuildContext context, AppProvider app, int navSlot) {
+    if (navSlot == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(builder: (context) => const ProfileScreen()),
+      );
+      return;
+    }
+    final i = _pageIndexFromNavSlot(navSlot);
+    setState(() {
+      currentPage = i;
+    });
+    pageController.animateToPage(
+      i,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+    app.jumpToPagex(i);
+  }
 
   @override
   void dispose() {
@@ -56,7 +65,6 @@ class _MainScreenState extends State<MainScreen> {
       textDirection: TextDirection.rtl,
       child: Consumer<AppProvider>(
         builder: (context, app, child) {
-          // لو في تغيير من برة (من صفحة تانية)
           if (app.currentTab != currentPage &&
               app.currentTab >= 0 &&
               app.currentTab < pages.length) {
@@ -67,7 +75,7 @@ class _MainScreenState extends State<MainScreen> {
                 });
                 pageController.animateToPage(
                   app.currentTab,
-                  duration: Duration(milliseconds: 200),
+                  duration: const Duration(milliseconds: 200),
                   curve: Curves.easeInOut,
                 );
               }
@@ -75,80 +83,141 @@ class _MainScreenState extends State<MainScreen> {
           }
 
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: const Color(0xFFF2F3F7),
             body: PageView(
-              physics: NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               controller: pageController,
               onPageChanged: (val) {
                 setState(() {
                   currentPage = val;
                 });
-                // حدّث الـ Provider عشان يبقى متزامن
                 app.jumpToPagex(val);
               },
               children: pages,
             ),
-            floatingActionButton: FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfileScreen()),
-                );
-              },
-              elevation: 0,
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(50),
-              ),
-              child: Icon(Iconsax.user, color: Colors.white),
-            ),
-            floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-            bottomNavigationBar: AnimatedBottomNavigationBar.builder(
-              gapLocation: GapLocation.center,
-              notchSmoothness: NotchSmoothness.verySmoothEdge,
-              leftCornerRadius: 32,
-              rightCornerRadius: 32,
-              itemCount: icons.length, tabBuilder: (int index, bool isActive) {
-              
-          final color = isActive
-              ? AppColors.primary
-              : Colors.grey.shade500;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icons[index],
-                size: 24,
-                color: color,
-              ),
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: AutoSizeText(
-                  iconsTxt[index],
-                  maxLines: 1,
-                  style: TextStyle(color: color),
-                  group: autoSizeGroup,
+            bottomNavigationBar: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: Color(0xFFF0F0F0), width: 1),
                 ),
-              )
-            ],
-          );
-        }, activeIndex: currentPage, onTap: (i) {
-                setState(() {
-                  currentPage = i;
-                });
-                pageController.animateToPage(
-                  i,
-                  duration: Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                );
-                // حدّث الـ Provider
-                app.jumpToPagex(i);
-              },),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  height: 60,
+                  child: Row(
+                    children: [
+                      _NavItem(
+                        icon: Icons.home_rounded,
+                        label: 'الرئيسية',
+                        isActive: currentPage == 0,
+                        onTap: () => _onNavTap(context, app, 0),
+                      ),
+                      _NavItem(
+                        icon: Icons.calendar_month_rounded,
+                        label: 'الحجوزات',
+                        isActive: currentPage == 1,
+                        onTap: () => _onNavTap(context, app, 1),
+                      ),
+                      SizedBox(
+                        width: 56,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: GestureDetector(
+                            onTap: () => _onNavTap(context, app, 2),
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: _orange,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFFF5F5F7),
+                                  width: 3,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _orange.withValues(alpha: 0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.add_rounded,
+                                color: Colors.white,
+                                size: 26,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      _NavItem(
+                        icon: Icons.apps_rounded,
+                        label: 'تقديم طلب',
+                        isActive: currentPage == 2,
+                        onTap: () => _onNavTap(context, app, 3),
+                      ),
+                      _NavItem(
+                        icon: Icons.person_outline_rounded,
+                        label: 'الإعدادات',
+                        isActive: currentPage == 3,
+                        onTap: () => _onNavTap(context, app, 4),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           );
         },
       ),
     );
   }
 }
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  static const Color _orange = Color(0xFFF37021);
+  static const Color _muted = Color(0xFFBBBBBB);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: isActive ? _orange : _muted),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: isActive ? _orange : _muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// YqeR-dkt71LsuqVdKQpO9n_Ckq_xEvh6ptYhnF92SQY

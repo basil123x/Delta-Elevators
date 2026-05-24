@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:restart_app/restart_app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shorebird_code_push/shorebird_code_push.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 import 'package:terminate_restart/terminate_restart.dart';
 
 class MyHttpOverrides extends HttpOverrides {
@@ -33,10 +34,23 @@ void main() async {
   PlatformDispatcher.instance.onError = (error, stack) {
     debugPrint('🔴 PLATFORM ERROR: $error');
     debugPrint('🔴 STACK: $stack');
-    return true; // true = اتعاملنا معاه، متوقفش
+    return true;
   };
   HttpOverrides.global = MyHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
+
+  // TEMPORARY - get app signature hash for WhatsApp (use real Android device; see debug console)
+  try {
+    if (Platform.isAndroid) {
+      final signature = await SmsAutoFill().getAppSignature;
+      debugPrint('=============================');
+      debugPrint('APP SIGNATURE HASH: $signature');
+      debugPrint('=============================');
+    }
+  } catch (e, st) {
+    debugPrint('sms_autofill getAppSignature: $e\n$st');
+  }
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitDown,
     DeviceOrientation.portraitUp,

@@ -1,11 +1,6 @@
 import 'package:Delta/constants/app_colors.dart';
-import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/order/addresses_display_screen.dart';
-import 'package:Delta/screens/order/addresses_screen.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class AddressesListScreen extends StatefulWidget {
   const AddressesListScreen({super.key});

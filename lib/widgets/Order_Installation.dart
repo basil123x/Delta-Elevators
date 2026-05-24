@@ -31,7 +31,7 @@ class _OrderInstallationState extends State<OrderInstallation> {
   }
   @override
   Widget build(BuildContext context) {
-    return Expanded(child: Container(
+    return Expanded(child: SizedBox(
       height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,

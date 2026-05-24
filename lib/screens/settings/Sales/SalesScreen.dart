@@ -1,13 +1,9 @@
-import 'dart:math';
 
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/screens/settings/About/contact_menu.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_boxicons/flutter_boxicons.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:pinput/pinput.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SalesScreen extends StatefulWidget {
   const SalesScreen({super.key});

@@ -477,10 +477,10 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
           final isLast = entry.key == rows.length - 1;
           final row = entry.value;
           return _infoRow(
-            icon: row.$1 as IconData,
-            label: row.$2 as String,
+            icon: row.$1,
+            label: row.$2,
             value: row.$3 as String,
-            isOrange: row.$4 as bool,
+            isOrange: row.$4,
             showDivider: !isLast,
           );
         }).toList(),

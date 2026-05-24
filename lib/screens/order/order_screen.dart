@@ -1,15 +1,11 @@
-import 'dart:math';
-
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/items/items_screen.dart';
 import 'package:Delta/screens/order/add_address_screen.dart';
-import 'package:Delta/screens/order/addresses_screen.dart';
+import 'package:Delta/screens/order/addresses_list_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
-import 'package:Delta/services/OneSignalServices.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,8 +26,8 @@ class _OrderScreenState extends State<OrderScreen> {
   List oneAddress = [];
 
   Future getUserProfile() async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    String uid = _prefx.getString("userId") ?? "";
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    String uid = prefx.getString("userId") ?? "";
     print({"action": "profile", "uid": uid});
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
@@ -40,7 +36,7 @@ class _OrderScreenState extends State<OrderScreen> {
       setState(() {
         nameController.text = result.data['data']['a1'];
         mobileController.text = result.data['data']['a2'];
-        addId = _prefx.getString("addId") ?? "";
+        addId = prefx.getString("addId") ?? "";
       });
   }
 
@@ -58,8 +54,8 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 
   Future getMyOrders() async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    String uid = _prefx.getString("userId") ?? "";
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    String uid = prefx.getString("userId") ?? "";
     print({"action": "getOrders", "uid": uid});
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
@@ -138,364 +134,908 @@ class _OrderScreenState extends State<OrderScreen> {
     super.initState();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final currentTab = Provider.of<AppProvider>(context);
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        forceMaterialTransparency: true,
-        backgroundColor: Colors.white,
-        title: Text("طلب عرض"),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
+  String _addrVal(String key) {
+    if (oneAddress.isEmpty) return '—';
+    final v = oneAddress[0][key];
+    if (v == null || v.toString().isEmpty) return '—';
+    return v.toString();
+  }
+
+  Future<void> _openAddressPicker() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddressesListScreen()),
+    );
+    if (result == true && mounted) {
+      await getOneAddress();
+    }
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      color: const Color(0xFFF37021),
+      width: double.infinity,
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top + 12,
+        bottom: 24,
+        left: 16,
+        right: 16,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 320, child: AddressesDisplayWidget()),
-            SizedBox(height: 10),
-            Container(
-              margin: EdgeInsets.symmetric(horizontal: 10),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: -20,
+            right: -20,
+            child: Container(
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: TextField(
-                controller: nameController,
-                keyboardType: TextInputType.name,
-                decoration: InputDecoration(
-                  hintText: 'قم بإدخال إسمك الشخصي',
-                  hintStyle: TextStyle(color: AppColors.textHint),
-                  prefixIcon: Container(
-                    padding: EdgeInsets.all(0),
-                    child: IconButton(
-                      onPressed: () {},
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      splashRadius: 20,
-                      icon: Icon(Iconsax.user, size: 24),
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 20,
-                  ),
-                ),
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.10),
               ),
             ),
-            SizedBox(height: 10),
-            Container(
-              margin: EdgeInsets.symmetric(horizontal: 10),
+          ),
+          Positioned(
+            bottom: -30,
+            left: -10,
+            child: Container(
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: TextField(
-                controller: mobileController,
-                keyboardType: TextInputType.name,
-                decoration: InputDecoration(
-                  hintText: 'قم بإدخال رقمك الشخصي',
-                  hintStyle: TextStyle(color: AppColors.textHint),
-                  prefixIcon: Container(
-                    padding: EdgeInsets.all(0),
-                    child: IconButton(
-                      onPressed: () {},
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      splashRadius: 20,
-                      icon: Icon(Iconsax.mobile, size: 24),
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(9),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 20,
-                  ),
-                ),
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
               ),
             ),
-            SizedBox(height: 10),
-            if (myOrders.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 13,
-                  vertical: 8,
-                ),
-                child: Text("طلباتك"),
-              ),
-            ...List.generate(myOrders.length, (i) {
-              return Column(
+          ),
+          Column(
+            children: [
+              Row(
                 children: [
-                  Container(
-                    margin: EdgeInsets.symmetric(horizontal: 13),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
+                  GestureDetector(
+                    onTap: () => Navigator.maybePop(context),
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.20),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.30),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'تقديم طلب',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 38),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'أدخل بيانات طلبك بدقة',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.75),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(
+    IconData icon,
+    Color iconBg,
+    Color iconColor,
+    String title,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1A1A2E),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _addressCell(
+    IconData icon,
+    Color bg,
+    Color color,
+    String label,
+    String value,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(icon, size: 12, color: color),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1A1A2E),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 9,
+              color: Colors.grey,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddressSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionTitle(
+          Icons.location_on_rounded,
+          const Color(0xFFFFF0E5),
+          const Color(0xFFF37021),
+          'عنوان التركيب',
+        ),
+        Consumer<AppProvider>(
+          builder: (context, app, _) {
+            if (app.currentAdd.isNotEmpty &&
+                oneAddress.isNotEmpty &&
+                app.currentAdd != oneAddress[0]['id'].toString()) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) getOneAddress();
+              });
+            }
+            if (app.currentAdd.isNotEmpty && oneAddress.isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) getOneAddress();
+              });
+            }
+            final selectedCity = oneAddress.isEmpty
+                ? 'اختر العنوان'
+                : _addrVal('city');
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _openAddressPicker,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A2E),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF37021)
+                                  .withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(13),
+                              border: Border.all(
+                                color: const Color(0xFFF37021)
+                                    .withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.language_rounded,
+                              color: Color(0xFFF37021),
+                              size: 20,
+                            ),
+                          ),
+                          const Spacer(),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                'المدينة المحددة',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                selectedCity,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _addressCell(
+                        Icons.grid_view_rounded,
+                        const Color(0xFFFFF0E5),
+                        const Color(0xFFF37021),
+                        'المنطقة',
+                        _addrVal('zone'),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _addressCell(
+                        Icons.drag_handle_rounded,
+                        const Color(0xFFEEF4FF),
+                        const Color(0xFF3B82F6),
+                        'الشارع',
+                        _addrVal('street'),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _addressCell(
+                        Icons.home_rounded,
+                        const Color(0xFFEDFAF4),
+                        const Color(0xFF22C55E),
+                        'المبنى',
+                        _addrVal('building'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AddressFormWidget(),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF0F0),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_circle_outline_rounded,
+                                size: 15,
+                                color: Color(0xFFFF4B4B),
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'إضافة',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFFF4B4B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          if (oneAddress.isEmpty) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddressFormWidget(
+                                id: oneAddress[0]['id'].toString(),
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0EEFF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.edit_rounded,
+                                size: 15,
+                                color: oneAddress.isEmpty
+                                    ? Colors.grey
+                                    : const Color(0xFF8B5CF6),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'تعديل',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: oneAddress.isEmpty
+                                      ? Colors.grey
+                                      : const Color(0xFF8B5CF6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _clientFieldRow({
+    required IconData icon,
+    required Color iconBg,
+    required Color iconColor,
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    required TextInputType keyboardType,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                TextField(
+                  controller: controller,
+                  keyboardType: keyboardType,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A1A2E),
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: TextStyle(color: AppColors.textHint),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClientSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionTitle(
+          Icons.person_outline_rounded,
+          const Color(0xFFEDFAF4),
+          const Color(0xFF22C55E),
+          'بيانات العميل',
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFEBEBEB)),
+          ),
+          child: Column(
+            children: [
+              _clientFieldRow(
+                icon: Icons.person_outline_rounded,
+                iconBg: const Color(0xFFEDFAF4),
+                iconColor: const Color(0xFF22C55E),
+                label: 'الاسم الكامل',
+                controller: nameController,
+                hint: 'قم بإدخال إسمك الشخصي',
+                keyboardType: TextInputType.name,
+              ),
+              const Divider(height: 1, color: Color(0xFFF5F5F5)),
+              _clientFieldRow(
+                icon: Icons.phone_outlined,
+                iconBg: const Color(0xFFFFF0E5),
+                iconColor: const Color(0xFFF37021),
+                label: 'رقم الهاتف',
+                controller: mobileController,
+                hint: 'قم بإدخال رقمك الشخصي',
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProductSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionTitle(
+          Icons.inventory_2_rounded,
+          const Color(0xFFFFF8ED),
+          const Color(0xFFF59E0B),
+          'المنتج المطلوب',
+        ),
+        if (myOrders.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFEBEBEB)),
+            ),
+            child: Column(
+              children: [
+                ...List.generate(myOrders.length, (i) {
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10),
-                                image: DecorationImage(
-                                  image: NetworkImage(
-                                    "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${myOrders[i]['id']}/1.jpg",
+                            Row(
+                              children: [
+                                Container(
+                                  width: 52,
+                                  height: 52,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(10),
+                                    image: DecorationImage(
+                                      image: NetworkImage(
+                                        'https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${myOrders[i]['id']}/1.jpg',
+                                      ),
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
-                                  fit: BoxFit.cover,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  myOrders[i]['a1']?.toString() ?? '',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1A1A2E),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            GestureDetector(
+                              onTap: () async {
+                                await getDio().post(
+                                  'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+                                  data: {
+                                    'action': 'deleteMyOrders',
+                                    'id': myOrders[i]['oid'],
+                                  },
+                                );
+                                getMyOrders();
+                                setState(() {});
+                              },
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: const Color(0xFFEBEBEB),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Iconsax.trash,
+                                  color: Colors.red,
+                                  size: 18,
                                 ),
                               ),
                             ),
-                            SizedBox(width: 10),
-                            Text(myOrders[i]['a1']),
                           ],
                         ),
-                        GestureDetector(
-                          onTap: () async {
-                            await getDio().post(
-                              "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                              data: {
-                                "action": "deleteMyOrders",
-                                "id": myOrders[i]['oid'],
-                              },
-                            );
-                            getMyOrders();
-                            setState(() {});
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(5),
-                              border: Border.all(color: AppColors.primary),
-                            ),
-                            child: Icon(
-                              Iconsax.trash,
-                              color: Colors.red,
-                              size: 19,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // إضافة Divider بعد كل عنصر ماعدا الأخير
-                  if (i < myOrders.length - 1)
-                    Divider(
-                      height: 20,
-                      thickness: 1,
-                      indent: 13,
-                      endIndent: 13,
-                      color: Colors.grey.shade300,
-                    ),
-                ],
-              );
-            }),
-            SizedBox(height: 20),
-            GestureDetector(
-              onTap: () async {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ItemsScreen()),
-                );
-              },
-              child: Container(
-                width: double.maxFinite,
-                margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                padding: EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primary, width: 2),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  "إضافة منتج",
-                  style: TextStyle(fontSize: 20, color: AppColors.primary),
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: () async {
-                if (addId != '' &&
-                    (nameController.text.trim() != '' &&
-                        mobileController.text.trim() != '') &&
-                    myOrders.isNotEmpty) {
-                  setState(() {
-                    isLoading = true;
-                  });
-                  SharedPreferences prefx =
-                      await SharedPreferences.getInstance();
-                  String? addId = prefx.getString("addId");
-                  String? uid = prefx.getString("userId");
-                  String? oid = prefx.getString("orderId");
-
-                  var result = await getDio().post(
-                    "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                    data: {
-                      "action": "addMyBookings",
-                      "addId": addId,
-                      "uid": uid,
-                      "oid": oid,
-                    },
-                  );
-
-                  if (result.data['success'] == true) {
-                    setState(() {
-                      isLoading = false;
-                    });
-                    sendQuotationRequestToTelegram(clientName: nameController.text.trim(), phone: mobileController.text.trim(), city: oneAddress[0]['city'], zone: oneAddress[0]['zone'], street: oneAddress[0]['street'], building: oneAddress[0]['building'], latitude: oneAddress[0]['latitude'], longitude: oneAddress[0]['longitude'], items: myOrders);
-                    currentTab.jumpToPagex(1);
-                    showModalBottomSheet(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (context) {
-                        return Container(
-                          width: double.maxFinite,
-                          padding: EdgeInsets.only(
-                            top: 20,
-                            left: 20,
-                            right: 20,
-                            bottom:
-                                MediaQuery.of(context).viewInsets.bottom +
-                                20, // عشان الكيبورد
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(20),
-                              topRight: Radius.circular(20),
-                            ),
-                          ),
-                          child: SingleChildScrollView(
-                            // أضف scroll
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  "عرض الطلب",
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 10),
-                                Divider(color: Colors.grey.shade300),
-                                SizedBox(height: 20),
-                                // أيقونة النجاح
-                                Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.check_circle,
-                                    color: Colors.green,
-                                    size: 60,
-                                  ),
-                                ),
-                                SizedBox(height: 20),
-                                Text(
-                                  "تم عرض الطلب بنجاح",
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 15),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 10),
-                                  child: Text(
-                                    "يمكنك متابعة حالة الطلب في سجل الحجوزات لديك وشكرا لاستخدامك تطبيق دلتا",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                                SizedBox(height: 25),
-                                // زر سجل الحجوزات
-                                _buildButton(
-                                  text: "سجل الحجوزات",
-                                  color: AppColors.primary,
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                                SizedBox(height: 12),
-                                // زر الرئيسية
-                                _buildOutlineButton(
-                                  text: "الرئيسية",
-                                  color: AppColors.primary,
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    currentTab.jumpToPagex(0);
-                                  },
-                                ),
-                                SizedBox(height: 10),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  }
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("من فضلك أكمل المطلوب")),
-                  );
-                }
-              },
-              child: Container(
-                width: double.maxFinite,
-                margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                padding: EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                alignment: Alignment.center,
-                child: isLoading
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text(
-                        "تقديم الطلب",
-                        style: TextStyle(fontSize: 20, color: Colors.white),
                       ),
+                      if (i < myOrders.length - 1)
+                        const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                    ],
+                  );
+                }),
+              ],
+            ),
+          ),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ItemsScreen()),
+            );
+          },
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: const Color(0xFFF37021),
+                width: 1.5,
               ),
             ),
-            SizedBox(height: 30),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFF0E5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    color: Color(0xFFF37021),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'إضافة منتج',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFFF37021),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _submitOrder(AppProvider currentTab) async {
+    if (addId != '' &&
+        (nameController.text.trim() != '' &&
+            mobileController.text.trim() != '') &&
+        myOrders.isNotEmpty) {
+      setState(() {
+        isLoading = true;
+      });
+      final SharedPreferences prefx = await SharedPreferences.getInstance();
+      final String? addIdPref = prefx.getString('addId');
+      final String? uid = prefx.getString('userId');
+      final String? oid = prefx.getString('orderId');
+
+      final result = await getDio().post(
+        'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+        data: {
+          'action': 'addMyBookings',
+          'addId': addIdPref,
+          'uid': uid,
+          'oid': oid,
+        },
+      );
+
+      if (result.data['success'] == true) {
+        setState(() {
+          isLoading = false;
+        });
+        await sendQuotationRequestToTelegram(
+          clientName: nameController.text.trim(),
+          phone: mobileController.text.trim(),
+          city: oneAddress[0]['city'],
+          zone: oneAddress[0]['zone'],
+          street: oneAddress[0]['street'],
+          building: oneAddress[0]['building'],
+          latitude: oneAddress[0]['latitude'],
+          longitude: oneAddress[0]['longitude'],
+          items: myOrders,
+        );
+        currentTab.jumpToPagex(1);
+        if (!mounted) return;
+        showModalBottomSheet(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (context) {
+            return Container(
+              width: double.maxFinite,
+              padding: EdgeInsets.only(
+                top: 20,
+                left: 20,
+                right: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'عرض الطلب',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Divider(color: Colors.grey.shade300),
+                    const SizedBox(height: 20),
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 60,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'تم عرض الطلب بنجاح',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        'يمكنك متابعة حالة الطلب في سجل الحجوزات لديك وشكرا لاستخدامك تطبيق دلتا',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+                    _buildButton(
+                      text: 'سجل الحجوزات',
+                      color: AppColors.primary,
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildOutlineButton(
+                      text: 'الرئيسية',
+                      color: AppColors.primary,
+                      onTap: () {
+                        Navigator.pop(context);
+                        currentTab.jumpToPagex(0);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('من فضلك أكمل المطلوب')),
+      );
+    }
+  }
+
+  Widget _buildSubmitButton(AppProvider currentTab) {
+    return Container(
+      width: double.infinity,
+      height: 54,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.centerRight,
+          end: Alignment.centerLeft,
+          colors: [Color(0xFFF37021), Color(0xFFFF9A57)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF37021).withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: isLoading ? null : () => _submitOrder(currentTab),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                      SizedBox(width: 10),
+                      Text(
+                        'تقديم الطلب',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentTab = Provider.of<AppProvider>(context);
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF37021),
+        body: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF2F3F7),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(28),
+                    topRight: Radius.circular(28),
+                  ),
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildAddressSection(),
+                      const SizedBox(height: 12),
+                      _buildClientSection(),
+                      const SizedBox(height: 12),
+                      _buildProductSection(),
+                      const SizedBox(height: 14),
+                      _buildSubmitButton(currentTab),
+                      const SizedBox(height: 30),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

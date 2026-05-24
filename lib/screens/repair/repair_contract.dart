@@ -45,8 +45,8 @@ class _RepairContractState extends State<RepairContract> {
   List maintContSt = [];
 
   Future getUserProfile() async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    String uid = _prefx.getString("userId") ?? "";
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    String uid = prefx.getString("userId") ?? "";
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "profile", "uid": uid},
@@ -59,8 +59,8 @@ class _RepairContractState extends State<RepairContract> {
   }
 
   Future getMaintContSt() async {
-    SharedPreferences _prefx = await SharedPreferences.getInstance();
-    String uid = _prefx.getString("userId") ?? "";
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    String uid = prefx.getString("userId") ?? "";
     var data = {
           "action": "getCurrentContractMaint",
           "userId": uid
