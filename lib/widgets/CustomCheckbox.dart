@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
 class CustomCheckbox extends StatefulWidget {
   final String label;
@@ -79,7 +80,7 @@ class _CustomCheckboxState extends State<CustomCheckbox>
                   ),
                 ),
                 child: _checked
-                    ? const Icon(Icons.check, color: Colors.white, size: 16)
+                    ? const Icon(Iconsax.tick_circle, color: Colors.white, size: 16)
                     : null,
               ),
             ),

@@ -3,6 +3,7 @@ import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:iconsax/iconsax.dart';
 
 class OrderCompleted extends StatefulWidget {
   final String bookId;
@@ -36,7 +37,7 @@ class _OrderCompletedState extends State<OrderCompleted> {
           color: Colors.red.shade700,
           borderRadius: BorderRadius.circular(7),
         ),
-        child: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 24),
+        child: const Icon(Iconsax.document, color: Colors.white, size: 24),
       ),
     );
   }

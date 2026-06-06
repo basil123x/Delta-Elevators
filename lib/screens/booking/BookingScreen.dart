@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iconsax/iconsax.dart';
 
 class Bookingscreen extends StatefulWidget {
   const Bookingscreen({super.key});
@@ -115,48 +116,43 @@ class _BookingscreenState extends State<Bookingscreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ContractScreen(
-          orderId: booking['id'].toString(),
-        ),
+        builder: (context) => ContractScreen(orderId: booking['id'].toString()),
       ),
     );
   }
 
   Future<void> getMyBookings() async {
-  // ✅ لو الـ widget اتشال، وقف
-  if (!mounted) return;
-
-  try {
-    SharedPreferences prefx = await SharedPreferences.getInstance();
-    String uid = prefx.getString("userId") ?? "";
-
-    var result = await getDio().post(
-      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-      data: {
-        "action": "getMyBookings",
-        "uid": uid,
-        "indexChanged": _tabController.index,
-      },
-    );
-
-    // ✅ تحقق تاني بعد الـ await لأن الـ widget ممكن يتشال خلال الـ request
+    // ✅ لو الـ widget اتشال، وقف
     if (!mounted) return;
 
-    setState(() {
-      myBookings = result.data['data'] ?? [];
-    });
+    try {
+      SharedPreferences prefx = await SharedPreferences.getInstance();
+      String uid = prefx.getString("userId") ?? "";
 
-  } on DioException catch (e) {
-    if (!mounted) return;
-    // ✅ مش بتعمل setState بـ error، بس توقف الـ loading
-    debugPrint("Booking error: ${e.response?.statusCode} - ${e.message}");
-  } catch (e) {
-    if (!mounted) return;
-    debugPrint("Unexpected error: $e");
+      var result = await getDio().post(
+        "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+        data: {
+          "action": "getMyBookings",
+          "uid": uid,
+          "indexChanged": _tabController.index,
+        },
+      );
+
+      // ✅ تحقق تاني بعد الـ await لأن الـ widget ممكن يتشال خلال الـ request
+      if (!mounted) return;
+
+      setState(() {
+        myBookings = result.data['data'] ?? [];
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+      // ✅ مش بتعمل setState بـ error، بس توقف الـ loading
+      debugPrint("Booking error: ${e.response?.statusCode} - ${e.message}");
+    } catch (e) {
+      if (!mounted) return;
+      debugPrint("Unexpected error: $e");
+    }
   }
-}
-
-  
 
   @override
   void initState() {
@@ -186,37 +182,55 @@ class _BookingscreenState extends State<Bookingscreen>
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF2F3F7),
+        backgroundColor: const Color(0xFFF37021),
         body: Column(
           children: [
             _buildHeader(),
             Expanded(
-              child: myBookings.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SvgPicture.asset('assets/img/icons/no_address.svg'),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'لا يوجد حجوزات بعد',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          const Text('إحجز طلب ثم إرجع لاحقاً'),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
-                      itemCount: myBookings.length,
-                      itemBuilder: (context, index) {
-                        return _buildBookingCard(myBookings[index]);
-                      },
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+                child: Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF2F3F7),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(28),
+                      topRight: Radius.circular(28),
                     ),
+                  ),
+                  child: myBookings.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SvgPicture.asset(
+                                'assets/img/icons/no_address.svg',
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'لا يوجد حجوزات بعد',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text('إحجز طلب ثم إرجع لاحقاً'),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
+                          itemCount: myBookings.length,
+                          itemBuilder: (context, index) {
+                            return _buildBookingCard(myBookings[index]);
+                          },
+                        ),
+                ),
+              ),
             ),
           ],
         ),
@@ -228,8 +242,9 @@ class _BookingscreenState extends State<Bookingscreen>
     final topPad = MediaQuery.paddingOf(context).top;
     return Container(
       width: double.infinity,
+      clipBehavior: Clip.antiAlias,
       decoration: const BoxDecoration(
-        color: Color(0xFF0F0F1A),
+        color: Color(0xFFF37021),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(28),
           bottomRight: Radius.circular(28),
@@ -237,7 +252,7 @@ class _BookingscreenState extends State<Bookingscreen>
       ),
       padding: EdgeInsets.only(
         top: topPad + 16,
-        bottom: 20,
+        bottom: 28,
         left: 16,
         right: 16,
       ),
@@ -255,9 +270,8 @@ class _BookingscreenState extends State<Bookingscreen>
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: Colors.white.withValues(alpha: 0.20),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
             ),
             child: Row(
               children: [
@@ -291,7 +305,7 @@ class _BookingscreenState extends State<Bookingscreen>
           curve: Curves.easeInOut,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFFF37021) : Colors.transparent,
+            color: isActive ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -299,10 +313,8 @@ class _BookingscreenState extends State<Bookingscreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: isActive
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.45),
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive ? const Color(0xFFF37021) : Colors.white,
             ),
           ),
         ),
@@ -314,46 +326,47 @@ class _BookingscreenState extends State<Bookingscreen>
     final stl = booking['stl']?.toString() ?? '';
     final String statusText =
         (booking['status']?.toString().isNotEmpty ?? false)
-            ? booking['status'].toString()
-            : _getStatusText(stl);
+        ? booking['status'].toString()
+        : _getStatusText(stl);
 
     final bool isDone =
         stl == '9' ||
-            statusText.contains('مكتمل') ||
-            statusText.toLowerCase().contains('complete');
+        statusText.contains('مكتمل') ||
+        statusText.toLowerCase().contains('complete');
     final bool isWaiting =
         stl == '0' ||
-            statusText.contains('انتظار') ||
-            statusText.contains('إنتظار') ||
-            statusText.toLowerCase().contains('wait');
+        statusText.contains('انتظار') ||
+        statusText.contains('إنتظار') ||
+        statusText.toLowerCase().contains('wait');
     final bool isProgress = !isDone && !isWaiting;
 
     final Color stripColor = isDone
         ? const Color(0xFF22C55E)
         : isProgress
-            ? const Color(0xFFF37021)
-            : const Color(0xFF3B82F6);
+        ? const Color(0xFFF37021)
+        : const Color(0xFF3B82F6);
 
     final Color badgeBg = isDone
         ? const Color(0xFFEDFAF4)
         : isProgress
-            ? const Color(0xFFFFF7ED)
-            : const Color(0xFFEEF4FF);
+        ? const Color(0xFFFFF7ED)
+        : const Color(0xFFEEF4FF);
 
     final Color badgeColor = isDone
         ? const Color(0xFF16A34A)
         : isProgress
-            ? const Color(0xFFF37021)
-            : const Color(0xFF3B82F6);
+        ? const Color(0xFFF37021)
+        : const Color(0xFF3B82F6);
 
     final String badgeText = isDone
         ? '✓ مكتمل'
         : isProgress
-            ? '⏳ قيد التنفيذ'
-            : '🕐 قيد الانتظار';
+        ? '⏳ قيد التنفيذ'
+        : '🕐 قيد الانتظار';
 
-    final int progressPct =
-        isProgress ? _progressPercentFromBooking(booking) : 0;
+    final int progressPct = isProgress
+        ? _progressPercentFromBooking(booking)
+        : 0;
 
     final String timeLabel = getTimeAgo(
       booking['date']?.toString() ?? '',
@@ -394,8 +407,8 @@ class _BookingscreenState extends State<Bookingscreen>
                       colors: isDone
                           ? const [Color(0xFF22C55E), Color(0xFF16A34A)]
                           : isProgress
-                              ? const [Color(0xFFF37021), Color(0xFFFF9A57)]
-                              : const [Color(0xFF3B82F6), Color(0xFF60A5FA)],
+                          ? const [Color(0xFFF37021), Color(0xFFFF9A57)]
+                          : const [Color(0xFF3B82F6), Color(0xFF60A5FA)],
                     ),
                   ),
                 ),
@@ -449,7 +462,7 @@ class _BookingscreenState extends State<Bookingscreen>
                           Row(
                             children: [
                               Icon(
-                                Icons.elevator_rounded,
+                                Iconsax.building,
                                 size: 13,
                                 color: Colors.grey.shade600,
                               ),
@@ -480,7 +493,7 @@ class _BookingscreenState extends State<Bookingscreen>
                           Row(
                             children: [
                               Icon(
-                                Icons.trending_up_rounded,
+                                Iconsax.chart_2,
                                 size: 13,
                                 color: Colors.grey.shade600,
                               ),
@@ -542,7 +555,10 @@ class _BookingscreenState extends State<Bookingscreen>
                 ],
                 const Divider(height: 1, color: Color(0xFFF5F5F5)),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -560,7 +576,7 @@ class _BookingscreenState extends State<Bookingscreen>
                           child: Row(
                             children: [
                               const Icon(
-                                Icons.arrow_back_ios_rounded,
+                                Iconsax.arrow_right_3,
                                 size: 12,
                                 color: Color(0xFFF37021),
                               ),
@@ -580,7 +596,7 @@ class _BookingscreenState extends State<Bookingscreen>
                       Row(
                         children: [
                           Icon(
-                            Icons.access_time_rounded,
+                            Iconsax.clock,
                             size: 12,
                             color: Colors.grey.shade400,
                           ),

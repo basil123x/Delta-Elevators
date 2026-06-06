@@ -1,9 +1,7 @@
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/order/add_address_screen.dart';
 import 'package:Delta/screens/order/addresses_list_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
@@ -34,7 +32,19 @@ class AddressesDisplayWidget extends StatefulWidget {
 }
 
 class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
+  static const Color _orange = Color(0xFFF37021);
+  static const Color _textDark = Color(0xFF1A1A2E);
+
   List oneAddress = [];
+
+  BoxDecoration get _outerCardDecoration => BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(20),
+    border: Border.all(color: const Color(0xFFEBEBEB)),
+    boxShadow: const [
+      BoxShadow(color: Color(0x0D000000), blurRadius: 8, offset: Offset(0, 2)),
+    ],
+  );
 
   Future getOneAddress() async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
@@ -53,11 +63,37 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
     super.initState();
   }
 
+  Widget _sectionHeader() {
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Icon(Iconsax.location, color: _orange, size: 20),
+        SizedBox(width: 8),
+        Text(
+          'عنوان التركيب',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: _textDark,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Column(children: [Expanded(child: _buildAddressesList())]),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          clipBehavior: Clip.none,
+          decoration: _outerCardDecoration,
+          padding: const EdgeInsets.all(12),
+          child: _buildAddressesList(),
+        ),
+      ),
     );
   }
 
@@ -68,16 +104,6 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
   }
 
   Widget _buildAddressCard(List address) {
-    final gradients = [
-      [const Color(0xFF667EEA), const Color(0xFF764BA2)],
-      [const Color(0xFFF093FB), const Color(0xFFF5576C)],
-      [const Color(0xFF4FACFE), const Color(0xFF00F2FE)],
-      [const Color(0xFFFA709A), const Color(0xFFFEE140)],
-      [const Color(0xFF30CFD0), const Color(0xFF330867)],
-    ];
-
-    final gradient = gradients[0 % gradients.length];
-
     return GestureDetector(
       onTap: () async {
         final result = await Navigator.push(
@@ -85,97 +111,59 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
           MaterialPageRoute(builder: (context) => AddressesListScreen()),
         );
         if (result == true) {
-          await getOneAddress(); // ← هنا الحل
+          await getOneAddress();
         }
       },
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Consumer<AppProvider>(
-            builder: (context, app, child) {
-              if (app.currentAdd.isNotEmpty && app.currentAdd != oneAddress[0]['id'].toString()) {
-                Future.microtask(() => getOneAddress());
-              }
-              return Column(
+      child: Consumer<AppProvider>(
+        builder: (context, app, child) {
+          if (app.currentAdd.isNotEmpty &&
+              app.currentAdd != oneAddress[0]['id'].toString()) {
+            Future.microtask(() => getOneAddress());
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _sectionHeader(),
+              const SizedBox(height: 12),
+              _buildCityCard(address[0]['city'].toString()),
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        _buildAddressDetail(
-                          icon: Iconsax.global,
-                          label: 'المدينة',
-                          value: address[0]['city'],
-                          color: gradient[0],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildAddressDetail2(
-                                icon: Iconsax.map,
-                                label: 'المنطقة',
-                                value: address[0]['zone'],
-                                color: gradient[0],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildAddressDetail2(
-                                icon: Iconsax.signpost,
-                                label: 'الشارع',
-                                value: address[0]['street'],
-                                color: gradient[1],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildAddressDetail2(
-                                icon: Iconsax.building,
-                                label: 'المبنى',
-                                value: address[0]['building'],
-                                color: gradient[1],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 17),
-                        _buildActionButtons(address, gradient),
-                      ],
+                  Expanded(
+                    child: _buildSmallField(
+                      icon: Iconsax.home_2,
+                      label: 'المنطقة',
+                      value: address[0]['zone'].toString(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildSmallField(
+                      icon: Iconsax.map,
+                      label: 'الشارع',
+                      value: address[0]['street'].toString(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildSmallField(
+                      icon: Iconsax.building,
+                      label: 'المبنى',
+                      value: address[0]['building'].toString(),
                     ),
                   ),
                 ],
-              );
-            },
-          ),
-        ),
+              ),
+              const SizedBox(height: 12),
+              _buildActionButtons(address),
+            ],
+          );
+        },
       ),
     );
   }
 
   Widget _buildAddressCardEmpty() {
-    final gradients = [
-      [const Color(0xFF667EEA), const Color(0xFF764BA2)],
-      [const Color(0xFFF093FB), const Color(0xFFF5576C)],
-      [const Color(0xFF4FACFE), const Color(0xFF00F2FE)],
-      [const Color(0xFFFA709A), const Color(0xFFFEE140)],
-      [const Color(0xFF30CFD0), const Color(0xFF330867)],
-    ];
-
-    final gradient = gradients[0 % gradients.length];
-
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -183,148 +171,109 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
           MaterialPageRoute(builder: (context) => AddressesListScreen()),
         );
       },
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
+      child: Consumer<AppProvider>(
+        builder: (context, app, child) {
+          if (app.currentAdd.isNotEmpty && oneAddress.isEmpty) {
+            Future.microtask(() => getOneAddress());
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _sectionHeader(),
+              const SizedBox(height: 12),
+              _buildCityCard('اختر العنوان'),
+              const SizedBox(height: 12),
+              _buildActionButtonsEmpty(),
             ],
-          ),
-          child: Consumer<AppProvider>(
-            builder: (context, app, child) {
-              if (app.currentAdd.isNotEmpty && oneAddress.isEmpty) {
-                Future.microtask(() => getOneAddress());
-              }
-              return Container(
-                padding: EdgeInsets.all(10),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Center(
-                          child: Text(
-                            "Select Your Address",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 17),
-                    _buildActionButtonsEmpty(gradient),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildAddressDetail({
-    IconData? icon,
-    String? label,
-    String? value,
-    Color? color,
-  }) {
+  Widget _buildCityCard(String city) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color!.withOpacity(0.2), width: 1.5),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: const Color(0xFFFFF0E5),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: const Icon(Iconsax.global, color: _orange, size: 20),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label ?? "",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w600,
-                  ),
+          const Spacer(),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Text(
+                'المدينة المحددة',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF888888),
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  value ?? "",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C3E50),
-                  ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                city,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: _textDark,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAddressDetail2({
-    IconData? icon,
-    String? label,
-    String? value,
-    Color? color,
+  Widget _buildSmallField({
+    required IconData icon,
+    required String label,
+    required String value,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color!.withOpacity(0.2), width: 1.5),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
       ),
-      child: Row(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  label ?? "",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value ?? "",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C3E50),
-                  ),
-                ),
-              ],
+          Icon(icon, color: _orange, size: 18),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: _textDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF888888),
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -332,14 +281,15 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
     );
   }
 
-  Widget _buildActionButtons(address, List<Color> gradient) {
+  Widget _buildActionButtons(address) {
     return Row(
       children: [
         Expanded(
-          child: _buildActionButton(
-            icon: Icons.edit,
+          child: _buildFlatActionButton(
+            icon: Iconsax.edit_2,
             label: 'تعديل',
-            gradient: gradient,
+            backgroundColor: const Color(0xFFF3EEFF),
+            textColor: const Color(0xFF6366F1),
             onTap: () {
               Navigator.push(
                 context,
@@ -352,10 +302,11 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _buildActionButton(
+          child: _buildFlatActionButton(
             icon: Iconsax.add_circle,
             label: 'إضافة',
-            gradient: [Colors.red[400]!, Colors.red[600]!],
+            backgroundColor: const Color(0xFFFFEEEE),
+            textColor: const Color(0xFFEF4444),
             onTap: () {
               Navigator.push(
                 context,
@@ -368,13 +319,14 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
     );
   }
 
-  Widget _buildActionButtonsEmpty(List<Color> gradient) {
+  Widget _buildActionButtonsEmpty() {
     return SizedBox(
-      height: 50,
-      child: _buildActionButton(
+      height: 44,
+      child: _buildFlatActionButton(
         icon: Iconsax.add_circle,
         label: 'إضافة',
-        gradient: [Colors.red[400]!, Colors.red[600]!],
+        backgroundColor: const Color(0xFFFFEEEE),
+        textColor: const Color(0xFFEF4444),
         onTap: () {
           Navigator.push(
             context,
@@ -385,41 +337,35 @@ class _AddressesDisplayWidgetState extends State<AddressesDisplayWidget> {
     );
   }
 
-  Widget _buildActionButton({
+  Widget _buildFlatActionButton({
     required IconData icon,
     required String label,
-    required List<Color> gradient,
+    required Color backgroundColor,
+    required Color textColor,
     required VoidCallback onTap,
   }) {
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: gradient),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: gradient[0].withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+        onTap: onTap,
+        child: Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white, size: 20),
+              Icon(icon, color: textColor, size: 18),
               const SizedBox(width: 8),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
                 ),
               ),
             ],

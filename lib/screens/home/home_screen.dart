@@ -11,6 +11,7 @@ import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iconsax/iconsax.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -216,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
                     ),
                     child: const Icon(
-                      Icons.notifications_none_rounded,
+                      Iconsax.notification,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -413,7 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Row(
           children: [
-            const Icon(Icons.search_rounded, color: Color(0xFFCCCCCC), size: 20),
+            const Icon(Iconsax.search_normal, color: Color(0xFFCCCCCC), size: 20),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
@@ -461,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'طلبات نشطة',
                 iconBg: const Color(0xFFFFF0E5),
                 iconColor: const Color(0xFFF37021),
-                icon: Icons.access_time_rounded,
+                icon: Iconsax.clock,
               ),
             ),
             const SizedBox(width: 10),
@@ -471,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: 'مكتملة',
                 iconBg: const Color(0xFFEDFAF4),
                 iconColor: const Color(0xFF22C55E),
-                icon: Icons.check_rounded,
+                icon: Iconsax.tick_circle,
               ),
             ),
           ],
@@ -639,7 +640,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _ServiceRow(
                 color: const Color(0xFFF37021),
                 iconBg: const Color(0xFFFFF0E5),
-                icon: Icons.build_rounded,
+                icon: Iconsax.setting,
                 name: 'صيانة المصاعد',
                 desc: 'طلب صيانة عاجلة أو دورية',
                 onTap: () => _navigateService(const RepairFirst()),
@@ -648,7 +649,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _ServiceRow(
                 color: const Color(0xFF3B82F6),
                 iconBg: const Color(0xFFEEF4FF),
-                icon: Icons.inventory_2_rounded,
+                icon: Iconsax.box,
                 name: 'المنتجات',
                 desc: 'تصفح مصاعدنا وأنظمة التحكم',
                 onTap: () => _navigateService(const ItemsScreen()),
@@ -657,7 +658,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _ServiceRow(
                 color: const Color(0xFF22C55E),
                 iconBg: const Color(0xFFEDFAF4),
-                icon: Icons.chat_bubble_outline_rounded,
+                icon: Iconsax.message,
                 name: 'شكاوي واقتراحات',
                 desc: 'تواصل معنا وأرسل ملاحظاتك',
                 onTap: () => _navigateService(const ComplaintScreen()),
@@ -666,7 +667,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _ServiceRow(
                 color: const Color(0xFFF59E0B),
                 iconBg: const Color(0xFFFFF8ED),
-                icon: Icons.trending_up_rounded,
+                icon: Iconsax.chart_2,
                 name: 'قسم المبيعات',
                 desc: 'تواصل مع فريق المبيعات',
                 onTap: () => _navigateService(const SalesScreen()),
@@ -675,7 +676,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _ServiceRow(
                 color: const Color(0xFF8B5CF6),
                 iconBg: const Color(0xFFF3EEFF),
-                icon: Icons.info_outline_rounded,
+                icon: Iconsax.info_circle,
                 name: 'حول الشركة',
                 desc: 'تعرف على دلتا لتكنولوجيا المصاعد',
                 onTap: () => _navigateService(const AboutScreen()),
@@ -696,8 +697,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildStats(),
           _buildPromoSlider(),
           _buildServicesSection(),
-        ] else
-          SearchScreen(searchItemsList: searchItemsList),
+        ],
       ],
     );
   }
@@ -723,18 +723,32 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 clipBehavior: Clip.hardEdge,
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(0, 18, 0, bottomPad),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildBodyContent(),
-                        const SizedBox(height: 100),
-                      ],
-                    ),
-                  ),
-                ),
+                child: isSearch
+                    ? Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 18),
+                            child: _buildSearchField(),
+                          ),
+                          Expanded(
+                            child: SearchScreen(
+                              searchItemsList: searchItemsList,
+                            ),
+                          ),
+                        ],
+                      )
+                    : SingleChildScrollView(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(0, 18, 0, bottomPad),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildBodyContent(),
+                              const SizedBox(height: 100),
+                            ],
+                          ),
+                        ),
+                      ),
               ),
             ),
           ],
@@ -889,8 +903,8 @@ class _ServiceRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(9),
               ),
               child: const Icon(
-                Icons.arrow_forward_ios_rounded,
-                // Icons.arrow_back_ios_new_rounded,
+                Iconsax.arrow_left_3,
+                // Iconsax.arrow_right_3,
                 size: 12,
                 color: Color(0xFFBBBBBB),
               ),

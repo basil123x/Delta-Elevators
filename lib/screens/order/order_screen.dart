@@ -205,7 +205,7 @@ class _OrderScreenState extends State<OrderScreen> {
                         ),
                       ),
                       child: const Icon(
-                        Icons.arrow_forward_ios_rounded,
+                        Iconsax.arrow_left_3,
                         color: Colors.white,
                         size: 16,
                       ),
@@ -333,7 +333,7 @@ class _OrderScreenState extends State<OrderScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _sectionTitle(
-          Icons.location_on_rounded,
+          Iconsax.location,
           const Color(0xFFFFF0E5),
           const Color(0xFFF37021),
           'عنوان التركيب',
@@ -387,7 +387,7 @@ class _OrderScreenState extends State<OrderScreen> {
                               ),
                             ),
                             child: const Icon(
-                              Icons.language_rounded,
+                              Iconsax.global,
                               color: Color(0xFFF37021),
                               size: 20,
                             ),
@@ -424,7 +424,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   children: [
                     Expanded(
                       child: _addressCell(
-                        Icons.grid_view_rounded,
+                        Iconsax.category,
                         const Color(0xFFFFF0E5),
                         const Color(0xFFF37021),
                         'المنطقة',
@@ -434,7 +434,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: _addressCell(
-                        Icons.drag_handle_rounded,
+                        Iconsax.menu,
                         const Color(0xFFEEF4FF),
                         const Color(0xFF3B82F6),
                         'الشارع',
@@ -444,7 +444,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: _addressCell(
-                        Icons.home_rounded,
+                        Iconsax.home,
                         const Color(0xFFEDFAF4),
                         const Color(0xFF22C55E),
                         'المبنى',
@@ -476,7 +476,7 @@ class _OrderScreenState extends State<OrderScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.add_circle_outline_rounded,
+                                Iconsax.add_circle,
                                 size: 15,
                                 color: Color(0xFFFF4B4B),
                               ),
@@ -518,7 +518,7 @@ class _OrderScreenState extends State<OrderScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.edit_rounded,
+                                Iconsax.edit,
                                 size: 15,
                                 color: oneAddress.isEmpty
                                     ? Colors.grey
@@ -616,7 +616,7 @@ class _OrderScreenState extends State<OrderScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _sectionTitle(
-          Icons.person_outline_rounded,
+          Iconsax.user,
           const Color(0xFFEDFAF4),
           const Color(0xFF22C55E),
           'بيانات العميل',
@@ -630,7 +630,7 @@ class _OrderScreenState extends State<OrderScreen> {
           child: Column(
             children: [
               _clientFieldRow(
-                icon: Icons.person_outline_rounded,
+                icon: Iconsax.user,
                 iconBg: const Color(0xFFEDFAF4),
                 iconColor: const Color(0xFF22C55E),
                 label: 'الاسم الكامل',
@@ -640,7 +640,7 @@ class _OrderScreenState extends State<OrderScreen> {
               ),
               const Divider(height: 1, color: Color(0xFFF5F5F5)),
               _clientFieldRow(
-                icon: Icons.phone_outlined,
+                icon: Iconsax.call,
                 iconBg: const Color(0xFFFFF0E5),
                 iconColor: const Color(0xFFF37021),
                 label: 'رقم الهاتف',
@@ -660,7 +660,7 @@ class _OrderScreenState extends State<OrderScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _sectionTitle(
-          Icons.inventory_2_rounded,
+          Iconsax.box,
           const Color(0xFFFFF8ED),
           const Color(0xFFF59E0B),
           'المنتج المطلوب',
@@ -781,7 +781,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
-                    Icons.add_rounded,
+                    Iconsax.add,
                     color: Color(0xFFF37021),
                     size: 20,
                   ),
@@ -885,7 +885,7 @@ class _OrderScreenState extends State<OrderScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.check_circle,
+                        Iconsax.tick_circle,
                         color: Colors.green,
                         size: 60,
                       ),
@@ -980,7 +980,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.send_rounded, color: Colors.white, size: 18),
+                      Icon(Iconsax.send, color: Colors.white, size: 18),
                       SizedBox(width: 10),
                       Text(
                         'تقديم الطلب',

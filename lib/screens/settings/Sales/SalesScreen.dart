@@ -1,5 +1,5 @@
 
-import 'package:Delta/constants/app_colors.dart';
+import 'package:characters/characters.dart';
 import 'package:Delta/screens/settings/About/contact_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_boxicons/flutter_boxicons.dart';
@@ -13,6 +13,14 @@ class SalesScreen extends StatefulWidget {
 }
 
 class _SalesScreenState extends State<SalesScreen> {
+  static const Color _orange = Color(0xFFF37021);
+  static const Color _bg = Color(0xFFF2F3F7);
+  static const Color _textDark = Color(0xFF1A1A2E);
+  static const Color _textSecondary = Color(0xFF888888);
+  static const Color _border = Color(0xFFEBEBEB);
+  static const Color _green = Color(0xFF22C55E);
+  static const Color _greenBg = Color(0xFFF0FFF4);
+
   TextEditingController userController = TextEditingController();
   TextEditingController mobileController = TextEditingController();
   TextEditingController emailController = TextEditingController();
@@ -25,258 +33,296 @@ class _SalesScreenState extends State<SalesScreen> {
 
   bool isLoading = false;
 
+  String _initials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    return trimmed.characters.first;
+  }
+
+  Widget _floatingIconCircle() {
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFFFFF0E5),
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Iconsax.chart_2,
+        color: _orange,
+        size: 32,
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final topPad = MediaQuery.paddingOf(context).top;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(8, topPad + 8, 8, 52),
+      decoration: const BoxDecoration(
+        color: _orange,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.maybePop(context),
+            icon: const Icon(
+              Iconsax.arrow_right_3,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const Expanded(
+            child: Text(
+              'قسم المبيعات',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSalesCard(Map<String, dynamic> person) {
+    final name = person['name'].toString();
+    final mobile = person['mobile'].toString();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'الإسم',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: _textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Iconsax.call,
+                            size: 14,
+                            color: _textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          const Text(
+                            'الهاتف',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        mobile,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: _textDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFFFF0E5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _initials(name),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: _orange,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Color(0xFFF5F5F5)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      UrlHelper.openPhone(mobile);
+                    },
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _greenBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Iconsax.call, color: _green, size: 18),
+                          SizedBox(width: 6),
+                          Text(
+                            'اتصال',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      UrlHelper.openWhatsApp(
+                        mobile.trim(),
+                        "مرحبا قسم المبيعات",
+                      );
+                    },
+                    child: Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _greenBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Boxicons.bxl_whatsapp,
+                            color: _green,
+                            size: 20,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'واتساب',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _green,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: AppColors.primary,
-        appBar: AppBar(
-          title: Text("قسم المبيعات", style: TextStyle(color: Colors.white)),
-          centerTitle: true,
-          forceMaterialTransparency: true,
-          backgroundColor: AppColors.primary,
-          iconTheme: IconThemeData(color: Colors.white),
-        ),
+        backgroundColor: _orange,
         body: Form(
           key: formkey,
           child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Positioned(
-                top: screenHeight * 0.18,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(25),
-                      topRight: Radius.circular(25),
+              Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(28),
+                        topRight: Radius.circular(28),
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        color: _bg,
+                        child: ListView.separated(
+                          padding:
+                              const EdgeInsets.fromLTRB(16, 50, 16, 24),
+                          itemCount: salesMan.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, i) =>
+                              _buildSalesCard(salesMan[i]),
+                        ),
+                      ),
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      SizedBox(height: 50),
-
-                      Expanded(
-                        child: Container(
-                          margin: EdgeInsets.all(15),
-                          child: SingleChildScrollView(
-                            child: Column(
-                              children: List.generate(salesMan.length, (i) {
-                                return Column(
-                                  children: [
-                                    Container(
-                                      width: double.maxFinite,
-                                      height: 130,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade200,
-                                        borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(10),
-                                          topRight: Radius.circular(10),
-                                        ),
-                                      ),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            margin: EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  "الإسم: ",
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 2),
-                                                Text(
-                                                  salesMan[i]['name'],
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          SizedBox(height: 5),
-                                          Container(
-                                            margin: EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  "رقم الهاتف: ",
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 2),
-                                                Text(
-                                                  salesMan[i]['mobile'],
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.only(
-                                          bottomLeft: Radius.circular(10),
-                                          bottomRight: Radius.circular(10),
-                                        ),
-                                        border: Border.all(
-                                          color: AppColors.primary,
-                                          width: 2,
-                                        ),
-                                        color: Colors.white,
-                                      ),
-                                      height: 40,
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                UrlHelper.openPhone(
-                                                  salesMan[i]['mobile'],
-                                                );
-                                              },
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  border: Border(
-                                                    left: BorderSide(
-                                                      color: AppColors.primary,
-                                                    ),
-                                                  ),
-                                                ),
-                                                child: Icon(
-                                                  Iconsax.call,
-                                                  size: 25,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                UrlHelper.openWhatsApp(
-                                                  salesMan[i]['mobile']
-                                                      .toString()
-                                                      .trim(),
-                                                  "مرحبا قسم المبيعات",
-                                                );
-                                              },
-                                              child: Container(
-                                                child: Icon(
-                                                  Boxicons.bxl_whatsapp,
-                                                  size: 30,
-                                                  color: Color(0xFF1FA015),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    SizedBox(height: 40),
-                                  ],
-                                );
-                              }),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
-
-              // ===== صورة البروفايل في المنتصف =====
               Positioned(
-                top: screenHeight * 0.11,
+                top: MediaQuery.paddingOf(context).top + 72,
                 left: 0,
                 right: 0,
-                child: Center(
-                  child: Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Colors.white,
-                        child: CircleAvatar(
-                          radius: 36,
-                          backgroundColor: AppColors.primary.withOpacity(0.2),
-                          child: Icon(
-                            Iconsax.trend_up,
-                            size: 30,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                child: Center(child: _floatingIconCircle()),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class MyInputCustom extends StatelessWidget {
-  final String iHint;
-  final IconData? iPref;
-  final TextEditingController? iController;
-  final TextInputType? isTyping;
-  final Function(String)? iChanged;
-  final int? iLength;
-  final int? iMax;
-  final String? Function(String?)? iValid;
-  const MyInputCustom({
-    super.key,
-    required this.iHint,
-    this.iPref,
-    this.iController,
-    this.isTyping,
-    this.iChanged,
-    this.iLength,
-    this.iMax,
-    this.iValid,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      validator: iValid,
-      controller: iController,
-      keyboardType: isTyping,
-      onChanged: iChanged,
-      maxLength: iLength,
-      maxLines: iMax,
-      decoration: InputDecoration(
-        counterText: "",
-        filled: true,
-        fillColor: Colors.grey.shade200,
-        border: OutlineInputBorder(
-          borderSide: BorderSide.none,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        hintText: iHint,
-        prefixIcon: Icon(iPref),
       ),
     );
   }

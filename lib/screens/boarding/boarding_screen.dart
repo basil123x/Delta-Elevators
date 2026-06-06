@@ -2,6 +2,7 @@ import 'package:Delta/screens/auth/login/login_screen.dart';
 import 'package:Delta/screens/boarding/onboarding_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iconsax/iconsax.dart';
 
 /// Delta onboarding accent (brand orange).
 const Color _kOnboardingOrange = Color(0xFFF37021);
@@ -272,7 +273,7 @@ class _OnboardingImagePanel extends StatelessWidget {
                   height: double.infinity,
                   errorBuilder: (_, __, ___) => Center(
                     child: Icon(
-                      Icons.image_not_supported_outlined,
+                      Iconsax.image,
                       size: 64,
                       color: Colors.grey.shade500,
                     ),

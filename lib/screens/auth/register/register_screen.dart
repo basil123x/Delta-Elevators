@@ -4,6 +4,7 @@ import 'package:Delta/screens/auth/OTP/otp_screen.dart';
 import 'package:Delta/screens/auth/login/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:iconsax/iconsax.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -79,7 +80,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         color: ok ? const Color(0xFF4CAF50) : const Color(0xFFFF4B4B),
       ),
       child: Icon(
-        ok ? Icons.check : Icons.close,
+        ok ? Iconsax.tick_circle : Iconsax.close_circle,
         color: Colors.white,
         size: 14,
       ),
@@ -105,7 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         color: isValid ? const Color(0xFF4CAF50) : const Color(0xFFFF4B4B),
       ),
       child: Icon(
-        isValid ? Icons.check : Icons.close,
+        isValid ? Iconsax.tick_circle : Iconsax.close_circle,
         color: Colors.white,
         size: 14,
       ),
@@ -172,7 +173,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               height: 50,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) =>
-                  Icon(Icons.apartment_rounded, color: _orange, size: 40),
+                  Icon(Iconsax.building, color: _orange, size: 40),
             ),
           ),
         ),
@@ -308,7 +309,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                 ),
                                 child: Icon(
-                                  Icons.person_outline_rounded,
+                                  Iconsax.user,
                                   color: _orange,
                                   size: 20,
                                 ),
@@ -503,7 +504,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: IconButton(
                   onPressed: () => Navigator.maybePop(context),
                   icon: const Icon(
-                    Icons.arrow_forward_ios_rounded,
+                    Iconsax.arrow_left_3,
                     size: 18,
                     color: Colors.white,
                   ),

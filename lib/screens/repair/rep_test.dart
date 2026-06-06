@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
+import 'package:Delta/screens/repair/repair_theme.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -166,39 +167,52 @@ Future<void> sendTelegramMessageDocs({
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: widget.bookDets.isEmpty
-          ? SizedBox()
-          : Container(
-              margin: EdgeInsets.all(13),
-              child: SingleChildScrollView(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: RepairTheme.bg,
+        appBar: AppBar(
+          backgroundColor: RepairTheme.cardBg,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(
+              Iconsax.arrow_right_3,
+              color: RepairTheme.orange,
+            ),
+            onPressed: () => Navigator.maybePop(context),
+          ),
+          title: Text(
+            "توقيع العقد",
+            style: RepairTheme.cairo(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: RepairTheme.textPrimary,
+            ),
+          ),
+        ),
+        body: widget.bookDets.isEmpty
+            ? const SizedBox()
+            : SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
                 child: Column(
                   children: [
-                    ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadiusGeometry.circular(10),
-                      ),
-                      tileColor: Colors.grey.shade100,
-                      title: Text("الإسم: ${widget.bookDets[0]['a1']}"),
+                    RepairTheme.infoTile(
+                      icon: Iconsax.user,
+                      label: "الإسم",
+                      value: widget.bookDets[0]['a1'].toString(),
                     ),
-                    SizedBox(height: 10),
-                    ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadiusGeometry.circular(10),
-                      ),
-                      tileColor: Colors.grey.shade100,
-                      title: Text("رقم الهاتف: ${widget.bookDets[0]['a2']}"),
+                    RepairTheme.infoTile(
+                      icon: Iconsax.call,
+                      label: "رقم الهاتف",
+                      value: widget.bookDets[0]['a2'].toString(),
                     ),
-                    SizedBox(height: 10),
-                    ListTile(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadiusGeometry.circular(10),
-                      ),
-                      tileColor: Colors.grey.shade100,
-                      title: Text("التاريخ: ${widget.bookDets[0]['date']}"),
+                    RepairTheme.infoTile(
+                      icon: Iconsax.calendar,
+                      label: "التاريخ",
+                      value: widget.bookDets[0]['date'].toString(),
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Expanded(
@@ -237,75 +251,90 @@ Future<void> sendTelegramMessageDocs({
                           : false,
                     ),
                     SizedBox(height: 10),
-                    ClipRRect(
-                      clipBehavior: Clip.none,
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        width: double.maxFinite,
-                        height: 150,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: AppColors.primary,
-                            width: 3,
-                          ),
+                    Container(
+                      width: double.infinity,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: RepairTheme.cardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: RepairTheme.orange,
+                          width: 2,
                         ),
-                        padding: EdgeInsets.all(2),
-                        child:
-                            widget.bookDets[0]['stt'] == '1' ||
-                                stt.toString() == '1'
-                            ? Image.network(
+                      ),
+                      child: widget.bookDets[0]['stt'] == '1' ||
+                              stt.toString() == '1'
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Image.network(
                                 "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/signatures/signature_${widget.bookDets[0]['RepairContract_id']}.png",
-                              )
-                            : Stack(
-                                children: [
-                                  Positioned(
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    child: Center(
-                                      child: Text(
-                                        signText,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                fit: BoxFit.contain,
+                              ),
+                            )
+                          : Stack(
+                              children: [
+                                if (signText.isNotEmpty)
+                                  Center(
+                                    child: Text(
+                                      signText,
+                                      style: RepairTheme.cairo(
+                                        fontSize: 15,
+                                        color: RepairTheme.textSecondary,
+                                        fontStyle: FontStyle.italic,
                                       ),
                                     ),
                                   ),
-
-                                  Signature(
-                                    height: 150,
-                                    controller: signatureController,
-                                    backgroundColor: Colors.transparent,
+                                Signature(
+                                  height: 200,
+                                  controller: signatureController,
+                                  backgroundColor: Colors.transparent,
+                                ),
+                                const Positioned(
+                                  top: 8,
+                                  left: 8,
+                                  child: Icon(
+                                    Iconsax.edit_2,
+                                    color: RepairTheme.orange,
+                                    size: 22,
                                   ),
-                                  if (signText.isEmpty)
-                                    IconButton(
+                                ),
+                                if (signText.isEmpty)
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: IconButton(
                                       onPressed: () {
                                         setState(() {
                                           signText = "قم بالتوقيع هنا";
                                           signatureController.clear();
                                         });
                                       },
-                                      icon: Icon(
+                                      icon: const Icon(
                                         Iconsax.trash,
-                                        color: Colors.red,
+                                        color: Color(0xFFEF4444),
                                       ),
                                     ),
-                                ],
-                              ),
-                      ),
+                                  ),
+                              ],
+                            ),
                     ),
-                    SizedBox(height: 100),
                   ],
                 ),
               ),
-            ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: GestureDetector(
-        onTap: () async {
-          if (isLoadingTxt == "إرسال العقد الى الشركة") {
-            String msg = """
+        bottomNavigationBar: SafeArea(
+          child: RepairTheme.primaryButton(
+          label: isLoadingTxt,
+          loading: isLoading,
+          icon: Iconsax.document_download,
+          gradient: isLoadingTxt == "إرسال العقد الى الشركة" ||
+                  widget.bookDets[0]['stt'] == '1'
+              ? const LinearGradient(
+                  colors: [Color(0xFF189D0E), Color(0xFF22C55E)],
+                )
+              : RepairTheme.primaryGradient,
+          onTap: isLoading ? null : () async {
+            if (isLoadingTxt == "إرسال العقد الى الشركة") {
+              String msg = """
                           🔔 <b>تنبيه داخلي — عقد جديد للتنفيذ</b>
 
                           نُفيدكم بأنه تم إصدار عقد توريد وتركيب مصعد جديد ويستلزم متابعتكم.
@@ -318,71 +347,69 @@ Future<void> sendTelegramMessageDocs({
 
                           يُرجى مراجعة العقد المرفق والتنسيق مع المسؤول لجدولة أعمال التركيب.
                           """;
-            var response = await Dio().get(
-              'https://daltalifts.com/app2026/pdf/index.php?RepairContractId=${widget.bookDets[0]['RepairContract_id']}&sign=1&orderId=${widget.bookDets[0]['orderId']}&ktype=1',
-            );
-            sendTelegramMessageDocs(
-              s3PdfUrl: response.data['url'],
-              message: msg
-            );
-          } else {
-            if (batchController.text.trim().isNotEmpty &&
-                batchController1.text.trim().isNotEmpty &&
-                batchController2.text.trim().isNotEmpty &&
-                signatureController.value.isNotEmpty) {
-              setState(() {
-                isLoading = true;
-                isLoadingTxt = "جاري رفع العقد...";
-              });
-              var data = {
-                "action": "addRepairContract",
-                "a2": widget.bookDets[0]['date'],
-                "a3": widget.bookDets[0]['a1'],
-                "a16": batchController.text.trim(),
-                "a17": batchController1.text.trim(),
-                "a18": batchController2.text.trim(),
-              };
-              var response = await getDio().post(
-                "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                data: data,
+              var response = await Dio().get(
+                'https://daltalifts.com/app2026/pdf/index.php?RepairContractId=${widget.bookDets[0]['RepairContract_id']}&sign=1&orderId=${widget.bookDets[0]['orderId']}&ktype=1',
               );
-              if (response.data['success'] == true) {
-                uploadSignature(response.data['data']['id']);
-              }
+              sendTelegramMessageDocs(
+                s3PdfUrl: response.data['url'],
+                message: msg,
+              );
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("يرجى كتابة الدفعات والتوقيع")),
-              );
+              if (batchController.text.trim().isNotEmpty &&
+                  batchController1.text.trim().isNotEmpty &&
+                  batchController2.text.trim().isNotEmpty &&
+                  signatureController.value.isNotEmpty) {
+                setState(() {
+                  isLoading = true;
+                  isLoadingTxt = "جاري رفع العقد...";
+                });
+                var data = {
+                  "action": "addRepairContract",
+                  "a2": widget.bookDets[0]['date'],
+                  "a3": widget.bookDets[0]['a1'],
+                  "a16": batchController.text.trim(),
+                  "a17": batchController1.text.trim(),
+                  "a18": batchController2.text.trim(),
+                };
+                var response = await getDio().post(
+                  "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                  data: data,
+                );
+                if (response.data['success'] == true) {
+                  uploadSignature(response.data['data']['id']);
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("يرجى كتابة الدفعات والتوقيع"),
+                  ),
+                );
+              }
             }
-          }
-        },
-        child: Container(
-          width: double.maxFinite,
-          height: 60,
-          margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          padding: EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color:
-                isLoadingTxt == "إرسال العقد الى الشركة" ||
-                    widget.bookDets[0]['stt'] == '1'
-                ? Color(0xFF189D0E)
-                : AppColors.primary,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          alignment: Alignment.center,
-          child: isLoading
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(width: 20),
-                    Text(isLoadingTxt, style: TextStyle(color: Colors.white)),
-                  ],
-                )
-              : Text(
-                  isLoadingTxt,
-                  style: TextStyle(fontSize: 18, color: Colors.white),
+          },
+          loadingChild: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
                 ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                isLoadingTxt,
+                style: RepairTheme.cairo(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
         ),
       ),
     );
@@ -411,20 +438,23 @@ class BatchInp extends StatelessWidget {
         enabled: isEnabled,
         decoration: InputDecoration(
           hintText: text,
-          hintStyle: TextStyle(color: AppColors.textHint, letterSpacing: 2),
+          hintStyle: RepairTheme.cairo(
+            color: RepairTheme.hint,
+            fontSize: 14,
+          ),
           filled: true,
-          fillColor: Colors.grey.shade100,
+          fillColor: RepairTheme.cardBg,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: RepairTheme.border),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: RepairTheme.border),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: RepairTheme.orange, width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,

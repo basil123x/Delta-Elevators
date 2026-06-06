@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iconsax/iconsax.dart';
 
 /// استبدل القيمة بمفتاح HERE الفعلي من لوحة تحكم HERE.
 const String kHereReverseGeocodeApiKey =
@@ -34,6 +35,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
   late Animation<Offset> _slideAnimation;
 
   bool _hereReverseLoading = false;
+  bool _isLoading = false;
 
   Future getOneAddress() async {
     var result = await getDio().post(
@@ -207,7 +209,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
                         borderRadius: BorderRadius.circular(11),
                       ),
                       child: const Icon(
-                        Icons.language_rounded,
+                        Iconsax.global,
                         color: Color(0xFF3B82F6),
                         size: 18,
                       ),
@@ -272,7 +274,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
                               ),
                               child: isSelected
                                   ? const Icon(
-                                      Icons.check_rounded,
+                                      Iconsax.tick_circle,
                                       size: 12,
                                       color: Colors.white,
                                     )
@@ -456,8 +458,12 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
   }
 
   Future<void> _onSubmitAddress() async {
-    SharedPreferences prefx = await SharedPreferences.getInstance();
-    if (_formKey.currentState!.validate()) {
+    if (_isLoading) return;
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+    try {
+      SharedPreferences prefx = await SharedPreferences.getInstance();
       var data = {
         "action": widget.id != null ? "updateOneAddress" : "addNewAddress",
         "city": selectedCity,
@@ -473,6 +479,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
         "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
         data: data,
       );
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
@@ -492,6 +499,8 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
         context,
         MaterialPageRoute(builder: (context) => AddressesListScreen()),
       );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -563,89 +572,48 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
   Widget _buildHeader() {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0F0F1A),
+        color: Color(0xFFF37021),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(28),
           bottomRight: Radius.circular(28),
         ),
       ),
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 20,
+        top: MediaQuery.of(context).padding.top + 12,
         bottom: 28,
-        left: 16,
-        right: 16,
+        left: 8,
+        right: 8,
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Column(
         children: [
-          Positioned(
-            top: -25,
-            right: -15,
-            child: Container(
-              width: 90,
-              height: 90,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFF37021).withOpacity(0.08),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -35,
-            left: 10,
-            child: Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFFF37021).withOpacity(0.06),
-              ),
-            ),
-          ),
-          Column(
+          Row(
             children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.maybePop(context),
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 15,
-                        color: Colors.white.withOpacity(0.6),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'إضافة عنوان',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 38),
-                ],
+              IconButton(
+                icon: const Icon(Iconsax.arrow_right_3, color: Colors.white),
+                onPressed: () => Navigator.maybePop(context),
               ),
-              const SizedBox(height: 6),
-              Text(
-                'حدد موقع التركيب بدقة',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.35),
+              const Expanded(
+                child: Text(
+                  'إضافة عنوان',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
+              const SizedBox(width: 48),
             ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'حدد موقع التركيب بدقة',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white.withOpacity(0.8),
+            ),
           ),
         ],
       ),
@@ -659,54 +627,41 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
         width: double.infinity,
         height: 120,
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: const Color(0xFFF5F5F5),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFF37021).withOpacity(0.25)),
+          border: Border.all(color: const Color(0xFFEBEBEB)),
         ),
-        clipBehavior: Clip.hardEdge,
-        child: Stack(
-          fit: StackFit.expand,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CustomPaint(painter: _GridPainter()),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF37021),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFF37021).withOpacity(0.4),
-                          blurRadius: 12,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.location_on_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF37021),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFF37021).withOpacity(0.35),
+                    blurRadius: 12,
+                    spreadRadius: 2,
                   ),
                 ],
               ),
+              child: const Icon(
+                Iconsax.location,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
-            Positioned(
-              bottom: 8,
-              left: 0,
-              right: 0,
-              child: Text(
-                'اضغط لتحديد الموقع على الخريطة',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withOpacity(0.45),
-                  fontWeight: FontWeight.w600,
-                ),
+            const SizedBox(height: 12),
+            const Text(
+              'اضغط لتحديد الموقع على الخريطة',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF888888),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -716,47 +671,46 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
   }
 
   Widget _buildHereAutoLocationButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: OutlinedButton(
-        onPressed: _hereReverseLoading
-            ? null
-            : _fillAddressFromHereReverseGeocode,
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFFF37021),
-          side: const BorderSide(color: Color(0xFFF37021), width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _hereReverseLoading ? null : _fillAddressFromHereReverseGeocode,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          width: double.infinity,
+          height: 52,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF0E5),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFFFD5B5)),
           ),
-          backgroundColor: Colors.white,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (_hereReverseLoading)
-              const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Color(0xFFF37021),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_hereReverseLoading)
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Color(0xFFF37021),
+                  ),
+                )
+              else
+                const Icon(Iconsax.gps, size: 22, color: Color(0xFFF37021)),
+              const SizedBox(width: 10),
+              Text(
+                'تحديد موقعي تلقائياً',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: _hereReverseLoading
+                      ? const Color(0xFFF37021).withOpacity(0.6)
+                      : const Color(0xFFF37021),
                 ),
-              )
-            else
-              const Icon(Icons.my_location_rounded, size: 22),
-            const SizedBox(width: 10),
-            Text(
-              'تحديد موقعي تلقائياً',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: _hereReverseLoading
-                    ? const Color(0xFFF37021).withOpacity(0.6)
-                    : const Color(0xFFF37021),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -770,9 +724,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
         border: Border.all(color: const Color(0xFFEBEBEB)),
       ),
       child: _fieldRow(
-        icon: Icons.language_rounded,
-        iconBg: const Color(0xFFEEF4FF),
-        iconColor: const Color(0xFF3B82F6),
+        icon: Iconsax.global,
         label: 'المدينة',
         child: _cityPickerFormField(),
       ),
@@ -814,7 +766,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
                     ),
                   ),
                   const Icon(
-                    Icons.keyboard_arrow_down_rounded,
+                    Iconsax.arrow_down_2,
                     color: Color(0xFFF37021),
                     size: 24,
                   ),
@@ -851,9 +803,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
       child: Column(
         children: [
           _fieldRow(
-            icon: Icons.grid_view_rounded,
-            iconBg: const Color(0xFFFFF0E5),
-            iconColor: const Color(0xFFF37021),
+            icon: Iconsax.category,
             label: 'المنطقة',
             child: _zoneTextFormField(),
           ),
@@ -864,9 +814,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
             endIndent: 0,
           ),
           _fieldRow(
-            icon: Icons.drag_handle_rounded,
-            iconBg: const Color(0xFFEDFAF4),
-            iconColor: const Color(0xFF22C55E),
+            icon: Iconsax.menu,
             label: 'الشارع',
             child: _streetTextFormField(),
           ),
@@ -877,9 +825,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
             endIndent: 0,
           ),
           _fieldRow(
-            icon: Icons.home_rounded,
-            iconBg: const Color(0xFFF3EEFF),
-            iconColor: const Color(0xFF8B5CF6),
+            icon: Iconsax.home,
             label: 'المبنى',
             child: _buildingTextFormField(),
           ),
@@ -896,9 +842,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
         border: Border.all(color: const Color(0xFFEBEBEB)),
       ),
       child: _fieldRow(
-        icon: Icons.near_me_rounded,
-        iconBg: const Color(0xFFFFF8ED),
-        iconColor: const Color(0xFFF59E0B),
+        icon: Iconsax.gps,
         label: 'الموقع الجغرافي',
         child: _locationTextFormField(),
       ),
@@ -988,8 +932,6 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
 
   Widget _fieldRow({
     required IconData icon,
-    required Color iconBg,
-    required Color iconColor,
     required String label,
     required Widget child,
   }) {
@@ -999,7 +941,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            Icons.arrow_back_ios_new_rounded,
+            Iconsax.arrow_right_3,
             size: 14,
             color: const Color(0xFFE0E0E0),
           ),
@@ -1026,10 +968,10 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: iconBg,
+              color: const Color(0xFFFFF0E5),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: Icon(icon, color: iconColor, size: 20),
+            child: Icon(icon, color: const Color(0xFFF37021), size: 20),
           ),
         ],
       ),
@@ -1059,47 +1001,39 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: _onSubmitAddress,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.location_on_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${widget.id != null ? 'تعديل' : 'إضافة'} العنوان',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
+          onTap: _isLoading ? null : _onSubmitAddress,
+          child: _isLoading
+              ? const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Iconsax.location,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${widget.id != null ? 'تعديل' : 'إضافة'} العنوان',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFF37021).withOpacity(0.12)
-      ..strokeWidth = 0.5;
-    const step = 20.0;
-    for (double x = 0; x < size.width; x += step) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

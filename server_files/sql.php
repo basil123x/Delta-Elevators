@@ -123,6 +123,9 @@ switch ($action) {
     case 'updateOneAddress':
         updateOneAddress($input);
         break;
+    case 'deleteAddress':
+        deleteAddress($input);
+        break;
     case 'getOrders':
         getOrders($input);
         break;
@@ -533,6 +536,22 @@ function updateOneAddress($input) {
     $longitude = sanitize($input['longitude']);
     $conx->query("UPDATE addresses SET zone = '$zone', street = '$street', building = '$building', latitude = '$latitude', longitude = '$longitude' WHERE id = '$uid'");
     sendResponse(true, 'تم تحديث العنوان بنجاح');
+}
+
+/**
+ * delete Address
+ */
+function deleteAddress($input) {
+    global $conx;
+    $id = sanitize($input['id']);
+    $uid = sanitize($input['uid']);
+    $conx->query("DELETE FROM addresses WHERE id = '$id' AND uid = '$uid'");
+    echo json_encode([
+        'status' => 'success',
+        'success' => true,
+        'message' => 'تم حذف العنوان بنجاح',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 /**

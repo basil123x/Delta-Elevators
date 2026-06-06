@@ -1,13 +1,10 @@
 import 'dart:async';
 
-import 'package:Delta/constants/app_colors.dart';
-import 'package:Delta/provider/app_provider.dart';
-import 'package:Delta/screens/repair/repair_contract.dart';
+import 'package:Delta/screens/repair/repair_theme.dart';
 import 'package:Delta/screens/repair/requests/requestScreen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RepairScreen extends StatefulWidget {
@@ -36,34 +33,14 @@ class _RepairScreenState extends State<RepairScreen>
     });
   }
 
-  // Future getContractStatus() async {
-  //   if (!mounted) return;
-  //   SharedPreferences _prefx = await SharedPreferences.getInstance();
-  //   String uid = _prefx.getString("userId") ?? "";
-  //   var result = await getDio().post(
-  //     "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-  //     data: {"action": "getContract", "contractUserId": uid.toString()},
-  //   );
-  //   if (!mounted) return;
-  //   setState(() {
-  //     stx = result.data['data'][0]['stx'].toString();
-  //     if (stx != '0') {
-  //       _timer?.cancel();
-  //     }
-  //   });
-  // }
-
   @override
   void initState() {
-    // getContractStatus();
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _timer = Timer.periodic(Duration(seconds: 5), (timer) {
-      // getContractStatus();
       print("SSSSSSSSS $stx");
     });
   }
-  
 
   @override
   void dispose() {
@@ -76,51 +53,51 @@ class _RepairScreenState extends State<RepairScreen>
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: RepairTheme.bg,
         appBar: AppBar(
+          backgroundColor: RepairTheme.cardBg,
+          elevation: 0,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Iconsax.arrow_right_3, color: RepairTheme.orange),
+            onPressed: () => Navigator.maybePop(context),
+          ),
           title: Text(
             "طلب صيانة",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
+            style: RepairTheme.cairo(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: RepairTheme.textPrimary,
             ),
           ),
-          centerTitle: true,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          bottom:PreferredSize(
-            preferredSize: const Size.fromHeight(60),
-            child: Container(
-              color: Colors.white,
-              child: TabBar(
-                controller: _tabController,
-                labelColor: AppColors.primary,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: AppColors.primary,
-                indicatorWeight: 3,
-                labelStyle: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: GoogleFonts.cairo().fontFamily,
-                ),
-                unselectedLabelStyle: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: GoogleFonts.cairo().fontFamily,
-                ),
-                tabs: const [
-                  Tab(text: "طلب عادي"),
-                  Tab(text: "طلب عاجل"),
-                ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: RepairTheme.orange,
+              unselectedLabelColor: RepairTheme.textSecondary,
+              indicatorColor: RepairTheme.orange,
+              indicatorWeight: 3,
+              labelStyle: RepairTheme.cairo(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
+              unselectedLabelStyle: RepairTheme.cairo(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: RepairTheme.textSecondary,
+              ),
+              tabs: const [
+                Tab(text: "طلب عادي"),
+                Tab(text: "طلب عاجل"),
+              ],
             ),
           ),
         ),
-        body:TabBarView(
-          physics: NeverScrollableScrollPhysics(),
+        body: TabBarView(
+          physics: const NeverScrollableScrollPhysics(),
           controller: _tabController,
-          children: [
+          children: const [
             RequestScreen(type: "Normal"),
             RequestScreen(type: "Urgent"),
           ],
@@ -129,5 +106,3 @@ class _RepairScreenState extends State<RepairScreen>
     );
   }
 }
-
-

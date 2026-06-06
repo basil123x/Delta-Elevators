@@ -1,14 +1,14 @@
 import 'dart:async';
 
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/booking/contract/Contract.dart';
 import 'package:Delta/screens/booking/contract/ContractWait.dart';
 import 'package:Delta/screens/booking/contract/Processing.dart';
 import 'package:Delta/screens/booking/contract/Quotation.dart';
+import 'package:Delta/screens/booking/contract/contract_theme.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 
 class ContractScreen extends StatefulWidget {
@@ -64,7 +64,9 @@ class _ContractScreenState extends State<ContractScreen>
     );
     setState(() {
       myBooking = result.data['data'];
-      if (myBooking.isNotEmpty && myBooking[0]['stx'] != "0" && myBooking[0]['stt'] != "0") {
+      if (myBooking.isNotEmpty &&
+          myBooking[0]['stx'] != "0" &&
+          myBooking[0]['stt'] != "0") {
         _timer?.cancel();
       }
     });
@@ -82,6 +84,7 @@ class _ContractScreenState extends State<ContractScreen>
         return Contract(bookDets: bookDet);
     }
   }
+
   Widget getSwitchPage2() {
     switch (myBooking[0]['stx']) {
       case "0":
@@ -91,14 +94,13 @@ class _ContractScreenState extends State<ContractScreen>
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     print(widget.orderId);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: myBooking.isEmpty
-          ? Scaffold(backgroundColor: Colors.grey[50])
+          ? Scaffold(backgroundColor: ContractTheme.bg)
           : Consumer<AppProvider>(
               builder: (context, app, child) {
                 if (app.currentTab1 >= 0 && app.currentTab1 < 2) {
@@ -115,63 +117,81 @@ class _ContractScreenState extends State<ContractScreen>
                 return GestureDetector(
                   onTap: () => FocusScope.of(context).unfocus(),
                   child: Scaffold(
-                    backgroundColor: Colors.grey[50],
+                    backgroundColor: ContractTheme.bg,
                     appBar: AppBar(
+                      leading: IconButton(
+                        icon: const Icon(
+                          Iconsax.arrow_right_3,
+                          color: ContractTheme.orange,
+                        ),
+                        onPressed: () => Navigator.maybePop(context),
+                      ),
                       title: Text(
-                        myBooking[0]['stx'] == "1" || myBooking[0]['stx'] == "0" ? "طلب عرض سعر" : "طلب رقم ${widget.orderId}",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                        myBooking[0]['stx'] == "1" ||
+                                myBooking[0]['stx'] == "0"
+                            ? "طلب عرض سعر"
+                            : "طلب رقم ${widget.orderId}",
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: ContractTheme.textPrimary,
                         ),
                       ),
                       centerTitle: true,
                       backgroundColor: Colors.white,
                       elevation: 0,
-                      bottom: myBooking[0]['stx'] == "1" || myBooking[0]['stx'] == "0" ? null : PreferredSize(
-                        preferredSize: const Size.fromHeight(60),
-                        child: Container(
-                          color: Colors.white,
-                          child: TabBar(
-                            onTap: (index) {
-                              if (index == 1 && myBooking[0]['stt'] == "0") {
-                                _tabController.animateTo(0);
-                              }
-                            },
-                            controller: _tabController,
-                            labelColor: AppColors.primary,
-                            unselectedLabelColor: Colors.grey,
-                            indicatorColor: AppColors.primary,
-                            indicatorWeight: 3,
-                            labelStyle: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: GoogleFonts.cairo().fontFamily,
-                            ),
-                            unselectedLabelStyle: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: GoogleFonts.cairo().fontFamily,
-                            ),
-                            tabs:  [
-                              Tab(text: "توقيع العقد"),
-                              Tab(
-                                child: Opacity(
-                                  opacity: myBooking[0]['stt'] == "0" ? 0.3 : 1.0,
-                                  child: Text("مراحل التنفيذ"),
-                                ),
+                      bottom: myBooking[0]['stx'] == "1" ||
+                              myBooking[0]['stx'] == "0"
+                          ? null
+                          : PreferredSize(
+                              preferredSize: const Size.fromHeight(49),
+                              child: Column(
+                                children: [
+                                  TabBar(
+                                    onTap: (index) {
+                                      if (index == 1 &&
+                                          myBooking[0]['stt'] == "0") {
+                                        _tabController.animateTo(0);
+                                      }
+                                    },
+                                    controller: _tabController,
+                                    labelColor: ContractTheme.orange,
+                                    unselectedLabelColor:
+                                        ContractTheme.textSecondary,
+                                    indicatorColor: ContractTheme.orange,
+                                    indicatorWeight: 3,
+                                    dividerColor: ContractTheme.border,
+                                    dividerHeight: 1,
+                                    labelStyle: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    unselectedLabelStyle: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    tabs: [
+                                      const Tab(text: "توقيع العقد"),
+                                      Tab(
+                                        child: Opacity(
+                                          opacity: myBooking[0]['stt'] == "0"
+                                              ? 0.3
+                                              : 1.0,
+                                          child: const Text("مراحل التنفيذ"),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
+                            ),
                     ),
                     body: TabBarView(
-                      physics: NeverScrollableScrollPhysics(),
+                      physics: const NeverScrollableScrollPhysics(),
                       controller: _tabController,
                       children: [
                         getSwitchPage1(),
-                        getSwitchPage2()
+                        getSwitchPage2(),
                       ],
                     ),
                   ),

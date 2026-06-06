@@ -1,5 +1,6 @@
 import 'package:Delta/screens/items/items_details_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
 class SearchScreen extends StatefulWidget {
   final List searchItemsList;
@@ -10,63 +11,116 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
+  static const _cardBg = Color(0xFFFFFFFF);
+  static const _border = Color(0xFFEBEBEB);
+  static const _textPrimary = Color(0xFF1A1A2E);
+  static const _placeholder = Color(0xFFF5F5F5);
+  static const _cardShadow = BoxShadow(
+    color: Color(0x0D000000),
+    blurRadius: 8,
+    offset: Offset(0, 2),
+  );
+
+  Widget _imagePlaceholder() {
+    return Container(
+      color: _placeholder,
+      alignment: Alignment.center,
+      child: const Icon(
+        Iconsax.image,
+        color: Color(0xFFCCCCCC),
+        size: 32,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.all(10),
-      child: GridView(
-        shrinkWrap: true,
+    if (widget.searchItemsList.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Iconsax.search_status, size: 64, color: Color(0xFFCCCCCC)),
+            SizedBox(height: 12),
+            Text(
+              'لا توجد نتائج',
+              style: TextStyle(color: Color(0xFF888888), fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: GridView.builder(
+        shrinkWrap: false,
         physics: const AlwaysScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          mainAxisSpacing: 3,
-          crossAxisSpacing: 3,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.78,
         ),
-        children: List.generate(widget.searchItemsList.length, (i) {
+        itemCount: widget.searchItemsList.length,
+        itemBuilder: (context, i) {
+          final id = widget.searchItemsList[i]['id'];
+          final name = widget.searchItemsList[i]['a1'];
+          final imageUrl =
+              'https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/$id/1.jpg';
+
           return GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ItemsDetailsScreen(
-                    itmid: widget.searchItemsList[i]['id'],
-                  ),
+                  builder: (context) => ItemsDetailsScreen(itmid: id),
                 ),
               );
             },
             child: Container(
+              clipBehavior: Clip.hardEdge,
               decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(10),
+                color: _cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _border),
+                boxShadow: const [_cardShadow],
               ),
-              child: Stack(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(10),
-                        image: DecorationImage(
-                          image: NetworkImage(
-                            "https://daltalifts.com/erp2026/assets/items/${widget.searchItemsList[i]['id']}/images/1.jpg",
-                          ),
-                          fit: BoxFit.cover,
-                        ),
-                        color: Colors.red,
-                      ),
+                  Expanded(
+                    flex: 3,
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) return child;
+                        return _imagePlaceholder();
+                      },
+                      errorBuilder: (_, __, ___) => _imagePlaceholder(),
                     ),
                   ),
-                  Positioned(
-                    bottom: 5,
-                    left: 0,
-                    right: 0,
-                    child: Text(
-                      widget.searchItemsList[i]['a1'],
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      color: _cardBg,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        name,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _textPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ),
@@ -74,7 +128,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
           );
-        }),
+        },
       ),
     );
   }

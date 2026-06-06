@@ -1,4 +1,4 @@
-import 'package:Delta/constants/app_colors.dart';
+import 'package:Delta/screens/booking/contract/contract_theme.dart';
 import 'package:Delta/screens/settings/Sales/SalesScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -16,50 +16,60 @@ class _ContractWaitState extends State<ContractWait> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: ContractTheme.bg,
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(height: 50),
                 SvgPicture.asset('assets/img/icons/contract.svg'),
-                SizedBox(height: 30),
-                Text(
+                const SizedBox(height: 24),
+                const Text(
                   "تم تقديم الطلب بالفعل",
-                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: ContractTheme.textPrimary,
+                  ),
                 ),
-                SizedBox(height: 20),
-                Text(
+                const SizedBox(height: 16),
+                const Text(
                   "لقد قمت بتقديم الطلب بالفعل و سيتم الرد عليك خلال 48 ساعة لمعرفة كافة التفاصيل وشكرا لاستخدامك تطبيق دلتا",
-                  style: TextStyle(fontSize: 20),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: ContractTheme.textSecondary,
+                    height: 1.6,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
           ),
         ),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-        floatingActionButton: GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => SalesScreen()),
-            );
-          },
-          child: Container(
-            width: double.maxFinite,
-            height: 60,
-            margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            padding: EdgeInsets.symmetric(vertical: 14),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              "تواصل مع قسم المبيعات",
-              style: TextStyle(fontSize: 20, color: Colors.white),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SalesScreen()),
+                );
+              },
+              child: Container(
+                height: 56,
+                decoration: ContractTheme.primaryGradientButton(),
+                alignment: Alignment.center,
+                child: const Text(
+                  "تواصل مع قسم المبيعات",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ),
           ),
         ),

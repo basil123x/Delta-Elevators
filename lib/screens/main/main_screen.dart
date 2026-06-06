@@ -6,6 +6,7 @@ import 'package:Delta/screens/settings/Profile/profile_screen.dart';
 import 'package:Delta/screens/settings/settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:iconsax/iconsax.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -109,13 +110,13 @@ class _MainScreenState extends State<MainScreen> {
                   child: Row(
                     children: [
                       _NavItem(
-                        icon: Icons.home_rounded,
+                        icon: Iconsax.home,
                         label: 'الرئيسية',
                         isActive: currentPage == 0,
                         onTap: () => _onNavTap(context, app, 0),
                       ),
                       _NavItem(
-                        icon: Icons.calendar_month_rounded,
+                        icon: Iconsax.calendar,
                         label: 'الحجوزات',
                         isActive: currentPage == 1,
                         onTap: () => _onNavTap(context, app, 1),
@@ -146,7 +147,7 @@ class _MainScreenState extends State<MainScreen> {
                                 ],
                               ),
                               child: const Icon(
-                                Icons.add_rounded,
+                                Iconsax.user,
                                 color: Colors.white,
                                 size: 26,
                               ),
@@ -155,13 +156,13 @@ class _MainScreenState extends State<MainScreen> {
                         ),
                       ),
                       _NavItem(
-                        icon: Icons.apps_rounded,
+                        icon: Iconsax.category,
                         label: 'تقديم طلب',
                         isActive: currentPage == 2,
                         onTap: () => _onNavTap(context, app, 3),
                       ),
                       _NavItem(
-                        icon: Icons.person_outline_rounded,
+                        icon: Iconsax.user,
                         label: 'الإعدادات',
                         isActive: currentPage == 3,
                         onTap: () => _onNavTap(context, app, 4),

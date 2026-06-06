@@ -1,6 +1,7 @@
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:iconsax/iconsax.dart';
 
 class OrderPlaying extends StatefulWidget {
   final String bookId;
@@ -45,7 +46,7 @@ class _OrderPlayingState extends State<OrderPlaying> {
                 videoUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => const Icon(
-                  Icons.video_file,
+                  Iconsax.video,
                   color: Colors.white,
                   size: 24,
                 ),
@@ -60,7 +61,7 @@ class _OrderPlayingState extends State<OrderPlaying> {
               color: Colors.black45,
               borderRadius: BorderRadius.circular(7),
             ),
-            child: const Icon(Icons.play_arrow, color: Colors.white, size: 24),
+            child: const Icon(Iconsax.play, color: Colors.white, size: 24),
           ),
         ],
       ),

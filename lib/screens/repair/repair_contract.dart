@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/repair/repair_screen.dart';
+import 'package:Delta/screens/repair/repair_theme.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -205,106 +206,126 @@ Future downloadAndUploadPdf(signId) async {
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: RepairTheme.bg,
           appBar: AppBar(
-            title: Text("توقيع العقد"),
-            backgroundColor: Colors.white,
+            backgroundColor: RepairTheme.cardBg,
+            elevation: 0,
             centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(
+                Iconsax.arrow_right_3,
+                color: RepairTheme.orange,
+              ),
+              onPressed: () => Navigator.maybePop(context),
+            ),
+            title: Text(
+              "توقيع العقد",
+              style: RepairTheme.cairo(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: RepairTheme.textPrimary,
+              ),
+            ),
           ),
-          body: Container(
-                  margin: EdgeInsets.all(13),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadiusGeometry.circular(10),
-                          ),
-                          tileColor: Colors.grey.shade100,
-                          title: Text("الإسم: $userName"),
-                        ),
-                        SizedBox(height: 10),
-                        ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadiusGeometry.circular(10),
-                          ),
-                          tileColor: Colors.grey.shade100,
-                          title: Text("رقم الهاتف: $userPhone"),
-                        ),
-                        SizedBox(height: 10),
-                        ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadiusGeometry.circular(10),
-                          ),
-                          tileColor: Colors.grey.shade100,
-                          title: Text("التاريخ: $contractDate"),
-                        ),
-                        SizedBox(height: 10),
-                        ClipRRect(
-                          clipBehavior: Clip.none,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            width: double.maxFinite,
-                            height: 150,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: AppColors.primary,
-                                width: 3,
-                              ),
-                            ),
-                            padding: EdgeInsets.all(2),
-                            child: Stack(
-                                    children: [
-                                      Positioned(
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        child: Center(
-                                          child: Text(
-                                            signText,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-        
-                                      Signature(
-                                        height: 150,
-                                        controller: signatureController,
-                                        backgroundColor: Colors.transparent,
-                                      ),
-                                      if (signText.isEmpty)
-                                        IconButton(
-                                          onPressed: () {
-                                            setState(() {
-                                              signText = "قم بالتوقيع هنا";
-                                              signatureController.clear();
-                                            });
-                                          },
-                                          icon: Icon(
-                                            Iconsax.trash,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                          ),
-                        ),
-                        SizedBox(height: 100),
-                      ],
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+            child: Column(
+              children: [
+                RepairTheme.infoTile(
+                  icon: Iconsax.user,
+                  label: "الإسم",
+                  value: userName,
+                ),
+                RepairTheme.infoTile(
+                  icon: Iconsax.call,
+                  label: "رقم الهاتف",
+                  value: userPhone,
+                ),
+                RepairTheme.infoTile(
+                  icon: Iconsax.calendar,
+                  label: "التاريخ",
+                  value: contractDate,
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: RepairTheme.cardBg,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: RepairTheme.orange,
+                      width: 2,
+                      style: BorderStyle.solid,
                     ),
                   ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (signText.isNotEmpty)
+                        Center(
+                          child: Text(
+                            signText,
+                            style: RepairTheme.cairo(
+                              fontSize: 15,
+                              color: RepairTheme.textSecondary,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      Signature(
+                        height: 200,
+                        controller: signatureController,
+                        backgroundColor: Colors.transparent,
+                      ),
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Icon(
+                          Iconsax.edit_2,
+                          color: RepairTheme.orange,
+                          size: 22,
+                        ),
+                      ),
+                      if (signText.isEmpty)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: IconButton(
+                            onPressed: () {
+                              setState(() {
+                                signText = "قم بالتوقيع هنا";
+                                signatureController.clear();
+                              });
+                            },
+                            icon: const Icon(
+                              Iconsax.trash,
+                              color: Color(0xFFEF4444),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-          floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-          floatingActionButton: GestureDetector(
-            onTap: () async {
-              SharedPreferences prefx = await SharedPreferences.getInstance();
-              if (isLoadingTxt == "إرسال العقد الى الشركة") {
-                String signId = Provider.of<AppProvider>(context, listen: false).signId;
-                String msg = """
+              ],
+            ),
+          ),
+          bottomNavigationBar: SafeArea(
+            child: RepairTheme.primaryButton(
+              label: isLoadingTxt,
+              loading: isLoading,
+              icon: Iconsax.document_download,
+              onTap: isLoading
+                  ? null
+                  : () async {
+                      SharedPreferences prefx =
+                          await SharedPreferences.getInstance();
+                      if (isLoadingTxt == "إرسال العقد الى الشركة") {
+                        String signId = Provider.of<AppProvider>(
+                          context,
+                          listen: false,
+                        ).signId;
+                        String msg = """
                 🛗 <b>عقد صيانة مصاعد جديد</b>
           
                 نُفيدكم بإصدار عقد صيانة دورية جديد ويستلزم متابعتكم.
@@ -317,71 +338,75 @@ Future downloadAndUploadPdf(signId) async {
           
                 يُرجى مراجعة العقد المرفق والتنسيق مع المسؤول لجدولة زيارات الصيانة.
                 """;
-                var response = await Dio().get(
-                  'https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=${prefx.getString("orderId")}&ktype=2',
-                );
-                sendTelegramMessageDocs(
-                  s3PdfUrl: response.data['url'],
-                  message: msg
-                );
-              } else {
-              if (
-                    signatureController.value.isNotEmpty) {
-                    SharedPreferences prefx = await SharedPreferences.getInstance();
-                    
-                  setState(() {
-                    isLoading = true;
-                    isLoadingTxt = "جاري رفع العقد...";
-                  });
-                  var data = {
-                    "action": "addMaintenanceContract",
-                    "type": "5",
-                    "a2": contractDate,
-                    "a3": userName,
-                    "a19": intlx.DateFormat("yyyy-MM-dd").format(DateTime.now()).toString(),
-                    "a20": intlx.DateFormat("yyyy-MM-dd").format(DateTime.now().add(Duration(days: 365))).toString(),
-                    "a30": prefx.getString("userId"),
-                    
-                  };
-        
-                  var response = await getDio().post(
-                    "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                    data: data,
-                  );
-                  if (response.data['success'] == true) {
-                    Provider.of<AppProvider>(context, listen: false).getSignId(response.data['data']['id'].toString());
-                    uploadSignature(response.data['data']['id']);
-                  }
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("يرجى كتابة الدفعات والتوقيع")),
-                  );
-                }}
-            },
-            child: Container(
-              width: double.maxFinite,
-              height: 60,
-              margin: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              padding: EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color:
-                     AppColors.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: isLoading
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(color: Colors.white),
-                        SizedBox(width: 20),
-                        Text(isLoadingTxt, style: TextStyle(color: Colors.white)),
-                      ],
-                    )
-                  : Text(
-                      isLoadingTxt,
-                      style: TextStyle(fontSize: 18, color: Colors.white),
+                        var response = await Dio().get(
+                          'https://daltalifts.com/app2026/pdf/index.php?contractId=$signId&sign=1&orderId=${prefx.getString("orderId")}&ktype=2',
+                        );
+                        sendTelegramMessageDocs(
+                          s3PdfUrl: response.data['url'],
+                          message: msg,
+                        );
+                      } else {
+                        if (signatureController.value.isNotEmpty) {
+                          setState(() {
+                            isLoading = true;
+                            isLoadingTxt = "جاري رفع العقد...";
+                          });
+                          var data = {
+                            "action": "addMaintenanceContract",
+                            "type": "5",
+                            "a2": contractDate,
+                            "a3": userName,
+                            "a19": intlx.DateFormat("yyyy-MM-dd")
+                                .format(DateTime.now())
+                                .toString(),
+                            "a20": intlx.DateFormat("yyyy-MM-dd")
+                                .format(DateTime.now()
+                                    .add(const Duration(days: 365)))
+                                .toString(),
+                            "a30": prefx.getString("userId"),
+                          };
+
+                          var response = await getDio().post(
+                            "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                            data: data,
+                          );
+                          if (response.data['success'] == true) {
+                            Provider.of<AppProvider>(context, listen: false)
+                                .getSignId(
+                                    response.data['data']['id'].toString());
+                            uploadSignature(response.data['data']['id']);
+                          }
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("يرجى كتابة الدفعات والتوقيع"),
+                            ),
+                          );
+                        }
+                      }
+                    },
+              loadingChild: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    isLoadingTxt,
+                    style: RepairTheme.cairo(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -412,20 +437,20 @@ class BatchInp extends StatelessWidget {
         enabled: isEnabled,
         decoration: InputDecoration(
           hintText: text,
-          hintStyle: TextStyle(color: AppColors.textHint, letterSpacing: 2),
+          hintStyle: RepairTheme.cairo(color: RepairTheme.hint, fontSize: 14),
           filled: true,
-          fillColor: Colors.grey.shade100,
+          fillColor: RepairTheme.cardBg,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: RepairTheme.border),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: RepairTheme.border),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(9),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: RepairTheme.orange, width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,

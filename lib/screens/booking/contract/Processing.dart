@@ -1,3 +1,4 @@
+import 'package:Delta/screens/booking/contract/contract_theme.dart';
 import 'package:Delta/widgets/Order_Timeline.dart';
 import 'package:flutter/material.dart';
 
@@ -11,7 +12,6 @@ class Processing extends StatefulWidget {
 
 class _ProcessingState extends State<Processing> {
   String caseTitle = "";
-  
 
   @override
   Widget build(BuildContext context) {
@@ -46,12 +46,18 @@ class _ProcessingState extends State<Processing> {
       default:
     }
     return Scaffold(
-      backgroundColor: Colors.white,
-      body:SingleChildScrollView(
-              child: Column(
-                children: [OrderTimelineWidget(currentStatus: caseTitle, bookId: widget.bookDets[0]['id'])],
-              ),
+      backgroundColor: ContractTheme.bg,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            OrderTimelineWidget(
+              currentStatus: caseTitle,
+              bookId: widget.bookDets[0]['id'],
             ),
+          ],
+        ),
+      ),
     );
   }
 }

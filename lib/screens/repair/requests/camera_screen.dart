@@ -168,7 +168,18 @@ class _CameraWorkingState extends State<CameraWorking> {
 
   Widget _buildTopActions(CameraState state) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withOpacity(0.65),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: SafeArea(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -182,18 +193,18 @@ class _CameraWorkingState extends State<CameraWorking> {
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.black54,
+                    color: Colors.black.withOpacity(0.45),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    Iconsax.arrow_left_3,
+                  child: const Icon(
+                    Iconsax.arrow_right_3,
                     color: Colors.white,
                     size: 24,
                   ),
                 ),
               )
             else
-              SizedBox(width: 48),
+              const SizedBox(width: 48),
 
             // Visit info (hidden during recording)
             if (!isRecording)
@@ -312,8 +323,21 @@ class _CameraWorkingState extends State<CameraWorking> {
 
                     // Center: Capture button
                     state.when(
-                      onPhotoMode: (photoState) =>
-                          AwesomeCaptureButton(state: state),
+                      onPhotoMode: (photoState) => GestureDetector(
+                        onTap: () => photoState.takePhoto(),
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.35),
+                              width: 4,
+                            ),
+                          ),
+                        ),
+                      ),
                       onVideoMode: (videoState) => GestureDetector(
                         onTap: () {
                           videoState.startRecording();

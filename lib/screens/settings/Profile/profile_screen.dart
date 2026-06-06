@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:pinput/pinput.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sms_autofill/sms_autofill.dart';
+import 'package:iconsax/iconsax.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -465,7 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.camera_alt_rounded,
+                  Iconsax.camera,
                   color: _orange,
                   size: 20,
                 ),
@@ -494,7 +495,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.photo_library_rounded,
+                  Iconsax.gallery,
                   color: Color(0xFF3B82F6),
                   size: 20,
                 ),
@@ -711,7 +712,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                         ),
                       ),
                       child: const Icon(
-                        Icons.edit_rounded,
+                        Iconsax.edit,
                         color: Colors.white,
                         size: 16,
                       ),
@@ -741,7 +742,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                         ),
                       ),
                       child: const Icon(
-                        Icons.arrow_forward_ios_rounded,
+                        Iconsax.arrow_left_3,
                         color: Colors.white,
                         size: 15,
                       ),
@@ -833,7 +834,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                           border: Border.all(color: Colors.white, width: 2),
                         ),
                         child: const Icon(
-                          Icons.camera_alt_rounded,
+                          Iconsax.camera,
                           size: 13,
                           color: Colors.white,
                         ),
@@ -899,7 +900,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                     borderRadius: BorderRadius.circular(9),
                   ),
                   child: Icon(
-                    Icons.edit_rounded,
+                    Iconsax.edit,
                     size: 14,
                     color: Colors.grey.shade600,
                   ),
@@ -948,7 +949,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                     borderRadius: BorderRadius.all(Radius.circular(12)),
                   ),
                   child: const Icon(
-                    Icons.person_outline_rounded,
+                    Iconsax.user,
                     color: Color(0xFF22C55E),
                     size: 20,
                   ),
@@ -1004,7 +1005,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                         borderRadius: BorderRadius.circular(9),
                       ),
                       child: Icon(
-                        Icons.phone_locked_rounded,
+                        Iconsax.lock,
                         size: 14,
                         color: Colors.grey.shade600,
                       ),
@@ -1042,7 +1043,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                         borderRadius: BorderRadius.all(Radius.circular(12)),
                       ),
                       child: const Icon(
-                        Icons.phone_outlined,
+                        Iconsax.call,
                         color: _orange,
                         size: 20,
                       ),
@@ -1060,7 +1061,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                 child: Row(
                   children: [
                     const Icon(
-                      Icons.info_outline_rounded,
+                      Iconsax.info_circle,
                       size: 14,
                       color: _orange,
                     ),
@@ -1303,7 +1304,7 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                   ),
                 )
               else ...[
-                const Icon(Icons.save_rounded, color: Colors.white, size: 18),
+                const Icon(Iconsax.save_2, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
                 const Text(
                   'حفظ التغييرات',

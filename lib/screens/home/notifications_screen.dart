@@ -2,6 +2,7 @@ import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:iconsax/iconsax.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -206,15 +207,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   IconData _getIcon(String type) {
     switch (type) {
       case 'success':
-        return Icons.check_circle_outline_rounded;
+        return Iconsax.tick_circle;
       case 'warning':
-        return Icons.bolt_rounded;
+        return Iconsax.flash;
       case 'info':
-        return Icons.access_time_rounded;
+        return Iconsax.clock;
       case 'install':
-        return Icons.build_rounded;
+        return Iconsax.setting;
       default:
-        return Icons.notifications_none_rounded;
+        return Iconsax.notification;
     }
   }
 
@@ -292,7 +293,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
                   ),
                   child: const Icon(
-                    Icons.delete_outline_rounded,
+                    Iconsax.trash,
                     color: Colors.white,
                     size: 20,
                   ),
@@ -320,7 +321,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
                   ),
                   child: const Icon(
-                    Icons.arrow_forward_ios_rounded,
+                    Iconsax.arrow_left_3,
                     color: Colors.white,
                     size: 16,
                   ),
@@ -362,7 +363,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.notifications_none_rounded,
+              Iconsax.notification,
               color: _orange,
               size: 40,
             ),
@@ -476,7 +477,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.delete_outline_rounded, color: Colors.white, size: 24),
+                Icon(Iconsax.trash, color: Colors.white, size: 24),
                 SizedBox(height: 4),
                 Text(
                   'حذف',

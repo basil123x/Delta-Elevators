@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:iconsax/iconsax.dart';
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 class MaintenanceRequest {
@@ -148,7 +149,7 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
           children: [
             _iconButton(
               onTap: () => Navigator.pop(context),
-              child: const Icon(Icons.arrow_back_ios_new_rounded,
+              child: const Icon(Iconsax.arrow_right_3,
                   size: 17, color: AppColors.orangePrimary),
             ),
             const Expanded(
@@ -309,21 +310,21 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                   Row(
                     children: [
                       _metaChip(
-                        icon: Icons.calendar_today_outlined,
+                        icon: Iconsax.calendar,
                         label: 'التاريخ',
                         value:
                             mainList[0]['a3'],
                       ),
                       const SizedBox(width: 8),
                       _metaChip(
-                        icon: Icons.access_time_rounded,
+                        icon: Iconsax.clock,
                         label: 'الوقت',
                         value:
                             mainList[0]['a4']
                       ),
                       const SizedBox(width: 8),
                       _metaChip(
-                        icon: Icons.location_on_outlined,
+                        icon: Iconsax.location,
                         label: 'الموقع',
                         value: "مبنى رقم ${mainList[0]['building']}",
                       ),
@@ -453,10 +454,10 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
   // ── Info Card ──────────────────────────────────────────────────────────────
   Widget _buildInfoCard() {
     final rows = [
-      (Icons.star_outline_rounded, 'نوع الصيانة', mainList[0]['a5'] == 'Urgent' ?  "صيانة عاجلة" : "صيانة عادية", true),
-      (Icons.location_on_outlined, 'العنوان',  "المدينة: ${mainList[0]['city']}, المنطقة: ${mainList[0]['zone']}, الشارع: ${mainList[0]['street']}", false),
-      // (Icons.elevator_outlined, 'نوع المصعد',  "", false),
-      (Icons.article_outlined, 'رقم العقد',  mainList[0]['contract_id'], false),
+      (Iconsax.star, 'نوع الصيانة', mainList[0]['a5'] == 'Urgent' ?  "صيانة عاجلة" : "صيانة عادية", true),
+      (Iconsax.location, 'العنوان',  "المدينة: ${mainList[0]['city']}, المنطقة: ${mainList[0]['zone']}, الشارع: ${mainList[0]['street']}", false),
+      // (Iconsax.building, 'نوع المصعد',  "", false),
+      (Iconsax.document_text, 'رقم العقد',  mainList[0]['contract_id'], false),
     ];
 
     return Container(
@@ -605,9 +606,9 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
         children: [
           Row(
             children: [
-              _techActionBtn(icon: Icons.phone_outlined),
+              _techActionBtn(icon: Iconsax.call),
               const SizedBox(width: 8),
-              _techActionBtn(icon: Icons.chat_bubble_outline_rounded),
+              _techActionBtn(icon: Iconsax.message),
             ],
           ),
           const SizedBox(width: 14),
@@ -705,7 +706,7 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
     if (isDone) {
       dotBg     = AppColors.greenBg;
       dotBorder = AppColors.greenBorder;
-      dotChild  = const Icon(Icons.check_rounded, size: 16, color: AppColors.green);
+      dotChild  = const Icon(Iconsax.tick_circle, size: 16, color: AppColors.green);
     } else if (isActive) {
       dotBg     = const Color(0xFFFFF0E6);
       dotBorder = AppColors.orangePrimary;
@@ -858,7 +859,7 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.edit_outlined, color: Colors.white, size: 16),
+                        Icon(Iconsax.edit, color: Colors.white, size: 16),
                         SizedBox(width: 8),
                         Text(
                           'تحديث الحالة',

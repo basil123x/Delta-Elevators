@@ -7,6 +7,7 @@ import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:iconsax/iconsax.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -143,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
         color: isValid ? const Color(0xFF4CAF50) : const Color(0xFFFF4B4B),
       ),
       child: Icon(
-        isValid ? Icons.check : Icons.close,
+        isValid ? Iconsax.tick_circle : Iconsax.close_circle,
         color: Colors.white,
         size: 14,
       ),
@@ -195,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 50,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Icon(
-                Icons.apartment_rounded,
+                Iconsax.building,
                 color: _orange,
                 size: 40,
               ),

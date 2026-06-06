@@ -1,4 +1,3 @@
-
 import 'package:Delta/constants/app_colors.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -23,7 +22,8 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
     required String message,
   }) {
     final now = DateTime.now();
-    final formatted = '${now.day}/${now.month}/${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+    final formatted =
+        '${now.day}/${now.month}/${now.year} ${now.hour}:${now.minute.toString().padLeft(2, '0')}';
 
     return '''
   📬 *شكوى / إقتراح جديد*
@@ -36,15 +36,16 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
 
   ━━━━━━━━━━━━━━
   🕐 $formatted
-  '''.trim();
+  '''
+        .trim();
   }
 
   Future getComplaintsData() async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
-    var request = await Dio().post("https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}", data: {
-      "action": "getComplaints",
-      "userId": prefx.getString("userId")
-    });
+    var request = await Dio().post(
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+      data: {"action": "getComplaints", "userId": prefx.getString("userId")},
+    );
     setState(() {
       myComplaints = request.data['data'];
     });
@@ -56,8 +57,6 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
     super.initState();
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
@@ -68,7 +67,10 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
         child: Scaffold(
           backgroundColor: AppColors.primary,
           appBar: AppBar(
-            title: Text("شكاوي وإقتراحات", style: TextStyle(color: Colors.white)),
+            title: Text(
+              "شكاوي وإقتراحات",
+              style: TextStyle(color: Colors.white),
+            ),
             centerTitle: true,
             forceMaterialTransparency: true,
             backgroundColor: AppColors.primary,
@@ -96,104 +98,110 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
                         SizedBox(height: 50),
                         ...List.generate(myComplaints.length, (i) {
                           return Container(
-                            margin: EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-                            child:  Stack(
+                            margin: EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 14,
+                            ),
+                            child: Stack(
                               children: [
                                 Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                                      width: double.maxFinite,
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade200,
-                                        borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(10),
-                                          topRight: Radius.circular(10),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 20,
+                                  ),
+                                  width: double.maxFinite,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade200,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: Radius.circular(10),
+                                      topRight: Radius.circular(10),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        margin: EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              "الإسم: ",
+                                              style: TextStyle(fontSize: 18),
+                                            ),
+                                            SizedBox(width: 2),
+                                            Text(
+                                              myComplaints[i]['name'],
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            margin: EdgeInsets.symmetric(
-                                              horizontal: 10,
+                                      SizedBox(height: 5),
+                                      Container(
+                                        margin: EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              "رقم الهاتف: ",
+                                              style: TextStyle(fontSize: 18),
                                             ),
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  "الإسم: ",
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 2),
-                                                Text(
-                                                  myComplaints[i]['name'],
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
+                                            SizedBox(width: 2),
+                                            Text(
+                                              myComplaints[i]['mobile'],
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
-                                          ),
-                                          SizedBox(height: 5),
-                                          Container(
-                                            margin: EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  "رقم الهاتف: ",
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 2),
-                                                Text(
-                                                  myComplaints[i]['mobile'],
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          SizedBox(height: 5),
-                                          Container(
-                                            margin: EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  "رسالة الشكوى: ",
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 2),
-                                                Text(
-                                                  myComplaints[i]['msg'],
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
+                                      SizedBox(height: 5),
+                                      Container(
+                                        margin: EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              "رسالة الشكوى: ",
+                                              style: TextStyle(fontSize: 18),
+                                            ),
+                                            SizedBox(width: 2),
+                                            Text(
+                                              myComplaints[i]['msg'],
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 10,
+                                  left: 10,
+                                  child: Container(
+                                    child: Icon(
+                                      myComplaints[i]['is_read'] == '0'
+                                          ? Iconsax.tick_circle
+                                          : Iconsax.message_tick,
+                                      color: myComplaints[i]['is_read'] == '0'
+                                          ? Colors.grey
+                                          : AppColors.success,
                                     ),
-                                    Positioned(
-                                      bottom: 10,
-                                      left: 10,
-                                      child: Container(
-                                        child: Icon(myComplaints[i]['is_read'] == '0' ? Icons.done : Icons.done_all, color: myComplaints[i]['is_read'] == '0' ? Colors.grey : AppColors.success,),
-                                      ),
-                                    )
+                                  ),
+                                ),
                               ],
                             ),
                           );
@@ -202,7 +210,7 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
                     ),
                   ),
                 ),
-        
+
                 // ===== صورة البروفايل في المنتصف =====
                 Positioned(
                   top: screenHeight * 0.11,
@@ -231,7 +239,6 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
               ],
             ),
           ),
-
         ),
       ),
     );

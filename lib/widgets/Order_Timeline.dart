@@ -4,10 +4,8 @@ import 'package:Delta/widgets/Order_Installation.dart';
 import 'package:Delta/widgets/Order_Playing.dart';
 import 'package:Delta/widgets/Order_Waiting.dart';
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
-// ═══════════════════════════════════════════
-//  نموذج البيانات
-// ═══════════════════════════════════════════
 enum OrderStatus {
   contracting(
     title: 'المرحلة الأولى',
@@ -68,175 +66,107 @@ enum OrderStatus {
     required this.description,
   });
 }
+
 bool isEnabled = false;
-// ═══════════════════════════════════════════
-//  الألوان
-// ═══════════════════════════════════════════
-class AppColors {
-  static const Color primary = Color(0xFF5C6BC0); // بنفسجي مثل الـ mockup
-  static const Color doneColor = Color(0xFF4CAF82); // أخضر
-  static const Color grayColor = Color(0xFF9E9E9E);
-  static const Color pendingBg = Color(0xFFF5F5F5);
-  static const Color doneBg = Color(0xFFEDF7F2);
+
+class _TimelineColors {
+  static const orange = Color(0xFFF37021);
+  static const green = Color(0xFF22C55E);
+  static const greenBg = Color(0xFFEDFAF4);
+  static const textPrimary = Color(0xFF1A1A2E);
+  static const textSecondary = Color(0xFF888888);
+  static const pendingGrey = Color(0xFFE5E7EB);
+  static const border = Color(0xFFEBEBEB);
 }
 
-// ═══════════════════════════════════════════
-//  الشاشة الرئيسية - مثال للاستخدام
-// ═══════════════════════════════════════════
-void main() {
-  runApp(
-    MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(fontFamily: 'Cairo'),
-      home: Directionality(
-        textDirection: TextDirection.rtl,
-        child: Scaffold(
-          backgroundColor: const Color(0xFFF0F2FF),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // مثال: المرحلة الثانية هي الحالية
-                  OrderTimelineWidget(currentStatus: 'processing', bookId: '0',),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-// ═══════════════════════════════════════════
-//  الويدجت الرئيسي للمراحل
-// ═══════════════════════════════════════════
 class OrderTimelineWidget extends StatelessWidget {
-  /// currentStatus: اسم الـ enum مثلاً 'processing' أو 'completed'
   final String currentStatus;
   final String bookId;
 
-  const OrderTimelineWidget({super.key, required this.currentStatus, required this.bookId});
+  const OrderTimelineWidget({
+    super.key,
+    required this.currentStatus,
+    required this.bookId,
+  });
 
   @override
   Widget build(BuildContext context) {
-    
-    // إيجاد الـ index الحالي
     final currentIndex = OrderStatus.values.indexWhere(
       (e) => e.name.toLowerCase() == currentStatus.toLowerCase(),
     );
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'مراحل التنفيذ',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: _TimelineColors.textPrimary,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // عنوان القسم
-          const Text(
-            'مراحل التنفيذ',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A2E),
-            ),
-          ),
-          const SizedBox(height: 20),
+        ),
+        const SizedBox(height: 16),
+        ...OrderStatus.values.asMap().entries.map((entry) {
+          final index = entry.key;
+          final status = entry.value;
+          final isLast = index == OrderStatus.values.length - 1;
+          final isCompleted =
+              currentIndex >= 0 && index < currentIndex;
+          final isCurrent = index == currentIndex;
 
-          // المراحل
-          ...OrderStatus.values.asMap().entries.map((entry) {
-            final index = entry.key;
-            final status = entry.value;
-            final isActive = index <= currentIndex;
-            final isCurrent = index == currentIndex;
-            final isLast = index == OrderStatus.values.length - 1;
-
-            return _TimelineStep(
-              status: status,
-              isActive: isActive,
-              isCurrent: isCurrent,
-              isLast: isLast,
-              bookId: bookId
-            );
-          }),
-        ],
-      ),
+          return _TimelineStep(
+            status: status,
+            isCompleted: isCompleted,
+            isCurrent: isCurrent,
+            isLast: isLast,
+            bookId: bookId,
+          );
+        }),
+      ],
     );
   }
 }
 
-// ═══════════════════════════════════════════
-//  كل خطوة في الـ Timeline
-// ═══════════════════════════════════════════
 class _TimelineStep extends StatelessWidget {
   final OrderStatus status;
-  final bool isActive;
+  final bool isCompleted;
   final bool isCurrent;
   final bool isLast;
   final String bookId;
 
   const _TimelineStep({
     required this.status,
-    required this.isActive,
+    required this.isCompleted,
     required this.isCurrent,
     required this.isLast,
     required this.bookId,
   });
 
+  bool get _isPending => !isCompleted && !isCurrent;
+
   @override
   Widget build(BuildContext context) {
-    
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ═══ العمود اليمين: الأيقونة + الخط ═══
           Column(
             children: [
-              // الأيقونة الدائرية
-              _buildIcon(),
-
-              // الخط الواصل (إلا في الخطوة الأخيرة)
+              _buildCircle(),
               if (!isLast)
-              
                 Expanded(
-                  child: Container(
-                    width: 2.5,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: isActive
-                          ? const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [AppColors.doneColor, Color(0xFFB2DFDB)],
-                            )
-                          : null,
-                      color: isActive ? null : const Color(0xFFE0E0E0),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  child: _TimelineConnector(
+                    solidGreen: isCompleted,
                   ),
                 ),
             ],
           ),
-
-          const SizedBox(width: 16),
-
-          // ═══ العمود الشمال: المحتوى ═══
+          const SizedBox(width: 12),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: _buildContent(bookId),
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _buildStageCard(),
             ),
           ),
         ],
@@ -244,43 +174,40 @@ class _TimelineStep extends StatelessWidget {
     );
   }
 
-  // ── الأيقونة ──
-  Widget _buildIcon() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      width: 40,
-      height: 40,
+  Widget _buildCircle() {
+    Color bg;
+    IconData icon;
+    Color iconColor = Colors.white;
+
+    if (isCompleted) {
+      bg = _TimelineColors.green;
+      icon = Iconsax.tick_circle;
+    } else if (isCurrent) {
+      bg = _TimelineColors.orange;
+      icon = Iconsax.clock;
+    } else {
+      bg = _TimelineColors.pendingGrey;
+      icon = Iconsax.minus_cirlce;
+      iconColor = _TimelineColors.textSecondary;
+    }
+
+    return Container(
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        color: isActive ? AppColors.doneColor : Colors.white,
-        border: isActive
-            ? null
-            : Border.all(color: const Color(0xFFDDDDDD), width: 2),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: isActive
-            ? [
-                BoxShadow(
-                  color: AppColors.doneColor.withOpacity(0.35),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : [],
+        color: bg,
+        shape: BoxShape.circle,
       ),
-      child: Icon(
-        isActive ? Icons.check_rounded : Icons.arrow_back_ios_rounded,
-        color: isActive ? Colors.white : AppColors.grayColor,
-        size: 18,
-      ),
+      child: Icon(icon, color: iconColor, size: 20),
     );
   }
 
-  // ── المحتوى ──
-  Widget _buildContent(bookId) {
-    Widget caseContainer = Container();
+  Widget _buildStageCard() {
+    Widget caseContainer = const SizedBox.shrink();
     switch (status.toString()) {
       case 'OrderStatus.importing':
         isEnabled = true;
-        caseContainer = OrderImporting(bookId: bookId,);
+        caseContainer = OrderImporting(bookId: bookId);
         break;
       case 'OrderStatus.installation':
         isEnabled = true;
@@ -296,90 +223,144 @@ class _TimelineStep extends StatelessWidget {
         break;
       case 'OrderStatus.completed':
         isEnabled = true;
-        caseContainer = OrderCompleted(bookId: bookId,);
+        caseContainer = OrderCompleted(bookId: bookId);
         break;
       default:
         isEnabled = false;
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // العنوان الصغير (المرحلة الأولى، الثانية...)
-        Text(
-          status.title,
-          style: TextStyle(
-            fontSize: 12,
-            color: isActive ? AppColors.doneColor : AppColors.grayColor,
-            fontWeight: FontWeight.w500,
+    final showActions = (isCompleted || isCurrent) && isEnabled;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _TimelineColors.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
-        ),
-
-        const SizedBox(height: 2),
-
-        // العنوان الرئيسي
-        Text(
-          status.subTitle,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: isActive ? const Color(0xFF1A1A2E) : AppColors.grayColor,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            status.title,
+            style: const TextStyle(
+              fontSize: 11,
+              color: _TimelineColors.textSecondary,
+            ),
           ),
-        ),
-
-        const SizedBox(height: 4),
-
-        // الوصف
-        Text(
-          status.description,
-          style: const TextStyle(
-            fontSize: 12,
-            color: AppColors.grayColor,
-            height: 1.5,
+          const SizedBox(height: 4),
+          Text(
+            status.subTitle,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: _isPending
+                  ? _TimelineColors.textSecondary
+                  : _TimelineColors.textPrimary,
+            ),
           ),
-        ),
-
-        const SizedBox(height: 10),
-
-        // الـ Badge (اكتمل / قيد الانتظار)
-        Row(
-          children: [
-            _buildBadge(),
-            SizedBox(width: 10,),
-            Visibility(
-              visible: isActive && isEnabled,
-              child: caseContainer)
-          ],
-        )
-      ],
+          const SizedBox(height: 6),
+          Text(
+            status.description,
+            style: const TextStyle(
+              fontSize: 13,
+              color: _TimelineColors.textSecondary,
+              height: 1.5,
+            ),
+            textAlign: TextAlign.right,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _buildBadge(),
+              if (showActions) ...[
+                const SizedBox(width: 10),
+                Flexible(child: caseContainer),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  // ── الـ Badge ──
   Widget _buildBadge() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    final done = isCompleted || isCurrent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isActive
-            ? AppColors.doneColor.withOpacity(0.08)
-            : AppColors.pendingBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isActive
-              ? AppColors.doneColor.withOpacity(0.2)
-              : const Color(0xFFEEEEEE),
-          width: 1,
-        ),
+        color: done ? _TimelineColors.greenBg : const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        isActive ? 'اكتمل' : 'قيد الانتظار',
+        done ? 'اكتمل' : 'قيد الانتظار',
         style: TextStyle(
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: isActive ? AppColors.doneColor : AppColors.grayColor,
+          color: done ? _TimelineColors.green : _TimelineColors.textSecondary,
         ),
       ),
     );
   }
+}
+
+class _TimelineConnector extends StatelessWidget {
+  final bool solidGreen;
+
+  const _TimelineConnector({required this.solidGreen});
+
+  @override
+  Widget build(BuildContext context) {
+    if (solidGreen) {
+      return Container(
+        width: 2,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        color: _TimelineColors.green,
+      );
+    }
+    return CustomPaint(
+      painter: _DashedLinePainter(color: _TimelineColors.pendingGrey),
+      child: Container(
+        width: 2,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+      ),
+    );
+  }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  final Color color;
+
+  _DashedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    const dashHeight = 6.0;
+    const gap = 4.0;
+    double y = 0;
+    while (y < size.height) {
+      canvas.drawLine(
+        Offset(size.width / 2, y),
+        Offset(size.width / 2, y + dashHeight),
+        paint,
+      );
+      y += dashHeight + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

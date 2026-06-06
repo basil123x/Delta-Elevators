@@ -1,5 +1,6 @@
-import 'package:Delta/constants/app_colors.dart';
+import 'package:Delta/screens/booking/contract/contract_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
 class QuantityCounter extends StatefulWidget {
   final int initialValue;
@@ -54,12 +55,11 @@ class _QuantityCounterState extends State<QuantityCounter>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         _CounterButton(
-          icon: Icons.remove,
+          icon: Iconsax.minus,
           onTap: () => _change(-1),
           enabled: _value > widget.min,
         ),
@@ -70,24 +70,25 @@ class _QuantityCounterState extends State<QuantityCounter>
             width: 64,
             height: 48,
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.08),
+              color: const Color(0xFFFFF0E5),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ContractTheme.border),
             ),
             alignment: Alignment.center,
             child: Text(
               '$_value',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                color: ContractTheme.orange,
               ),
             ),
           ),
         ),
         const SizedBox(width: 16),
         _CounterButton(
-          icon: Icons.add,
+          icon: Iconsax.add,
           onTap: () => _change(1),
           enabled: _value < widget.max,
         ),
@@ -119,16 +120,16 @@ class _CounterButton extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.primary.withOpacity(0.1),
+            color: const Color(0xFFFFF0E5),
             border: Border.all(
-              color: AppColors.primary.withOpacity(0.4),
+              color: ContractTheme.orange.withOpacity(0.35),
               width: 1.5,
             ),
           ),
           child: Icon(
             icon,
             size: 22,
-            color: AppColors.primary,
+            color: ContractTheme.orange,
           ),
         ),
       ),

@@ -13,6 +13,7 @@ import 'package:intl/intl.dart' as intlx;
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sms_autofill/sms_autofill.dart';
+import 'package:iconsax/iconsax.dart';
 
 class OTPScreen extends StatefulWidget {
   final String? name;
@@ -413,7 +414,7 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin, Co
               height: 50,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) =>
-                  Icon(Icons.apartment_rounded, color: _orange, size: 40),
+                  Icon(Iconsax.building, color: _orange, size: 40),
             ),
           ),
         ),
@@ -724,7 +725,7 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin, Co
                 child: IconButton(
                   onPressed: () => Navigator.maybePop(context),
                   icon: const Icon(
-                    Icons.arrow_forward_ios_rounded,
+                    Iconsax.arrow_left_3,
                     size: 18,
                     color: Colors.white,
                   ),

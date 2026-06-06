@@ -1,8 +1,5 @@
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
-import 'package:Delta/screens/order/addresses_list_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
@@ -26,13 +23,15 @@ class Address {
 }
 
 class AddressesDisplayList extends StatefulWidget {
-  const AddressesDisplayList({super.key});
+  final void Function(bool isEmpty)? onAddressesChanged;
+
+  const AddressesDisplayList({super.key, this.onAddressesChanged});
 
   @override
-  State<AddressesDisplayList> createState() => _AddressesDisplayListState();
+  State<AddressesDisplayList> createState() => AddressesDisplayListState();
 }
 
-class _AddressesDisplayListState extends State<AddressesDisplayList> {
+class AddressesDisplayListState extends State<AddressesDisplayList> {
   List addresses = [];
   int currentAddress = 0;
   String? currentAddressId;
@@ -43,10 +42,29 @@ class _AddressesDisplayListState extends State<AddressesDisplayList> {
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "getAddresses", "uid": prefx.getString("userId")},
     );
+    final loaded = result.data['data'] as List;
     setState(() {
-      addresses = result.data['data'];
-      currentAddressId = prefx.getString("addId");
+      addresses = loaded;
+      final savedId = prefx.getString("addId");
+      if (loaded.isNotEmpty) {
+        final savedIndex = loaded.indexWhere((a) => a['id'] == savedId);
+        currentAddress = savedIndex >= 0 ? savedIndex : 0;
+        currentAddressId = loaded[currentAddress]['id'];
+      }
     });
+    widget.onAddressesChanged?.call(loaded.isEmpty);
+
+    if (loaded.isNotEmpty &&
+        (prefx.getString("addId") == null ||
+            prefx.getString("addId")!.isEmpty)) {
+      final firstId = loaded[0]['id'];
+      await prefx.setString('addId', firstId);
+      if (!mounted) return;
+      Provider.of<AppProvider>(
+        context,
+        listen: false,
+      ).getCurrentAddress(firstId);
+    }
   }
 
   @override
@@ -69,7 +87,47 @@ class _AddressesDisplayListState extends State<AddressesDisplayList> {
     );
   }
 
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFF0E5),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Iconsax.location_slash,
+              color: Color(0xFFF37021),
+              size: 36,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'لا يوجد عنوان الآن',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A1A2E),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'قم بإضافة عنوان جديد',
+            style: TextStyle(fontSize: 14, color: Color(0xFF888888)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAddressesList() {
+    if (addresses.isEmpty) {
+      return _buildEmptyState();
+    }
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: addresses.length,
@@ -81,88 +139,105 @@ class _AddressesDisplayListState extends State<AddressesDisplayList> {
 
   Widget _buildAddressCard(List address, int index) {
     final currentAdd = Provider.of<AppProvider>(context);
-    final gradients = [
-      [const Color(0xFF667EEA), const Color(0xFF764BA2)],
-      [const Color(0xFFF093FB), const Color(0xFFF5576C)],
-      [const Color(0xFF4FACFE), const Color(0xFF00F2FE)],
-      [const Color(0xFFFA709A), const Color(0xFFFEE140)],
-      [const Color(0xFF30CFD0), const Color(0xFF330867)],
-    ];
+    const cityGradient = [Color(0xFFF37021), Color(0xFFFF8C00)];
 
-    final gradient = gradients[index % gradients.length];
+    final isSelected = currentAddressId == address[index]['id'];
 
     return addresses.isEmpty
         ? Column()
         : GestureDetector(
             onTap: () async {
               SharedPreferences prefx = await SharedPreferences.getInstance();
-              
-                currentAddress = index;
-                currentAddressId = address[index]['id'];
-              
+
+              currentAddress = index;
+              currentAddressId = address[index]['id'];
+
               prefx.setString('addId', address[index]['id']);
               currentAdd.getCurrentAddress(address[index]['id']);
-              
+
               setState(() {});
             },
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: currentAddressId == address[index]['id']
-                      ? Border.all(color: AppColors.primary, width: 3)
-                      : Border(),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Content
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          _buildAddressDetail(
-                            icon: Icons.map,
-                            label: 'المدينة',
-                            value: address[index]['city'],
-                            color: gradient[0],
-                          ),
-                          const SizedBox(height: 16),
-                          _buildAddressDetail(
-                            icon: Icons.map,
-                            label: 'المنطقة',
-                            value: address[index]['zone'],
-                            color: gradient[0],
-                          ),
-                          const SizedBox(height: 16),
-                          _buildAddressDetail(
-                            icon: Icons.signpost,
-                            label: 'الشارع',
-                            value: address[index]['street'],
-                            color: gradient[1],
-                          ),
-                          const SizedBox(height: 16),
-                          _buildAddressDetail(
-                            icon: Icons.signpost,
-                            label: 'المبنى',
-                            value: address[index]['building'],
-                            color: gradient[1],
-                          ),
-                          const SizedBox(height: 20),
-                          _buildActionButtons(address, gradient),
-                        ],
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFFFFAF7)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFFF37021)
+                            : const Color(0xFFEBEBEB),
+                        width: isSelected ? 2 : 1,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isSelected
+                              ? const Color(0x33F37021)
+                              : const Color(0x10000000),
+                          blurRadius: isSelected ? 16 : 24,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            children: [
+                              _buildAddressDetail(
+                                icon: Iconsax.map,
+                                label: 'المدينة',
+                                value: address[index]['city'],
+                              ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildCompactDetail(
+                                      icon: Iconsax.category,
+                                      label: 'المنطقة',
+                                      value: address[index]['zone'],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildCompactDetail(
+                                      icon: Iconsax.signpost,
+                                      label: 'الشارع',
+                                      value: address[index]['street'],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: _buildCompactDetail(
+                                      icon: Iconsax.building,
+                                      label: 'المبنى',
+                                      value: address[index]['building'],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildActionButtons(address, index, cityGradient),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isSelected)
+                    const Positioned(
+                      top: -6,
+                      left: -6,
+                      child: _SelectedAddressBadge(),
+                    ),
+                ],
               ),
             ),
           );
@@ -172,61 +247,203 @@ class _AddressesDisplayListState extends State<AddressesDisplayList> {
     required IconData icon,
     required String label,
     required String value,
-    required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2), width: 1.5),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEBEBEB), width: 1),
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w600,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF9E9EBE),
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.3,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 5),
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C3E50),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A1A2E),
                   ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF0E5),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: const Color(0xFFF37021), size: 20),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionButtons(List address, List<Color> gradient) {
-    return _buildActionButton(
-      icon: Icons.edit,
-      label: 'تعديل',
-      gradient: gradient,
-      onTap: () {},
+  Widget _buildCompactDetail({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEBEBEB), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: const Color(0xFFF37021), size: 14),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF9E9EBE),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1A1A2E),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons(
+    List address,
+    int index,
+    List<Color> gradient,
+  ) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: _buildActionButton(
+            icon: Iconsax.edit,
+            label: 'تعديل',
+            gradient: gradient,
+            onTap: () {},
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 1,
+          child: _buildDeleteButton(address, index),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeleteButton(List address, int index) {
+    return GestureDetector(
+      onTap: () async {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text(
+                'حذف العنوان',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              content: const Text('هل تريد حذف هذا العنوان؟'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text(
+                    'إلغاء',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text(
+                    'حذف',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+        if (confirm == true) {
+          SharedPreferences prefx = await SharedPreferences.getInstance();
+          var result = await getDio().post(
+            "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+            data: {
+              "action": "deleteAddress",
+              "id": address[index]['id'],
+              "uid": prefx.getString("userId"),
+            },
+          );
+          if (result.data['status'] == 'success') {
+            getAddresses();
+          }
+        }
+      },
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFEEEE),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Iconsax.trash, color: Colors.red, size: 20),
+            SizedBox(width: 6),
+            Text(
+              'حذف',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -237,22 +454,22 @@ class _AddressesDisplayListState extends State<AddressesDisplayList> {
     required VoidCallback onTap,
   }) {
     return Container(
-      height: 48,
+      height: 50,
       decoration: BoxDecoration(
         gradient: LinearGradient(colors: gradient),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: gradient[0].withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: gradient[0].withOpacity(0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -270,6 +487,27 @@ class _AddressesDisplayListState extends State<AddressesDisplayList> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SelectedAddressBadge extends StatelessWidget {
+  const _SelectedAddressBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF37021),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Iconsax.tick_circle,
+        color: Colors.white,
+        size: 14,
       ),
     );
   }

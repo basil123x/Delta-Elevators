@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:iconsax/iconsax.dart';
 
 class LocationService {
   /// التحقق من الصلاحيات
@@ -191,7 +192,7 @@ class _LocationExampleState extends State<LocationExample> {
             SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: _getCurrentLocation,
-              icon: Icon(Icons.location_on),
+              icon: Icon(Iconsax.location),
               label: Text('احصل على موقعي'),
             ),
           ],
