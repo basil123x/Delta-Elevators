@@ -1,5 +1,4 @@
 
-import 'package:characters/characters.dart';
 import 'package:Delta/screens/settings/About/contact_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_boxicons/flutter_boxicons.dart';

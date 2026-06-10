@@ -1,9 +1,7 @@
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/items/item_preview.dart';
 import 'package:Delta/screens/main/main_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';

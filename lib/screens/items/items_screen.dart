@@ -1,4 +1,3 @@
-import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/screens/items/items_details_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';

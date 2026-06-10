@@ -43,55 +43,56 @@ class _ContractState extends State<Contract> {
 
   Future<void> uploadSignature(signId) async {
     if (signatureController.value.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('من فضلك قم بالتوقيع أولاً')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('من فضلك قم بالتوقيع أولاً')));
       return;
     }
 
     setState(() => isLoadingTxt = "جاري رفع التوقيع");
 
     try {
-    final Uint8List? signatureBytes = await signatureController.toPngBytes();
-    print("ssssssss $signId");
+      final Uint8List? signatureBytes = await signatureController.toPngBytes();
+      print("ssssssss $signId");
 
-    var res = await getDio().post(
-      'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
-      data: {
-        'action': 'getPresignedUrlS3',
-        'contractId': signId,
-        'contractType': "1"
-      },
-    );
-
-    String presignedUrl = res.data['url'];
-    String s3Key = res.data['key'];
-
-    await Dio().put(
-      presignedUrl,
-      data: signatureBytes,
-      options: Options(
-        headers: {
-          'Content-Type': 'image/png',
-          'Content-Length': signatureBytes!.length,
+      var res = await getDio().post(
+        'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+        data: {
+          'action': 'getPresignedUrlS3',
+          'contractId': signId,
+          'contractType': "1",
         },
-      ),
-    );
+      );
 
-    var response = await getDio().post(
-      'https://daltalifts.com/app2026/sql.php',
-      data: {
-        'action': 'UploadSignature',
-        'contractId': signId,
-        's3Key': s3Key,
-      },
-    );
+      String presignedUrl = res.data['url'];
+      String s3Key = res.data['key'];
 
-    if (response.data['success'] == true) {
-      downloadAndUploadPdf(signId);
-    } else {
-      if (mounted) setState(() => _isLoading = false);
-      throw Exception(response.data['message'] ?? 'خطأ في الحفظ');
-    }
+      await Dio().put(
+        presignedUrl,
+        data: signatureBytes,
+        options: Options(
+          headers: {
+            'Content-Type': 'image/png',
+            'Content-Length': signatureBytes!.length,
+          },
+        ),
+      );
+
+      var response = await getDio().post(
+        'https://daltalifts.com/app2026/sql.php',
+        data: {
+          'action': 'UploadSignature',
+          'contractId': signId,
+          's3Key': s3Key,
+        },
+      );
+
+      if (response.data['success'] == true) {
+        downloadAndUploadPdf(signId);
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+        throw Exception(response.data['message'] ?? 'خطأ في الحفظ');
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
       rethrow;
@@ -244,12 +245,10 @@ class _ContractState extends State<Contract> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: ContractTheme.orange,
-                        width: 2,
-                      ),
+                      border: Border.all(color: ContractTheme.orange, width: 2),
                     ),
-                    child: widget.bookDets[0]['stt'] == '1' ||
+                    child:
+                        widget.bookDets[0]['stt'] == '1' ||
                             stt.toString() == '1'
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(14),
@@ -309,7 +308,8 @@ class _ContractState extends State<Contract> {
               if (isLoadingTxt == "إرسال العقد الى الشركة") {
                 setState(() => _isLoading = true);
                 try {
-                  String msg = """
+                  String msg =
+                      """
                           🔔 <b>تنبيه داخلي — عقد جديد للتنفيذ</b>
 
                           نُفيدكم بأنه تم إصدار عقد توريد وتركيب مصعد جديد ويستلزم متابعتكم.
@@ -351,7 +351,7 @@ class _ContractState extends State<Contract> {
                   "action": "addContract",
                   "type": "1",
                   "a2": widget.bookDets[0]['date'],
-                  "a3": widget.bookDets[0]['a1']
+                  "a3": widget.bookDets[0]['a1'],
                 };
                 var response = await getDio().post(
                   "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
@@ -372,33 +372,33 @@ class _ContractState extends State<Contract> {
               alignment: Alignment.center,
               child: _isLoading
                   ? (isLoadingTxt == "تحميل العقد" ||
-                          isLoadingTxt == "إرسال العقد الى الشركة"
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
+                            isLoadingTxt == "إرسال العقد الى الشركة"
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              isLoadingTxt,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ],
-                        ))
+                              const SizedBox(width: 12),
+                              Text(
+                                isLoadingTxt,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ],
+                          ))
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

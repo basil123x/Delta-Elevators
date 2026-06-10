@@ -323,6 +323,7 @@ class _BookingscreenState extends State<Bookingscreen>
   }
 
   Widget _buildBookingCard(dynamic booking) {
+    final isRejected = booking['stb']?.toString() == '4';
     final stl = booking['stl']?.toString() ?? '';
     final String statusText =
         (booking['status']?.toString().isNotEmpty ?? false)
@@ -419,23 +420,63 @@ class _BookingscreenState extends State<Bookingscreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: badgeBg,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              badgeText,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: badgeColor,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: badgeBg,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  badgeText,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: badgeColor,
+                                  ),
+                                ),
                               ),
-                            ),
+                              if (isRejected) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFEEEE),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: const Color(0xFFEF4444),
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Iconsax.close_circle,
+                                        color: Color(0xFFEF4444),
+                                        size: 14,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        "مرفوض",
+                                        style: TextStyle(
+                                          color: Color(0xFFEF4444),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           Text(
                             orderLabel,
@@ -544,8 +585,10 @@ class _BookingscreenState extends State<Bookingscreen>
                             value: progressPct / 100,
                             minHeight: 6,
                             backgroundColor: const Color(0xFFF5F5F5),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFFF37021),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isRejected
+                                  ? const Color(0xFFEF4444)
+                                  : const Color(0xFFF37021),
                             ),
                           ),
                         ),

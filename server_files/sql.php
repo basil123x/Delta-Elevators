@@ -231,6 +231,18 @@ switch ($action) {
     case 'updateCounterRequest':
         updateCounterRequest($input);
         break;
+    case 'getRejectionReason':
+        getRejectionReason($input);
+        break;
+    case 'getChatMessages':
+        getChatMessages($input);
+        break;
+    case 'sendClientChatMsg':
+        sendClientChatMsg($input);
+        break;
+    case 'sendTypingIndicator':
+        sendTypingIndicator($input);
+        break;
     case 'updateQuotationStx':
         updateQuotationStx($input);
         break;
@@ -1182,6 +1194,82 @@ function getProcessingImages($input) {
   $keys = $s3->listFiles($prefix);
   $images = array_map(fn($key) => $s3->url($key), $keys);
   echo json_encode(['images' => $images]);
+}
+
+function getRejectionReason($input) {
+    global $conx;
+    $bookId = intval($input['bookId']);
+    $row = $conx->query(
+        "SELECT rejection_reason FROM bookings WHERE id = '$bookId'"
+    )->fetch_assoc();
+    echo json_encode([
+        'rejection_reason' => $row['rejection_reason'] ?? ''
+    ]);
+}
+
+function getChatMessages($input) {
+    global $conx;
+    $bookId = intval($input['bookId']);
+    $msgs = [];
+    $result = $conx->query(
+        "SELECT sender, message FROM booking_chat_messages WHERE bookingId = '$bookId' ORDER BY id ASC"
+    );
+    if ($result) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            $msgs[] = $row;
+        }
+    }
+
+    $typingRow = $conx->query(
+        "SELECT typing_admin FROM booking_chat WHERE bookingId = '$bookId' ORDER BY id DESC LIMIT 1"
+    )->fetch_assoc();
+
+    $adminTyping = false;
+    if (!empty($typingRow['typing_admin'])) {
+        $diff = time() - strtotime($typingRow['typing_admin']);
+        $adminTyping = $diff < 4;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'messages' => $msgs,
+        'admin_typing' => $adminTyping,
+    ]);
+}
+
+function sendClientChatMsg($input) {
+    global $conx;
+    $bookId = intval($input['bookId']);
+    $message = $conx->real_escape_string($input['message'] ?? '');
+    $conx->query(
+        "INSERT INTO booking_chat_messages (bookingId, sender, message) VALUES ('$bookId', 'client', '$message')"
+    );
+    $existing = $conx->query(
+        "SELECT id FROM booking_chat WHERE bookingId = '$bookId' LIMIT 1"
+    )->fetch_assoc();
+    if (empty($existing)) {
+        $conx->query("INSERT INTO booking_chat (bookingId) VALUES ('$bookId')");
+    }
+    echo json_encode(['success' => true]);
+}
+
+function sendTypingIndicator($input) {
+    global $conx;
+    $bookId = intval($input['bookId']);
+    $sender = ($input['sender'] ?? '') === 'admin' ? 'admin' : 'client';
+    $col = 'typing_' . $sender;
+
+    $existing = $conx->query(
+        "SELECT id FROM booking_chat WHERE bookingId = '$bookId' LIMIT 1"
+    )->fetch_assoc();
+    if (empty($existing)) {
+        $conx->query("INSERT INTO booking_chat (bookingId) VALUES ('$bookId')");
+    }
+
+    $conx->query(
+        "UPDATE booking_chat SET $col = NOW() WHERE bookingId = '$bookId'"
+    );
+    echo json_encode(['success' => true]);
 }
 
 function updateCounterRequest($input) {
