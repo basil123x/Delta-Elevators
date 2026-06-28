@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:Delta/screens/main/main_screen.dart';
 import 'package:Delta/screens/repair/repair_theme.dart';
 import 'package:Delta/screens/repair/requests/requestScreen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
@@ -60,7 +61,11 @@ class _RepairScreenState extends State<RepairScreen>
           centerTitle: true,
           leading: IconButton(
             icon: const Icon(Iconsax.arrow_right_3, color: RepairTheme.orange),
-            onPressed: () => Navigator.maybePop(context),
+            onPressed: () => Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const MainScreen()),
+              (route) => false,
+            ),
           ),
           title: Text(
             "طلب صيانة",

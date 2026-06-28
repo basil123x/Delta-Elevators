@@ -243,6 +243,9 @@ switch ($action) {
     case 'sendTypingIndicator':
         sendTypingIndicator($input);
         break;
+    case 'checkTyping':
+        checkTyping($input);
+        break;
     case 'updateQuotationStx':
         updateQuotationStx($input);
         break;
@@ -260,6 +263,12 @@ switch ($action) {
         break;
     case 'getMaintenanceDetails':
         getMaintenanceDetails($input);
+        break;
+    case 'getDeliveryStatus':
+        getDeliveryStatus($input);
+        break;
+    case 'saveDeliveryContract':
+        saveDeliveryContract($input);
         break;
     default:
         sendResponse(false, 'Invalid action');
@@ -1057,6 +1066,9 @@ function getPresignedUrlS3($input) {
         case '2':
             $contract_type = "Maintenance_Contracts";
             break;
+        case '3':
+            $contract_type = "IIP_Contracts_Delivery";
+            break;
         default:
             break;
     }
@@ -1220,20 +1232,9 @@ function getChatMessages($input) {
         }
     }
 
-    $typingRow = $conx->query(
-        "SELECT typing_admin FROM booking_chat WHERE bookingId = '$bookId' ORDER BY id DESC LIMIT 1"
-    )->fetch_assoc();
-
-    $adminTyping = false;
-    if (!empty($typingRow['typing_admin'])) {
-        $diff = time() - strtotime($typingRow['typing_admin']);
-        $adminTyping = $diff < 4;
-    }
-
     echo json_encode([
         'success' => true,
         'messages' => $msgs,
-        'admin_typing' => $adminTyping,
     ]);
 }
 
@@ -1253,23 +1254,48 @@ function sendClientChatMsg($input) {
     echo json_encode(['success' => true]);
 }
 
+function ensureBookingTypingTable($conx) {
+    $conx->query("CREATE TABLE IF NOT EXISTS booking_typing (
+        bookingId INT PRIMARY KEY,
+        typing_admin DATETIME NULL,
+        typing_client DATETIME NULL
+    )");
+}
+
 function sendTypingIndicator($input) {
     global $conx;
+    ensureBookingTypingTable($conx);
     $bookId = intval($input['bookId']);
     $sender = ($input['sender'] ?? '') === 'admin' ? 'admin' : 'client';
     $col = 'typing_' . $sender;
 
     $existing = $conx->query(
-        "SELECT id FROM booking_chat WHERE bookingId = '$bookId' LIMIT 1"
+        "SELECT bookingId FROM booking_typing WHERE bookingId = '$bookId' LIMIT 1"
     )->fetch_assoc();
     if (empty($existing)) {
-        $conx->query("INSERT INTO booking_chat (bookingId) VALUES ('$bookId')");
+        $conx->query("INSERT INTO booking_typing (bookingId) VALUES ('$bookId')");
     }
 
     $conx->query(
-        "UPDATE booking_chat SET $col = NOW() WHERE bookingId = '$bookId'"
+        "UPDATE booking_typing SET $col = NOW() WHERE bookingId = '$bookId'"
     );
     echo json_encode(['success' => true]);
+}
+
+function checkTyping($input) {
+    global $conx;
+    ensureBookingTypingTable($conx);
+    $bookId = intval($input['bookId'] ?? 0);
+    $col = ($input['checkRole'] ?? '') == 'admin' ? 'typing_admin' : 'typing_client';
+    $row = $conx->query(
+        "SELECT TIMESTAMPDIFF(SECOND, $col, NOW()) AS diff_seconds
+         FROM booking_typing WHERE bookingId='$bookId'"
+    )->fetch_assoc();
+    $isTyping = false;
+    if ($row !== null && $row['diff_seconds'] !== null) {
+        $isTyping = (int)$row['diff_seconds'] < 4;
+    }
+    echo json_encode(['typing' => $isTyping]);
 }
 
 function updateCounterRequest($input) {
@@ -1342,6 +1368,28 @@ function getMaintenanceDetails($input) {
     $maintResult = $conx->query("SELECT maintenance.id , maintenance.a2 , maintenance.a3 , maintenance.a4 , maintenance.a5 , contracts.id AS contract_id , addresses.city , addresses.zone , addresses.street , addresses.building , hrusers.a1 AS hr_name , hrusers.a3 AS hr_phone FROM maintenance LEFT JOIN addresses ON maintenance.a1 = addresses.id LEFT JOIN hrusers ON maintenance.a7 = hrusers.id LEFT JOIN contracts ON maintenance.a6 = contracts.a30 WHERE maintenance.id = '$maintenanceId'");
     while($rows=mysqli_fetch_assoc($maintResult)) {$maintarr[] = $rows;}
     sendResponse(true, '',$maintarr);
+}
+
+function getDeliveryStatus($input) {
+    global $conx;
+    $bookId = sanitize($input['bookId']);
+    $result = $conx->query("SELECT delivery_contract_id FROM bookings WHERE id = '$bookId'");
+    $row = mysqli_fetch_assoc($result);
+    $signed = !empty($row['delivery_contract_id']);
+    echo json_encode([
+        'success' => true,
+        'signed' => $signed,
+        'contractId' => $row['delivery_contract_id'] ?? '',
+    ]);
+    exit;
+}
+
+function saveDeliveryContract($input) {
+    global $conx;
+    $bookId = sanitize($input['bookId']);
+    $contractId = sanitize($input['contractId']);
+    $conx->query("UPDATE bookings SET delivery_contract_id = '$contractId' WHERE id = '$bookId'");
+    sendResponse(true, 'تم حفظ محضر التسليم');
 }
 
 mysqli_close($conx);

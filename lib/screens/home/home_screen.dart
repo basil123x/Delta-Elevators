@@ -173,7 +173,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     Future(() async {
       final prefs = await SharedPreferences.getInstance();
-      debugPrint('🖼️ profilePhoto from prefs: ${prefs.getString('profilePhoto')}');
+      debugPrint(
+        '🖼️ profilePhoto from prefs: ${prefs.getString('profilePhoto')}',
+      );
       final photo = prefs.getString('profilePhoto') ?? '';
       if (!mounted) return;
       setState(() {
@@ -198,98 +200,87 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         children: [
           Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (context) => const NotificationsScreen(),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.20),
-                      borderRadius: BorderRadius.circular(13),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
-                    ),
-                    child: const Icon(
-                      Iconsax.notification,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'أهلاً بك،',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    Text(
-                      userName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () => Navigator.push<void>(
+            children: [
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
                     context,
                     MaterialPageRoute<void>(
-                      builder: (_) => const ProfileScreen(),
+                      builder: (context) => const NotificationsScreen(),
                     ),
-                  ).then((_) async {
-                    final prefs = await SharedPreferences.getInstance();
-                    final photo = prefs.getString('profilePhoto') ?? '';
-                    if (mounted) {
-                      setState(() {
-                        _profileImageUrl = photo.isNotEmpty ? photo : null;
-                      });
-                    }
-                  }),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                  );
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.30),
                     ),
-                    child: ClipOval(
-                      child: _profileImageUrl != null &&
-                              _profileImageUrl!.isNotEmpty
-                          ? Image.network(
-                              _profileImageUrl!,
-                              width: 44,
-                              height: 44,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: Colors.white.withOpacity(0.25),
-                                child: Center(
-                                  child: Text(
-                                    userName.isNotEmpty ? userName[0] : 'U',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Container(
+                  ),
+                  child: const Icon(
+                    Iconsax.notification,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'أهلاً بك،',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  Text(
+                    userName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () =>
+                    Navigator.push<void>(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const ProfileScreen(),
+                      ),
+                    ).then((_) async {
+                      final prefs = await SharedPreferences.getInstance();
+                      final photo = prefs.getString('profilePhoto') ?? '';
+                      if (mounted) {
+                        setState(() {
+                          _profileImageUrl = photo.isNotEmpty ? photo : null;
+                        });
+                      }
+                    }),
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: ClipOval(
+                    child:
+                        _profileImageUrl != null && _profileImageUrl!.isNotEmpty
+                        ? Image.network(
+                            _profileImageUrl!,
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
                               color: Colors.white.withOpacity(0.25),
                               child: Center(
                                 child: Text(
@@ -302,91 +293,108 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             ),
+                          )
+                        : Container(
+                            color: Colors.white.withOpacity(0.25),
+                            child: Center(
+                              child: Text(
+                                userName.isNotEmpty ? userName[0] : 'U',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.25)),
+            ),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: _goToOrderTab,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF37021),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'اطلب الآن',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.25)),
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: _goToOrderTab,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF37021),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'اطلب الآن',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
+                const Spacer(),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'حالة الخدمة',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withOpacity(0.75),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'حالة الخدمة',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white.withOpacity(0.75),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _serviceStatus,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _statusDotColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_lastOrderText.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
                         Text(
-                          _lastOrderText,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.white.withOpacity(0.80),
-                            fontWeight: FontWeight.w500,
+                          _serviceStatus,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _statusDotColor,
                           ),
                         ),
                       ],
+                    ),
+                    if (_lastOrderText.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _lastOrderText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withOpacity(0.80),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
+        ],
       ),
     );
   }
@@ -414,7 +422,11 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Row(
           children: [
-            const Icon(Iconsax.search_normal, color: Color(0xFFCCCCCC), size: 20),
+            const Icon(
+              Iconsax.search_normal,
+              color: Color(0xFFCCCCCC),
+              size: 20,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
@@ -436,10 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
-                  hintStyle: TextStyle(
-                    color: Color(0xFFCCCCCC),
-                    fontSize: 13,
-                  ),
+                  hintStyle: TextStyle(color: Color(0xFFCCCCCC), fontSize: 13),
                 ),
               ),
             ),
@@ -536,12 +545,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Image.network(
                             promosImages[index].toString(),
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            errorBuilder: (_, __, ___) =>
+                                const SizedBox.shrink(),
                           ),
                         ),
                       Positioned.fill(
                         child: Container(
-                          color: const Color(0xFF1A1A2E).withValues(alpha: 0.55),
+                          color: const Color(
+                            0xFF1A1A2E,
+                          ).withValues(alpha: 0.55),
                         ),
                       ),
                       Positioned(
@@ -552,7 +564,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 110,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFFF37021).withValues(alpha: 0.20),
+                            color: const Color(
+                              0xFFF37021,
+                            ).withValues(alpha: 0.20),
                           ),
                         ),
                       ),
@@ -564,7 +578,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 90,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFFF37021).withValues(alpha: 0.15),
+                            color: const Color(
+                              0xFFF37021,
+                            ).withValues(alpha: 0.15),
                           ),
                         ),
                       ),
@@ -643,14 +659,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Iconsax.setting,
                 name: 'صيانة المصاعد',
                 desc: 'طلب صيانة عاجلة أو دورية',
-                onTap: () => _navigateService(const RepairFirst()),
+                onTap: () async {
+                  final prefx = await SharedPreferences.getInstance();
+                  await prefx.remove("currentCard");
+                  if (!mounted) return;
+                  _navigateService(const RepairFirst());
+                },
               ),
               const SizedBox(height: 9),
               _ServiceRow(
                 color: const Color(0xFF3B82F6),
                 iconBg: const Color(0xFFEEF4FF),
                 icon: Iconsax.box,
-                name: 'المنتجات',
+                name: 'الكاتالوج',
                 desc: 'تصفح مصاعدنا وأنظمة التحكم',
                 onTap: () => _navigateService(const ItemsScreen()),
               ),

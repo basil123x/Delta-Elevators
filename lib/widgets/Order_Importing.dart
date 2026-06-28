@@ -28,15 +28,19 @@ class _OrderImportingState extends State<OrderImporting> {
             decoration: BoxDecoration(
               color: Colors.green,
               borderRadius: BorderRadius.circular(7),
-              image: DecorationImage(image: NetworkImage("https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/Processing/${widget.bookId}/importing/1.jpg"), fit: BoxFit.cover),
+              image: DecorationImage(
+                image: NetworkImage(
+                  "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/Processing/${widget.bookId}/importing/1.png",
+                ),
+                fit: BoxFit.cover,
+              ),
             ),
           ),
-        )
+        ),
       ],
     );
   }
 }
-
 
 class ImagePreview extends StatefulWidget {
   final String bookId;
@@ -47,8 +51,6 @@ class ImagePreview extends StatefulWidget {
 }
 
 class _ImagePreviewState extends State<ImagePreview> {
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,7 +60,9 @@ class _ImagePreviewState extends State<ImagePreview> {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Center(
-        child: Image.network("https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/Processing/${widget.bookId}/importing/1.jpg")
+        child: Image.network(
+          "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/Processing/${widget.bookId}/importing/1.png",
+        ),
       ),
     );
   }

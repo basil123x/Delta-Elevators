@@ -1,12 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/screens/booking/contract/QuantityWidget.dart';
 import 'package:Delta/screens/booking/contract/contract_theme.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 class QuotationScreen extends StatefulWidget {
   final List bookDets;
@@ -17,12 +19,13 @@ class QuotationScreen extends StatefulWidget {
 }
 
 class _QuotationScreenState extends State<QuotationScreen> {
+  String _currentStb = '';
   int floors = 0;
   int persons = 0;
   bool _isLoading = false;
   int? _actionLoading;
   bool _pdfLoading = true;
-  WebViewController? _webViewController;
+  String? _localPdfPath;
   final TextEditingController _rejectionReasonController =
       TextEditingController();
   bool _sendingReason = false;
@@ -34,16 +37,19 @@ class _QuotationScreenState extends State<QuotationScreen> {
   bool _sendingMsg = false;
   Timer? _chatTimer;
   bool _adminTyping = false;
-  DateTime? _lastTypingSent;
+  DateTime? _lastTyping;
+  Timer? _typingTimer;
+  final ScrollController _chatScrollController = ScrollController();
 
   Future<void> sendToTelegram(String status) async {
     const String botToken = '8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI';
     const String chatId = '-1003877690157';
 
     final Map<String, String> statusMap = {
-      "1": "✅ موافقة على الطلب",
-      "2": "❌ رفض الطلب",
-      "3": "💬 طلب استفسار",
+      "1": "📨 طلب عرض سعر جديد",
+      "3": "✅ موافقة على عرض السعر",
+      "4": "❌ رفض عرض السعر",
+      "5": "💬 طلب استفسار",
     };
 
     await Dio().post(
@@ -51,7 +57,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
       queryParameters: {
         'chat_id': chatId,
         'parse_mode': 'HTML',
-        'text': """
+        'text':
+            """
   🛗 <b>تحديث طلب عرض سعر</b>
 
   📋 <b>رقم الطلب:</b> ${widget.bookDets[0]['id']}
@@ -67,24 +74,25 @@ class _QuotationScreenState extends State<QuotationScreen> {
     );
   }
 
-  void _initWebView() {
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (url) {
-          if (mounted) setState(() => _pdfLoading = true);
-        },
-        onPageFinished: (url) {
-          if (mounted) setState(() => _pdfLoading = false);
-        },
-        onWebResourceError: (error) {
-          if (mounted) setState(() => _pdfLoading = false);
-        },
-      ))
-      ..loadRequest(Uri.parse(
+  Future<void> _downloadPdf() async {
+    try {
+      final response = await Dio().get(
         'https://daltalifts.com/app2026/PDF_Final/index.php?ktype=2&batchId=${widget.bookDets[0]['id']}',
-      ));
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/quotation_${widget.bookDets[0]['id']}.pdf');
+      await file.writeAsBytes(response.data);
+      if (mounted) {
+        setState(() {
+          _localPdfPath = file.path;
+          _pdfLoading = false;
+        });
+      }
+    } catch (e) {
+      print('PDF error: $e');
+      if (mounted) setState(() => _pdfLoading = false);
+    }
   }
 
   Future<void> _loadChat() async {
@@ -96,14 +104,21 @@ class _QuotationScreenState extends State<QuotationScreen> {
           "bookId": widget.bookDets[0]['id'].toString(),
         },
       );
-      final adminTyping = result.data['admin_typing'] == true;
       if (mounted) {
         setState(() {
           _chatMessages = List<Map<String, dynamic>>.from(
             result.data['messages'] ?? [],
           );
-          _adminTyping = adminTyping;
           _chatLoading = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_chatScrollController.hasClients) {
+            _chatScrollController.animateTo(
+              _chatScrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
         });
       }
     } catch (e) {
@@ -134,43 +149,53 @@ class _QuotationScreenState extends State<QuotationScreen> {
 
   void _sendTypingIndicator() {
     final now = DateTime.now();
-    if (_lastTypingSent != null &&
-        now.difference(_lastTypingSent!).inSeconds < 2) {
+    if (_lastTyping != null &&
+        now.difference(_lastTyping!).inMilliseconds < 1000) {
       return;
     }
-    _lastTypingSent = now;
+    _lastTyping = now;
 
-    Dio().post(
-      "https://daltalifts.com/app2026/sql.php",
-      data: {
-        "action": "sendTypingIndicator",
-        "bookId": widget.bookDets[0]['id'].toString(),
-        "sender": "client",
-      },
-    );
+    Dio()
+        .post(
+          "https://daltalifts.com/app2026/sql.php",
+          data: {
+            "action": "sendTypingIndicator",
+            "bookId": widget.bookDets[0]['id'].toString(),
+            "sender": "client",
+          },
+        )
+        .then((res) {
+          print("typing sent: ${res.data}");
+        });
   }
 
-  Widget _buildTypingDots() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(
-        3,
-        (i) => TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.2, end: 1.0),
-          duration: Duration(milliseconds: 400 + (i * 150)),
-          builder: (ctx, val, _) => Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 1),
-            child: Opacity(
-              opacity: val,
-              child: const Text(
-                "•",
-                style: TextStyle(color: Color(0xFFF37021), fontSize: 18),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
+  Future<void> _checkAdminTyping() async {
+    try {
+      final result = await Dio().post(
+        "https://daltalifts.com/app2026/sql.php",
+        data: {
+          "action": "checkTyping",
+          "bookId": widget.bookDets[0]['id'].toString(),
+          "checkRole": "admin",
+        },
+      );
+      if (mounted) {
+        setState(() {
+          _adminTyping = result.data['typing'] == true;
+        });
+        if (_adminTyping) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_chatScrollController.hasClients) {
+              _chatScrollController.animateTo(
+                _chatScrollController.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadRejectionReason() async {
@@ -199,33 +224,40 @@ class _QuotationScreenState extends State<QuotationScreen> {
   @override
   void initState() {
     super.initState();
+    _currentStb = widget.bookDets[0]['stb'].toString();
     setState(() {
       floors = int.parse(widget.bookDets[0]['floors']);
       persons = int.parse(widget.bookDets[0]['persons']);
     });
 
-    if (widget.bookDets[0]['stb'] == '4') {
+    if (_currentStb == '4') {
       _loadRejectionReason();
     } else {
       _reasonLoading = false;
     }
 
-    if (widget.bookDets[0]['stb'] == '5') {
+    if (_currentStb == '5') {
       _loadChat();
       _chatTimer = Timer.periodic(
         const Duration(seconds: 5),
         (_) => _loadChat(),
       );
+      _typingTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => _checkAdminTyping(),
+      );
     } else {
       _chatLoading = false;
     }
 
-    _initWebView();
+    _downloadPdf();
   }
 
   @override
   void dispose() {
     _chatTimer?.cancel();
+    _typingTimer?.cancel();
+    _chatScrollController.dispose();
     _rejectionReasonController.dispose();
     _chatInputController.dispose();
     super.dispose();
@@ -355,10 +387,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
           Text(
             "قام فريقنا بمراجعة طلبك وسيتواصل معك قريباً بعرض جديد",
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 14, color: Colors.grey),
           ),
         ],
       ),
@@ -464,7 +493,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
                       queryParameters: {
                         'chat_id': '-1003877690157',
                         'parse_mode': 'HTML',
-                        'text': """
+                        'text':
+                            """
 🚫 <b>رفض عرض السعر</b>
 
 📋 <b>رقم الطلب:</b> #${widget.bookDets[0]['id']}
@@ -569,87 +599,99 @@ class _QuotationScreenState extends State<QuotationScreen> {
                         ),
                       )
                     : _chatMessages.isEmpty && !_adminTyping
-                        ? const Center(
-                            child: Text(
-                              "ابدأ المحادثة مع الشركة",
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.all(12),
-                            itemCount:
-                                _chatMessages.length + (_adminTyping ? 1 : 0),
-                            itemBuilder: (ctx, i) {
-                              if (i == _chatMessages.length) {
-                                return Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
+                    ? const Center(
+                        child: Text(
+                          "ابدأ المحادثة مع الشركة",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _chatScrollController,
+                        padding: const EdgeInsets.all(12),
+                        itemCount:
+                            _chatMessages.length + (_adminTyping ? 1 : 0),
+                        itemBuilder: (ctx, i) {
+                          if (i == _chatMessages.length) {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                margin: const EdgeInsets.only(
+                                  bottom: 8,
+                                  top: 4,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0F0F0),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      "يكتب ",
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0F0F0),
-                                      borderRadius: BorderRadius.circular(16),
+                                    Text(
+                                      "• • •",
+                                      style: TextStyle(
+                                        color: Color(0xFFF37021),
+                                        fontSize: 16,
+                                        letterSpacing: 2,
+                                      ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Text(
-                                          "يكتب ",
-                                          style: TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        _buildTypingDots(),
-                                      ],
-                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                          final msg = _chatMessages[i];
+                          final isClient = msg['sender'] == 'client';
+                          return Align(
+                            alignment: isClient
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              constraints: const BoxConstraints(maxWidth: 260),
+                              decoration: BoxDecoration(
+                                color: isClient
+                                    ? const Color(0xFFF37021)
+                                    : const Color(0xFFF0F0F0),
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(16),
+                                  topRight: const Radius.circular(16),
+                                  bottomLeft: Radius.circular(
+                                    isClient ? 16 : 4,
                                   ),
-                                );
-                              }
-                              final msg = _chatMessages[i];
-                              final isClient = msg['sender'] == 'client';
-                              return Align(
-                                alignment: isClient
-                                    ? Alignment.centerRight
-                                    : Alignment.centerLeft,
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 10,
-                                  ),
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 260),
-                                  decoration: BoxDecoration(
-                                    color: isClient
-                                        ? const Color(0xFFF37021)
-                                        : const Color(0xFFF0F0F0),
-                                    borderRadius: BorderRadius.only(
-                                      topLeft: const Radius.circular(16),
-                                      topRight: const Radius.circular(16),
-                                      bottomLeft:
-                                          Radius.circular(isClient ? 16 : 4),
-                                      bottomRight:
-                                          Radius.circular(isClient ? 4 : 16),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    msg['message']?.toString() ?? '',
-                                    style: TextStyle(
-                                      color: isClient
-                                          ? Colors.white
-                                          : Colors.black87,
-                                      fontSize: 13,
-                                    ),
-                                    textDirection: TextDirection.rtl,
+                                  bottomRight: Radius.circular(
+                                    isClient ? 4 : 16,
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                              child: Text(
+                                msg['message']?.toString() ?? '',
+                                style: TextStyle(
+                                  color: isClient
+                                      ? Colors.white
+                                      : Colors.black87,
+                                  fontSize: 13,
+                                ),
+                                textDirection: TextDirection.rtl,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
               ),
               Container(
                 padding: const EdgeInsets.all(10),
@@ -686,6 +728,10 @@ class _QuotationScreenState extends State<QuotationScreen> {
                     Expanded(
                       child: TextField(
                         controller: _chatInputController,
+                        onChanged: (val) {
+                          _sendTypingIndicator();
+                        },
+                        onSubmitted: (_) => _sendClientMsg(),
                         textDirection: TextDirection.rtl,
                         textAlign: TextAlign.right,
                         decoration: InputDecoration(
@@ -705,8 +751,6 @@ class _QuotationScreenState extends State<QuotationScreen> {
                             vertical: 10,
                           ),
                         ),
-                        onChanged: (_) => _sendTypingIndicator(),
-                        onSubmitted: (_) => _sendClientMsg(),
                       ),
                     ),
                   ],
@@ -735,13 +779,19 @@ class _QuotationScreenState extends State<QuotationScreen> {
             borderRadius: BorderRadius.circular(16),
             child: Stack(
               children: [
-                if (_webViewController != null)
-                  WebViewWidget(controller: _webViewController!),
+                if (_localPdfPath != null)
+                  PDFView(
+                    filePath: _localPdfPath!,
+                    enableSwipe: true,
+                    swipeHorizontal: false,
+                    autoSpacing: true,
+                    pageFling: true,
+                    fitEachPage: true,
+                    fitPolicy: FitPolicy.BOTH,
+                  ),
                 if (_pdfLoading)
                   const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFFF37021),
-                    ),
+                    child: CircularProgressIndicator(color: Color(0xFFF37021)),
                   ),
               ],
             ),
@@ -758,23 +808,44 @@ class _QuotationScreenState extends State<QuotationScreen> {
       children: [
         GestureDetector(
           onTap: () async {
+            if (_currentStb == '5') return;
             if (_isLoading || _actionLoading != null) return;
             setState(() => _actionLoading = 5);
             try {
               var result = await Dio().post(
-                  "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                  data: {
-                    "action": "updateCounterRequest",
-                    "bookId": widget.bookDets[0]['id'].toString(),
-                    "floors": floors.toString(),
-                    "persons": persons.toString(),
-                    "stb": "5"
-                  });
+                "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                data: {
+                  "action": "updateCounterRequest",
+                  "bookId": widget.bookDets[0]['id'].toString(),
+                  "floors": floors.toString(),
+                  "persons": persons.toString(),
+                  "stb": "5",
+                },
+              );
               if (result.data['success'] == true) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
                     content: Text("تم إرسال طلب إستفسار إلى الشركة"),
-                    backgroundColor: AppColors.warning));
+                    backgroundColor: AppColors.warning,
+                  ),
+                );
                 await sendToTelegram("5");
+                if (mounted) {
+                  setState(() {
+                    _actionLoading = null;
+                    _currentStb = '5';
+                    _chatLoading = true;
+                  });
+                  _loadChat();
+                  _chatTimer ??= Timer.periodic(
+                    const Duration(seconds: 5),
+                    (_) => _loadChat(),
+                  );
+                  _typingTimer ??= Timer.periodic(
+                    const Duration(seconds: 1),
+                    (_) => _checkAdminTyping(),
+                  );
+                }
               }
             } finally {
               if (mounted) setState(() => _actionLoading = null);
@@ -792,14 +863,20 @@ class _QuotationScreenState extends State<QuotationScreen> {
               children: [
                 _actionLoading == 5
                     ? _actionSpinner(const Color(0xFFF37021))
-                    : const Icon(Iconsax.message,
-                        color: Color(0xFFF37021), size: 18),
-                const SizedBox(width: 6),
-                const Text("رسالة",
-                    style: TextStyle(
+                    : const Icon(
+                        Iconsax.message,
                         color: Color(0xFFF37021),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13)),
+                        size: 18,
+                      ),
+                const SizedBox(width: 6),
+                const Text(
+                  "رسالة",
+                  style: TextStyle(
+                    color: Color(0xFFF37021),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
@@ -810,19 +887,29 @@ class _QuotationScreenState extends State<QuotationScreen> {
             setState(() => _actionLoading = 4);
             try {
               var result = await Dio().post(
-                  "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                  data: {
-                    "action": "updateCounterRequest",
-                    "bookId": widget.bookDets[0]['id'].toString(),
-                    "floors": floors.toString(),
-                    "persons": persons.toString(),
-                    "stb": "4"
-                  });
+                "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                data: {
+                  "action": "updateCounterRequest",
+                  "bookId": widget.bookDets[0]['id'].toString(),
+                  "floors": floors.toString(),
+                  "persons": persons.toString(),
+                  "stb": "4",
+                },
+              );
               if (result.data['success'] == true) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
                     content: Text("تم إرسال رفضك على الطلب"),
-                    backgroundColor: AppColors.error));
+                    backgroundColor: AppColors.error,
+                  ),
+                );
                 await sendToTelegram("4");
+                if (mounted) {
+                  setState(() {
+                    _currentStb = '4';
+                  });
+                  _loadRejectionReason();
+                }
               }
             } finally {
               if (mounted) setState(() => _actionLoading = null);
@@ -840,14 +927,20 @@ class _QuotationScreenState extends State<QuotationScreen> {
               children: [
                 _actionLoading == 4
                     ? _actionSpinner(const Color(0xFFEF4444))
-                    : const Icon(Iconsax.close_circle,
-                        color: Color(0xFFEF4444), size: 18),
-                const SizedBox(width: 6),
-                const Text("رفض",
-                    style: TextStyle(
+                    : const Icon(
+                        Iconsax.close_circle,
                         color: Color(0xFFEF4444),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13)),
+                        size: 18,
+                      ),
+                const SizedBox(width: 6),
+                const Text(
+                  "رفض",
+                  style: TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
@@ -858,27 +951,36 @@ class _QuotationScreenState extends State<QuotationScreen> {
             setState(() => _actionLoading = 3);
             try {
               var result = await Dio().post(
-                  "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                  data: {
-                    "action": "updateCounterRequest",
-                    "bookId": widget.bookDets[0]['id'].toString(),
-                    "floors": floors.toString(),
-                    "persons": persons.toString(),
-                    "stb": "3"
-                  });
+                "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                data: {
+                  "action": "updateCounterRequest",
+                  "bookId": widget.bookDets[0]['id'].toString(),
+                  "floors": floors.toString(),
+                  "persons": persons.toString(),
+                  "stb": "3",
+                },
+              );
               if (result.data['success'] == true) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content:
-                        Text("تم إرسال موافقتك , في إنتظار الشركة"),
-                    backgroundColor: AppColors.success));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("تم إرسال موافقتك , في إنتظار الشركة"),
+                    backgroundColor: AppColors.success,
+                  ),
+                );
                 await sendToTelegram("3");
                 await Dio().post(
-                    "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                    data: {
-                      "action": "updateQuotationStx",
-                      "bookId": widget.bookDets[0]['id'].toString(),
-                      "stx": "2"
-                    });
+                  "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                  data: {
+                    "action": "updateQuotationStx",
+                    "bookId": widget.bookDets[0]['id'].toString(),
+                    "stx": "2",
+                  },
+                );
+                if (mounted) {
+                  setState(() {
+                    _currentStb = '3';
+                  });
+                }
               }
             } finally {
               if (mounted) setState(() => _actionLoading = null);
@@ -888,10 +990,11 @@ class _QuotationScreenState extends State<QuotationScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                  colors: [Color(0xFFF37021), Color(0xFFFF8C00)]),
+                colors: [Color(0xFFF37021), Color(0xFFFF8C00)],
+              ),
               borderRadius: BorderRadius.circular(14),
               boxShadow: const [
-                BoxShadow(color: Color(0x33F37021), blurRadius: 8)
+                BoxShadow(color: Color(0x33F37021), blurRadius: 8),
               ],
             ),
             child: Row(
@@ -899,14 +1002,20 @@ class _QuotationScreenState extends State<QuotationScreen> {
               children: [
                 _actionLoading == 3
                     ? _actionSpinner(Colors.white)
-                    : const Icon(Iconsax.tick_circle,
-                        color: Colors.white, size: 18),
-                const SizedBox(width: 6),
-                const Text("موافقة",
-                    style: TextStyle(
+                    : const Icon(
+                        Iconsax.tick_circle,
                         color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13)),
+                        size: 18,
+                      ),
+                const SizedBox(width: 6),
+                const Text(
+                  "موافقة",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
@@ -917,7 +1026,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stb = widget.bookDets[0]['stb'].toString();
+    final stb = _currentStb;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -967,15 +1076,29 @@ class _QuotationScreenState extends State<QuotationScreen> {
                 if (_isLoading) return;
                 setState(() => _isLoading = true);
                 try {
-                  await Dio().post(
-                      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                      data: {
-                        "action": "updateCounterRequest",
-                        "bookId": widget.bookDets[0]['id'].toString(),
-                        "floors": floors.toString(),
-                        "persons": persons.toString(),
-                        "stb": "1"
-                      });
+                  var result = await Dio().post(
+                    "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                    data: {
+                      "action": "updateCounterRequest",
+                      "bookId": widget.bookDets[0]['id'].toString(),
+                      "floors": floors.toString(),
+                      "persons": persons.toString(),
+                      "stb": "1",
+                    },
+                  );
+                  if (result.data['success'] == true) {
+                    // Send Telegram notification
+                    await sendToTelegram("1");
+                    if (mounted) {
+                      setState(() => _currentStb = '1');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("تم إرسال الطلب، في انتظار رد الشركة"),
+                          backgroundColor: Color(0xFFF37021),
+                        ),
+                      );
+                    }
+                  }
                 } finally {
                   if (mounted) setState(() => _isLoading = false);
                 }

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 /// كل methods ارسال الاشعارات بفلاتر مختلفة
 
 class OneSignalNotification {
+  static const String androidDefaultChannelId = 'OneSignal_messages';
   static const String _appId = "aca3707d-a491-4e81-95eb-46ef15ea1ba4";
   static const String _apiKey =
       "Key os_v2_app_vsrxa7nesfhidfpli3xrl2q3uqpfybs3omouyufoxs7alm6ekpt2onv6q67w54eg3nftc2txuxhomriqfrqhzpe7fgasw2hebbpav7a";
@@ -16,13 +17,19 @@ class OneSignalNotification {
   // =========================================================
   static Future<Map<String, dynamic>> _send(Map<String, dynamic> data) async {
     try {
+      final payload = {
+        ...data,
+        if (!data.containsKey('existing_android_channel_id') &&
+            !data.containsKey('android_channel_id'))
+          'existing_android_channel_id': androidDefaultChannelId,
+      };
       final response = await http.post(
         Uri.parse(_apiUrl),
         headers: {
           "Content-Type": "application/json; charset=utf-8",
           "Authorization": _apiKey,
         },
-        body: jsonEncode(data),
+        body: jsonEncode(payload),
       );
 
       return {

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ─── Model ────────────────────────────────────────────────────────────────────
 class MaintenanceRequest {
@@ -51,29 +52,25 @@ class TimelineEvent {
   final String? time;
   final TimelineStatus status;
 
-  const TimelineEvent({
-    required this.title,
-    this.time,
-    required this.status,
-  });
+  const TimelineEvent({required this.title, this.time, required this.status});
 }
 
 enum TimelineStatus { done, active, pending }
 
 // ─── Colors (Light Theme) ─────────────────────────────────────────────────────
 class AppColors {
-  static const background   = Color(0xFFF5F5F7);
-  static const surface      = Color(0xFFFFFFFF);
+  static const background = Color(0xFFF5F5F7);
+  static const surface = Color(0xFFFFFFFF);
   static const surfaceHigher = Color(0xFFF0F0F3);
   static const orangePrimary = Color(0xFFF97316);
-  static const orangeDark   = Color(0xFFE8520A);
-  static const textPrimary  = Color(0xFF1A1A1A);
+  static const orangeDark = Color(0xFFE8520A);
+  static const textPrimary = Color(0xFF1A1A1A);
   static const textSecondary = Color(0xFF888888);
-  static const textHint     = Color(0xFFBBBBBB);
-  static const green        = Color(0xFF16A34A);
-  static const greenBg      = Color(0xFFDCFCE7);
-  static const greenBorder  = Color(0xFFBBF7D0);
-  static const border       = Color(0xFFE8E8EC);
+  static const textHint = Color(0xFFBBBBBB);
+  static const green = Color(0xFF16A34A);
+  static const greenBg = Color(0xFFDCFCE7);
+  static const greenBorder = Color(0xFFBBF7D0);
+  static const border = Color(0xFFE8E8EC);
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -82,17 +79,21 @@ class MaintenanceDetailScreen extends StatefulWidget {
   const MaintenanceDetailScreen({super.key, required this.maintenanceId});
 
   @override
-  State<MaintenanceDetailScreen> createState() => _MaintenanceDetailScreenState();
+  State<MaintenanceDetailScreen> createState() =>
+      _MaintenanceDetailScreenState();
 }
 
 class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
   List mainList = [];
 
   Future getMaintenanceDetails() async {
-    var request = await Dio().post("https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}", data: {
+    var request = await Dio().post(
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+      data: {
         "action": "getMaintenanceDetails",
-        "maintenanceId": widget.maintenanceId
-    });
+        "maintenanceId": widget.maintenanceId,
+      },
+    );
     setState(() {
       mainList = request.data['data'];
     });
@@ -103,38 +104,39 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
     super.initState();
     getMaintenanceDetails();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: SystemUiOverlayStyle.dark,
-        child: mainList.isEmpty ? Scaffold(backgroundColor: AppColors.background,) : Scaffold(
-          backgroundColor: AppColors.background,
-          body: Column(
-            children: [
-              _buildHeader(context),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeroCard(),
-                      _buildSection('معلومات الطلب', _buildInfoCard()),
-                      _buildSection('وصف المشكلة', _buildDescCard()),
-                      _buildSection('الفني المسؤول', _buildTechCard()),
-                      // _buildSection('مراحل الطلب', _buildTimeline()),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+        child: mainList.isEmpty
+            ? Scaffold(backgroundColor: AppColors.background)
+            : Scaffold(
+                backgroundColor: AppColors.background,
+                body: Column(
+                  children: [
+                    _buildHeader(context),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeroCard(),
+                            _buildSection('معلومات الطلب', _buildInfoCard()),
+                            _buildSection('وصف المشكلة', _buildDescCard()),
+                            _buildSection('الفني المسؤول', _buildTechCard()),
+                            // _buildSection('مراحل الطلب', _buildTimeline()),
+                            const SizedBox(height: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              _buildFooter(context),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -149,8 +151,11 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
           children: [
             _iconButton(
               onTap: () => Navigator.pop(context),
-              child: const Icon(Iconsax.arrow_right_3,
-                  size: 17, color: AppColors.orangePrimary),
+              child: const Icon(
+                Iconsax.arrow_right_3,
+                size: 17,
+                color: AppColors.orangePrimary,
+              ),
             ),
             const Expanded(
               child: Text(
@@ -160,7 +165,6 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                   color: AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  
                 ),
               ),
             ),
@@ -261,11 +265,7 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                 ),
               ),
             ),
-            Positioned(
-              top: 20,
-              left: 20,
-              child: _statusPill(),
-            ),
+            Positioned(top: 20, left: 20, child: _statusPill()),
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -273,7 +273,9 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.25),
                       borderRadius: BorderRadius.circular(8),
@@ -284,23 +286,23 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        
                       ),
                     ),
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'طلب رقم # ${mainList[0]['id']}',
+                    'طلب رقم # ${mainList[0]['id']?.toString() ?? ''}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 26,
                       fontWeight: FontWeight.w900,
-                      
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    mainList[0]['a5'] == 'Urgent' ? "صيانة عاجلة" : "صيانة عادية",
+                    (mainList[0]['a5']?.toString() ?? '') == 'Urgent'
+                        ? "صيانة عاجلة"
+                        : "صيانة عادية",
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.85),
                       fontSize: 13,
@@ -312,21 +314,20 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                       _metaChip(
                         icon: Iconsax.calendar,
                         label: 'التاريخ',
-                        value:
-                            mainList[0]['a3'],
+                        value: mainList[0]['a3']?.toString() ?? '',
                       ),
                       const SizedBox(width: 8),
                       _metaChip(
                         icon: Iconsax.clock,
                         label: 'الوقت',
-                        value:
-                            mainList[0]['a4']
+                        value: mainList[0]['a4']?.toString() ?? '',
                       ),
                       const SizedBox(width: 8),
                       _metaChip(
                         icon: Iconsax.location,
                         label: 'الموقع',
-                        value: "مبنى رقم ${mainList[0]['building']}",
+                        value:
+                            "مبنى رقم ${mainList[0]['building']?.toString() ?? ''}",
                       ),
                     ],
                   ),
@@ -342,9 +343,9 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
   Widget _statusPill() {
     final colors = {
       'in_progress': [AppColors.green, 'قيد التنفيذ'],
-      'done':        [AppColors.green, 'مكتمل'],
-      'pending':     [AppColors.orangePrimary, 'قيد الانتظار'],
-      'assigned':    [Colors.blue, 'تم التعيين'],
+      'done': [AppColors.green, 'مكتمل'],
+      'pending': [AppColors.orangePrimary, 'قيد الانتظار'],
+      'assigned': [Colors.blue, 'تم التعيين'],
     };
     final data = colors["in_progress"] ?? [AppColors.green, 'غير معروف'];
 
@@ -372,7 +373,6 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
               color: Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              
             ),
           ),
         ],
@@ -405,7 +405,6 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.white.withOpacity(0.75),
-                      
                     ),
                   ),
                   Text(
@@ -414,7 +413,6 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
-                      
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -440,7 +438,7 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              
+
               letterSpacing: 1,
             ),
           ),
@@ -454,10 +452,27 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
   // ── Info Card ──────────────────────────────────────────────────────────────
   Widget _buildInfoCard() {
     final rows = [
-      (Iconsax.star, 'نوع الصيانة', mainList[0]['a5'] == 'Urgent' ?  "صيانة عاجلة" : "صيانة عادية", true),
-      (Iconsax.location, 'العنوان',  "المدينة: ${mainList[0]['city']}, المنطقة: ${mainList[0]['zone']}, الشارع: ${mainList[0]['street']}", false),
+      (
+        Iconsax.star,
+        'نوع الصيانة',
+        (mainList[0]['a5']?.toString() ?? '') == 'Urgent'
+            ? "صيانة عاجلة"
+            : "صيانة عادية",
+        true,
+      ),
+      (
+        Iconsax.location,
+        'العنوان',
+        "المدينة: ${mainList[0]['city']?.toString() ?? ''}, المنطقة: ${mainList[0]['zone']?.toString() ?? ''}, الشارع: ${mainList[0]['street']?.toString() ?? ''}",
+        false,
+      ),
       // (Iconsax.building, 'نوع المصعد',  "", false),
-      (Iconsax.document_text, 'رقم العقد',  mainList[0]['contract_id'], false),
+      (
+        Iconsax.document_text,
+        'رقم العقد',
+        mainList[0]['contract_id']?.toString() ?? '',
+        false,
+      ),
     ];
 
     return Container(
@@ -480,7 +495,7 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
           return _infoRow(
             icon: row.$1,
             label: row.$2,
-            value: row.$3 as String,
+            value: row.$3,
             isOrange: row.$4,
             showDivider: !isLast,
           );
@@ -502,13 +517,18 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           child: Row(
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  color: isOrange ? AppColors.orangePrimary : AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  
+              Flexible(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: isOrange
+                        ? AppColors.orangePrimary
+                        : AppColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
               const Spacer(),
@@ -519,7 +539,6 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
-                      
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -553,12 +572,11 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
         ],
       ),
       child: Text(
-         mainList[0]['a2'],
+        mainList[0]['a2']?.toString() ?? '',
         style: const TextStyle(
           color: Color(0xFF555555),
           fontSize: 13,
           height: 1.7,
-          
         ),
         textAlign: TextAlign.right,
       ),
@@ -578,10 +596,7 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
         child: const Center(
           child: Text(
             'لم يتم تعيين فني بعد',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              
-            ),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
         ),
       );
@@ -606,9 +621,25 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
         children: [
           Row(
             children: [
-              _techActionBtn(icon: Iconsax.call),
+              _techActionBtn(
+                icon: Iconsax.call,
+                onTap: () async {
+                  final phone = mainList[0]['hr_phone']?.toString() ?? '';
+                  final uri = Uri.parse('tel:$phone');
+                  if (await canLaunchUrl(uri)) launchUrl(uri);
+                },
+              ),
               const SizedBox(width: 8),
-              _techActionBtn(icon: Iconsax.message),
+              _techActionBtn(
+                icon: Iconsax.message,
+                onTap: () async {
+                  final phone = mainList[0]['hr_phone']?.toString() ?? '';
+                  final uri = Uri.parse('https://wa.me/$phone');
+                  if (await canLaunchUrl(uri)) {
+                    launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+              ),
             ],
           ),
           const SizedBox(width: 14),
@@ -617,21 +648,19 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  mainList[0]['hr_name'],
+                  mainList[0]['hr_name']?.toString() ?? '',
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  mainList[0]['hr_phone'],
+                  mainList[0]['hr_phone']?.toString() ?? '',
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
-                    
                   ),
                 ),
               ],
@@ -651,12 +680,11 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
             ),
             child: Center(
               child: Text(
-                _getInitials(mainList[0]['hr_name']),
+                _getInitials(mainList[0]['hr_name']?.toString()),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  
                 ),
               ),
             ),
@@ -665,24 +693,27 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
       ),
     );
   }
-  String _getInitials(String name) {
+
+  String _getInitials(String? name) {
+    if (name == null || name.isEmpty) return '?';
     final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}';
-    }
-    return parts[0][0];
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}';
+    return parts[0].isNotEmpty ? parts[0][0] : '?';
   }
 
-  Widget _techActionBtn({required IconData icon}) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: AppColors.surfaceHigher,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 1),
+  Widget _techActionBtn({required IconData icon, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceHigher,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border, width: 1),
+        ),
+        child: Icon(icon, size: 16, color: AppColors.orangePrimary),
       ),
-      child: Icon(icon, size: 16, color: AppColors.orangePrimary),
     );
   }
 
@@ -697,20 +728,24 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
   // }
 
   Widget _timelineItem(TimelineEvent event, {bool isLast = false}) {
-    final isDone   = event.status == TimelineStatus.done;
+    final isDone = event.status == TimelineStatus.done;
     final isActive = event.status == TimelineStatus.active;
 
     Color dotBg, dotBorder;
     Widget dotChild;
 
     if (isDone) {
-      dotBg     = AppColors.greenBg;
+      dotBg = AppColors.greenBg;
       dotBorder = AppColors.greenBorder;
-      dotChild  = const Icon(Iconsax.tick_circle, size: 16, color: AppColors.green);
+      dotChild = const Icon(
+        Iconsax.tick_circle,
+        size: 16,
+        color: AppColors.green,
+      );
     } else if (isActive) {
-      dotBg     = const Color(0xFFFFF0E6);
+      dotBg = const Color(0xFFFFF0E6);
       dotBorder = AppColors.orangePrimary;
-      dotChild  = Container(
+      dotChild = Container(
         width: 10,
         height: 10,
         decoration: const BoxDecoration(
@@ -719,9 +754,9 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
         ),
       );
     } else {
-      dotBg     = AppColors.surfaceHigher;
+      dotBg = AppColors.surfaceHigher;
       dotBorder = AppColors.border;
-      dotChild  = Container(
+      dotChild = Container(
         width: 10,
         height: 10,
         decoration: const BoxDecoration(
@@ -748,12 +783,7 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                 child: Center(child: dotChild),
               ),
               if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: AppColors.border,
-                  ),
-                ),
+                Expanded(child: Container(width: 2, color: AppColors.border)),
             ],
           ),
           const SizedBox(width: 14),
@@ -771,7 +801,6 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                           : AppColors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      
                     ),
                   ),
                   if (event.time != null)
@@ -782,7 +811,6 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
                         style: const TextStyle(
                           color: AppColors.textHint,
                           fontSize: 11,
-                          
                         ),
                       ),
                     ),
@@ -791,93 +819,6 @@ class _MaintenanceDetailScreenState extends State<MaintenanceDetailScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ── Footer ─────────────────────────────────────────────────────────────────
-  Widget _buildFooter(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: const Border(
-          top: BorderSide(color: AppColors.border, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {},
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceHigher,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.orangePrimary, width: 1),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'إلغاء',
-                        style: TextStyle(
-                          color: AppColors.orangePrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                flex: 2,
-                child: GestureDetector(
-                  onTap: () {},
-                  child: Container(
-                    height: 52,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.orangeDark, AppColors.orangePrimary],
-                        begin: Alignment.centerRight,
-                        end: Alignment.centerLeft,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.orangePrimary.withOpacity(0.35),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Iconsax.edit, color: Colors.white, size: 16),
-                        SizedBox(width: 8),
-                        Text(
-                          'تحديث الحالة',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

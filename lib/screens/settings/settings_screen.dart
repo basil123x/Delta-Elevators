@@ -60,7 +60,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SharedPreferences prefx = await SharedPreferences.getInstance();
     prefx.remove("userId");
     prefx.remove("orderId");
+    await prefx.remove('customer_type');
+    await prefx.remove('customer_uid');
+    await prefx.remove('customer_phone');
+    await prefx.remove('contract_id');
+    await prefx.remove('currentCard');
+    await prefx.remove('userId');
+    await prefx.remove('addId');
     currentTab.jumpToPagex(0);
+    await prefx.setBool('just_logged_in', true);
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => SplashScreen()),

@@ -16,7 +16,8 @@ const _textPrimary = Color(0xFF1A1A2E);
 const _textMuted = Color(0xFF9E9EBE);
 
 class AddressesScreen extends StatefulWidget {
-  const AddressesScreen({super.key});
+  final bool returnMode;
+  const AddressesScreen({super.key, this.returnMode = false});
 
   @override
   State<AddressesScreen> createState() => _AddressesScreenState();
@@ -97,7 +98,6 @@ class _AddressesScreenState extends State<AddressesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    print(addresses);
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -167,7 +167,11 @@ class _AddressesScreenState extends State<AddressesScreen> {
                 setState(() {
                   isLoading = true;
                 });
-                Navigator.pop(context);
+                if (widget.returnMode) {
+                  Navigator.pop(context, currentAddressId);
+                } else {
+                  Navigator.pop(context);
+                }
               },
               child: Container(
                 height: 58,

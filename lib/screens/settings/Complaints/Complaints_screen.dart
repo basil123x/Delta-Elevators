@@ -1,4 +1,5 @@
 import 'package:Delta/constants/app_colors.dart';
+import 'package:Delta/screens/repair/repair_theme.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -30,11 +31,22 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      userController.text = prefs.getString('userName') ?? '';
-      mobileController.text = prefs.getString('userPhone') ?? '';
-    });
+    final uid = prefs.getString("userId") ?? "";
+    if (uid.isEmpty) return;
+    try {
+      final result = await getDio().post(
+        "https://daltalifts.com/app2026/sql.php",
+        data: {"action": "profile", "uid": uid},
+      );
+      if (mounted) {
+        setState(() {
+          userController.text = result.data['data']['a1'] ?? '';
+          mobileController.text = result.data['data']['a2'] ?? '';
+        });
+      }
+    } catch (e) {
+      print('Profile error: $e');
+    }
   }
 
   String buildTelegramMessage({
@@ -57,7 +69,8 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
 
   ━━━━━━━━━━━━━━
   🕐 $formatted
-  '''.trim();
+  '''
+        .trim();
   }
 
   Widget _floatingIconCircle() {
@@ -76,11 +89,7 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
           ),
         ],
       ),
-      child: const Icon(
-        Iconsax.messages,
-        color: _orange,
-        size: 32,
-      ),
+      child: const Icon(Iconsax.messages, color: _orange, size: 32),
     );
   }
 
@@ -149,49 +158,57 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
                           width: double.infinity,
                           color: _bg,
                           child: SingleChildScrollView(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 50, 16, 24),
+                            padding: const EdgeInsets.fromLTRB(16, 50, 16, 24),
                             child: Column(
                               children: [
                                 MyInputCustom(
-                          iController: userController,
-                          iHint: 'إسمك',
-                          iPref: Iconsax.user,
-                          isTyping: TextInputType.name,
-                          iValid: (val) {
-                            if (val == '') {
-                              return 'الرجاء إكتب إسمك';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        MyInputCustom(
-                          iController: mobileController,
-                          iHint: 'رقم هاتفك',
-                          iPref: Iconsax.call,
-                          isTyping: TextInputType.phone,
-                          iValid: (val) {
-                            if (val == '') {
-                              return 'الرجاء إكتب رقم هاتفك';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        MyInputCustom(
-                          iController: emailController,
-                          iHint: 'إكتب رسالتك هنا...',
-                          iPref: Iconsax.message_text,
-                          isTyping: TextInputType.multiline,
-                          isMultiline: true,
-                          iValid: (val) {
-                            if (val == '') {
-                              return 'الرجاء إكتب رسالتك';
-                            }
-                            return null;
-                          },
-                        ),
+                                  iController: emailController,
+                                  iHint: 'إكتب رسالتك هنا...',
+                                  iPref: Iconsax.message_text,
+                                  isTyping: TextInputType.multiline,
+                                  isMultiline: true,
+                                  iValid: (val) {
+                                    if (val == '') {
+                                      return 'الرجاء إكتب رسالتك';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Color(0xFFEBEBEB),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      _statusItem(
+                                        icon: Iconsax.clock,
+                                        color: Color(0xFFF37021),
+                                        label: "شكوى جديدة",
+                                        desc: "تم استلام شكواك وقيد المراجعة",
+                                      ),
+                                      Divider(),
+                                      _statusItem(
+                                        icon: Iconsax.tick_circle,
+                                        color: Color(0xFF22C55E),
+                                        label: "تم الحل",
+                                        desc: "تمت معالجة شكواك بنجاح",
+                                      ),
+                                      Divider(),
+                                      _statusItem(
+                                        icon: Iconsax.pause_circle,
+                                        color: Color(0xFFEAB308),
+                                        label: "معلقة",
+                                        desc: "شكواك قيد المتابعة من فريقنا",
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -210,83 +227,89 @@ class _ComplaintScreenState extends State<ComplaintScreen> {
             ),
           ),
           bottomNavigationBar: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: GestureDetector(
-                onTap: () async {
-                  if (formkey.currentState!.validate()) {
-                    SharedPreferences prefx =
-                        await SharedPreferences.getInstance();
-                    setState(() {
-                      isLoading = true;
-                    });
-                    var result = await getDio().post(
-                      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                      data: {
-                        "action": "addComplaint",
-                        "name": userController.text,
-                        "mobile": mobileController.text,
-                        "msg": emailController.text,
-                        "userId": prefx.getString("userId"),
-                      },
-                    );
-                    final text = buildTelegramMessage(
-                      name: userController.text.trim(),
-                      phone: mobileController.text.trim(),
-                      message: emailController.text,
-                    );
-                    final url =
-                        'https://api.telegram.org/bot8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI/sendMessage';
-                    await Dio().post(url, data: {
+            child: RepairTheme.primaryButton(
+              label: "إرسال",
+              icon: Iconsax.send1,
+              loading: isLoading,
+              onTap: () async {
+                if (formkey.currentState!.validate()) {
+                  SharedPreferences prefx =
+                      await SharedPreferences.getInstance();
+                  setState(() {
+                    isLoading = true;
+                  });
+                  var result = await getDio().post(
+                    "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+                    data: {
+                      "action": "addComplaint",
+                      "name": userController.text,
+                      "mobile": mobileController.text,
+                      "msg": emailController.text,
+                      "userId": prefx.getString("userId"),
+                    },
+                  );
+                  final text = buildTelegramMessage(
+                    name: userController.text.trim(),
+                    phone: mobileController.text.trim(),
+                    message: emailController.text,
+                  );
+                  final url =
+                      'https://api.telegram.org/bot8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI/sendMessage';
+                  await Dio().post(
+                    url,
+                    data: {
                       'chat_id': "-1003877690157",
                       'text': text,
                       'parse_mode': 'Markdown',
-                    });
-                    if (result.data['success'] == true) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            "شكرا على إقتراحاتك سيتم التواصل معك في أقرب وقت",
-                          ),
-                          backgroundColor: AppColors.primary,
+                    },
+                  );
+                  if (result.data['success'] == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          "شكرا على إقتراحاتك سيتم التواصل معك في أقرب وقت",
                         ),
-                      );
-                      Navigator.pop(context);
-                    }
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFF37021), Color(0xFFFF8C00)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFF37021).withOpacity(0.4),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
+                        backgroundColor: AppColors.primary,
                       ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'إرسال',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ),
+                    );
+                    Navigator.pop(context);
+                  }
+                }
+              },
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _statusItem({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String desc,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 22),
+          SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: Color(0xFF1A1A2E),
+                ),
+              ),
+              Text(desc, style: TextStyle(fontSize: 11, color: Colors.grey)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -301,6 +324,7 @@ class MyInputCustom extends StatelessWidget {
   final int? iLength;
   final int? iMax;
   final bool isMultiline;
+  final bool readOnly;
   final String? Function(String?)? iValid;
 
   const MyInputCustom({
@@ -313,6 +337,7 @@ class MyInputCustom extends StatelessWidget {
     this.iLength,
     this.iMax,
     this.isMultiline = false,
+    this.readOnly = false,
     this.iValid,
   });
 
@@ -346,11 +371,9 @@ class MyInputCustom extends StatelessWidget {
               maxLength: iLength,
               minLines: 5,
               maxLines: 8,
+              readOnly: readOnly,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF1A1A2E),
-              ),
+              style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
               decoration: InputDecoration(
                 counterText: '',
                 filled: true,
@@ -400,17 +423,17 @@ class MyInputCustom extends StatelessWidget {
               onChanged: iChanged,
               maxLength: iLength,
               maxLines: 1,
+              readOnly: readOnly,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 15,
-                color: Color(0xFF1A1A2E),
-              ),
+              style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
               decoration: InputDecoration(
                 counterText: '',
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,

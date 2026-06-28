@@ -111,8 +111,7 @@ class OrderTimelineWidget extends StatelessWidget {
           final index = entry.key;
           final status = entry.value;
           final isLast = index == OrderStatus.values.length - 1;
-          final isCompleted =
-              currentIndex >= 0 && index < currentIndex;
+          final isCompleted = currentIndex >= 0 && index < currentIndex;
           final isCurrent = index == currentIndex;
 
           return _TimelineStep(
@@ -155,11 +154,7 @@ class _TimelineStep extends StatelessWidget {
             children: [
               _buildCircle(),
               if (!isLast)
-                Expanded(
-                  child: _TimelineConnector(
-                    solidGreen: isCompleted,
-                  ),
-                ),
+                Expanded(child: _TimelineConnector(solidGreen: isCompleted)),
             ],
           ),
           const SizedBox(width: 12),
@@ -194,10 +189,7 @@ class _TimelineStep extends StatelessWidget {
     return Container(
       width: 44,
       height: 44,
-      decoration: BoxDecoration(
-        color: bg,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
       child: Icon(icon, color: iconColor, size: 20),
     );
   }

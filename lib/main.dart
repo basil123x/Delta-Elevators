@@ -39,6 +39,12 @@ void main() async {
   HttpOverrides.global = MyHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
 
+  if (Platform.isAndroid) {
+    await const MethodChannel(
+      'com.delta_elevator/notifications',
+    ).invokeMethod<String>('ensureDefaultChannel');
+  }
+
   // TEMPORARY - get app signature hash for WhatsApp (use real Android device; see debug console)
   try {
     if (Platform.isAndroid) {

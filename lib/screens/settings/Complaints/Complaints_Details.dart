@@ -1,4 +1,5 @@
 import 'package:Delta/constants/app_colors.dart';
+import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
@@ -15,6 +16,8 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
   GlobalKey<FormState> formkey = GlobalKey<FormState>();
   bool isLoading = false;
   List myComplaints = [];
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
 
   String buildTelegramMessage({
     required String name,
@@ -40,6 +43,25 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
         .trim();
   }
 
+  Future<void> _loadProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString("userId") ?? "";
+    try {
+      final result = await getDio().post(
+        "https://daltalifts.com/app2026/sql.php",
+        data: {"action": "profile", "uid": uid},
+      );
+      if (mounted) {
+        setState(() {
+          nameController.text = result.data['data']['a1'] ?? '';
+          phoneController.text = result.data['data']['a2'] ?? '';
+        });
+      }
+    } catch (e) {
+      print('Profile error: $e');
+    }
+  }
+
   Future getComplaintsData() async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
     var request = await Dio().post(
@@ -53,8 +75,16 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
 
   @override
   void initState() {
-    getComplaintsData();
     super.initState();
+    _loadProfile();
+    getComplaintsData();
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+    super.dispose();
   }
 
   @override
@@ -96,6 +126,61 @@ class _ComplaintDetailsState extends State<ComplaintDetails> {
                     child: Column(
                       children: [
                         SizedBox(height: 50),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: TextFormField(
+                            controller: nameController,
+                            readOnly: true,
+                            textAlign: TextAlign.right,
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.grey.shade100,
+                              hintText: 'إسمك',
+                              prefixIcon: Icon(
+                                Iconsax.lock,
+                                color: Colors.grey.shade500,
+                                size: 18,
+                              ),
+                              suffixIcon: Icon(
+                                Iconsax.user,
+                                color: AppColors.primary,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: TextFormField(
+                            controller: phoneController,
+                            readOnly: true,
+                            textAlign: TextAlign.right,
+                            keyboardType: TextInputType.phone,
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.grey.shade100,
+                              hintText: 'رقم هاتفك',
+                              prefixIcon: Icon(
+                                Iconsax.lock,
+                                color: Colors.grey.shade500,
+                                size: 18,
+                              ),
+                              suffixIcon: Icon(
+                                Iconsax.call,
+                                color: AppColors.primary,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 16),
                         ...List.generate(myComplaints.length, (i) {
                           return Container(
                             margin: EdgeInsets.symmetric(

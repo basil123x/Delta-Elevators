@@ -140,8 +140,7 @@ class _RequestScreenState extends State<RequestScreen> {
       onConfirm: () {
         setState(() {
           selectedDate = temp;
-          dateController.text =
-              "${temp.day}-${temp.month}-${temp.year}";
+          dateController.text = "${temp.day}-${temp.month}-${temp.year}";
         });
       },
     );
@@ -217,61 +216,60 @@ class _RequestScreenState extends State<RequestScreen> {
     );
   }
 
-Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
-  SharedPreferences prefx = await SharedPreferences.getInstance();
-  final dio = Dio();
-  dio.options.connectTimeout = const Duration(seconds: 60);
-  dio.options.receiveTimeout = const Duration(seconds: 60);
+  Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    final dio = Dio();
+    dio.options.connectTimeout = const Duration(seconds: 60);
+    dio.options.receiveTimeout = const Duration(seconds: 60);
 
-  for (int i = 0; i < imageFiles.length; i++) {
-    final ext = imageFiles[i].path.split('.').last;
+    for (int i = 0; i < imageFiles.length; i++) {
+      final ext = imageFiles[i].path.split('.').last;
 
-    final presignRes = await dio.post(
-      "https://daltalifts.com/app2026/sql.php",
-      data: jsonEncode({
-        'action': 'getPresignedMaintenanceImageUrl',
-        'maintenanceId': maintenanceId,
-        'userId': prefx.getString("userId"),
-        'index': i + 1,
-        'ext': ext,
-        'type': widget.type
-      }),
-      options: Options(contentType: 'application/json'),
-    );
+      final presignRes = await dio.post(
+        "https://daltalifts.com/app2026/sql.php",
+        data: jsonEncode({
+          'action': 'getPresignedMaintenanceImageUrl',
+          'maintenanceId': maintenanceId,
+          'userId': prefx.getString("userId"),
+          'index': i + 1,
+          'ext': ext,
+          'type': widget.type,
+        }),
+        options: Options(contentType: 'application/json'),
+      );
 
-    final presignData = presignRes.data is String
-        ? jsonDecode(presignRes.data)
-        : presignRes.data;
+      final presignData = presignRes.data is String
+          ? jsonDecode(presignRes.data)
+          : presignRes.data;
 
-    if (!presignData['success']) continue;
+      if (!presignData['success']) continue;
 
-    final uploadUrl = presignData['url'];
+      final uploadUrl = presignData['url'];
 
-    final bytes = await imageFiles[i].readAsBytes();
-    await dio.put(
-      uploadUrl,
-      data: Stream.fromIterable([bytes]),
-      options: Options(
-        headers: {
-          'Content-Type': 'image/jpeg',
-          'Content-Length': bytes.length,
-        },
-      ),
-    );
+      final bytes = await imageFiles[i].readAsBytes();
+      await dio.put(
+        uploadUrl,
+        data: Stream.fromIterable([bytes]),
+        options: Options(
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'Content-Length': bytes.length,
+          },
+        ),
+      );
+    }
+
+    myAllImg.clear();
+    Provider.of<AppProvider>(context, listen: false).allImagesList.clear();
+    descController.clear();
+    dateController.text = intlx.DateFormat('yyyy-MM-dd').format(DateTime.now());
+    timeController.text = intlx.DateFormat('hh:mm a').format(DateTime.now());
+    isLoading = false;
+    setState(() {});
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("تم إضافة طلب صيانة جديد")));
   }
-
-    
-  myAllImg.clear();
-  Provider.of<AppProvider>(context, listen: false).allImagesList.clear();
-  descController.clear();
-  dateController.text = intlx.DateFormat('yyyy-MM-dd').format(DateTime.now());
-  timeController.text = intlx.DateFormat('hh:mm a').format(DateTime.now());
-  isLoading = false;
-  setState(() {});
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text("تم إضافة طلب صيانة جديد")),
-  );
-}
 
   @override
   void initState() {
@@ -293,6 +291,101 @@ Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
             children: [
               const SizedBox(height: 320, child: AddressesDisplayWidget()),
               const SizedBox(height: 12),
+              if (widget.type == 'Urgent') ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: RepairTheme.orange, width: 1.5),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Iconsax.timer_1,
+                            color: RepairTheme.orange,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "الصيانة العاجلة من 30 الى 60 دقيقة",
+                              style: RepairTheme.cairo(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: RepairTheme.orange,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(
+                            Iconsax.money,
+                            color: RepairTheme.orange,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "سعر الصيانة العاجلة 200 ريال",
+                              style: RepairTheme.cairo(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: RepairTheme.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ] else ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F7FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Color(0xFF3B82F6), width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Iconsax.money,
+                        color: Color(0xFF3B82F6),
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "سعر الصيانة العادية 100 ريال",
+                          style: RepairTheme.cairo(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF3B82F6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: RepairTheme.cardDecoration(radius: 12),
@@ -341,9 +434,7 @@ Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => CameraWorking(),
-                    ),
+                    MaterialPageRoute(builder: (context) => CameraWorking()),
                   );
                 },
                 child: DottedBorder(
@@ -404,9 +495,7 @@ Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: RepairTheme.border),
                                 image: DecorationImage(
-                                  image: FileImage(
-                                    File(app.allImagesList[i]),
-                                  ),
+                                  image: FileImage(File(app.allImagesList[i])),
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -483,13 +572,14 @@ Future<void> uploadImages(List<File> imageFiles, String maintenanceId) async {
                             if (result.data['success'] == true) {
                               if (app.allImagesList.isNotEmpty) {
                                 setState(() {
-                                  isLoadingTxt =
-                                      "جاري رفع صور أعطال الصيانة";
+                                  isLoadingTxt = "جاري رفع صور أعطال الصيانة";
                                 });
 
-                                for (var i = 0;
-                                    i < app.allImagesList.length;
-                                    i++) {
+                                for (
+                                  var i = 0;
+                                  i < app.allImagesList.length;
+                                  i++
+                                ) {
                                   myAllImg.add(File(app.allImagesList[i]));
                                 }
                                 uploadImages(
@@ -560,7 +650,7 @@ class MyInputCustom extends StatelessWidget {
     this.iValid,
     this.iTab,
     this.iEnabled,
-    this.initVx
+    this.initVx,
   });
 
   @override

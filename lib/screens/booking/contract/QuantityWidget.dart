@@ -34,9 +34,10 @@ class _QuantityCounterState extends State<QuantityCounter>
       vsync: this,
       duration: const Duration(milliseconds: 120),
     );
-    _scaleAnim = Tween(begin: 1.0, end: 1.25).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _scaleAnim = Tween(
+      begin: 1.0,
+      end: 1.25,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -126,11 +127,7 @@ class _CounterButton extends StatelessWidget {
               width: 1.5,
             ),
           ),
-          child: Icon(
-            icon,
-            size: 22,
-            color: ContractTheme.orange,
-          ),
+          child: Icon(icon, size: 22, color: ContractTheme.orange),
         ),
       ),
     );

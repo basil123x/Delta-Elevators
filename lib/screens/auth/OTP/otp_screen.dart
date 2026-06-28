@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:Delta/screens/auth/auth_design.dart';
@@ -12,7 +11,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' as intlx;
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sms_autofill/sms_autofill.dart';
 import 'package:iconsax/iconsax.dart';
 
 class OTPScreen extends StatefulWidget {
@@ -32,7 +30,8 @@ class OTPScreen extends StatefulWidget {
   State<OTPScreen> createState() => _OTPScreenState();
 }
 
-class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin, CodeAutoFill {
+class _OTPScreenState extends State<OTPScreen>
+    with TickerProviderStateMixin {
   static const int _otpLength = 6;
   static const Color _orange = Color(0xFFF37021);
   static const Color _textDark = Color(0xFF1A1A2E);
@@ -86,29 +85,6 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin, Co
       _digitFocus[i].addListener(_otpFieldListener);
       _digitControllers[i].addListener(_otpFieldListener);
     }
-    if (Platform.isAndroid) {
-      listenForCode(smsCodeRegexPattern: r'\d{6}');
-    }
-  }
-
-  @override
-  void codeUpdated() {
-    if (!mounted) return;
-    final raw = code;
-    if (raw == null || raw.isEmpty) return;
-    final match = RegExp(r'\d{6}').firstMatch(raw);
-    final six = match?.group(0) ?? raw.replaceAll(RegExp(r'\D'), '');
-    if (six.length != 6) return;
-    debugPrint('📲 Auto-received OTP: $six');
-    for (var i = 0; i < _otpLength; i++) {
-      _digitControllers[i].text = six[i];
-    }
-    setState(() {});
-    Future<void>.delayed(const Duration(milliseconds: 300), () async {
-      if (mounted && !isLoading) {
-        await _verifyOtp();
-      }
-    });
   }
 
   void startTimer() {
@@ -350,10 +326,19 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin, Co
           final a4Str = data is Map ? (data['a4']?.toString() ?? '') : '';
           await prefx.setString("userId", a3Str);
           await prefx.setString("orderId", a4Str);
+          await prefx.setBool('just_logged_in', true);
+          // Clear any old customer_type from previous session
+          await prefx.remove('customer_type');
+          await prefx.remove('customer_uid');
+          await prefx.remove('customer_phone');
+          await prefx.remove('contract_id');
+          await prefx.remove('currentCard');
+          await prefx.remove('addId');
           if (!mounted) return;
           setState(() {
             isLoading = false;
           });
+          await prefx.remove('fresh_login');
           Navigator.pushReplacement(
             context,
             MaterialPageRoute<void>(builder: (context) => MainScreen()),
@@ -377,9 +362,6 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin, Co
 
   @override
   void dispose() {
-    if (Platform.isAndroid) {
-      cancel();
-    }
     _timer?.cancel();
     _shakeController.dispose();
     for (var i = 0; i < _otpLength; i++) {
@@ -554,7 +536,8 @@ class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin, Co
                                           color: _textDark,
                                         ),
                                         inputFormatters: [
-                                          FilteringTextInputFormatter.digitsOnly,
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
                                         ],
                                         decoration: InputDecoration(
                                           counterText: '',

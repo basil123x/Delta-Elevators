@@ -53,17 +53,16 @@ class _RepairContractState extends State<RepairContract> {
     setState(() {
       userName = result.data['data']['a1'];
       userPhone = result.data['data']['a2'];
-      contractDate = intlx.DateFormat("yyyy-MM-dd").format(DateTime.now()).toString();
+      contractDate = intlx.DateFormat(
+        "yyyy-MM-dd",
+      ).format(DateTime.now()).toString();
     });
   }
 
   Future getMaintContSt() async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
     String uid = prefx.getString("userId") ?? "";
-    var data = {
-          "action": "getCurrentContractMaint",
-          "userId": uid
-      };
+    var data = {"action": "getCurrentContractMaint", "userId": uid};
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: data,
@@ -71,65 +70,65 @@ class _RepairContractState extends State<RepairContract> {
     setState(() {
       maintContSt = result.data['data'];
       if (maintContSt.isNotEmpty) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => RepairScreen()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => RepairScreen()),
+        );
       }
     });
   }
 
-
-  
-
   Future<void> uploadSignature(signId) async {
-  if (signatureController.value.isEmpty) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('من فضلك قم بالتوقيع أولاً')));
-    return;
-  }
+    if (signatureController.value.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('من فضلك قم بالتوقيع أولاً')));
+      return;
+    }
 
-  setState(() => isLoadingTxt = "جاري رفع التوقيع");
+    setState(() => isLoadingTxt = "جاري رفع التوقيع");
 
-  final Uint8List? signatureBytes = await signatureController.toPngBytes();
+    final Uint8List? signatureBytes = await signatureController.toPngBytes();
 
-  // 1. اجيب presigned URL من السيرفر
-  var res = await getDio().post(
-    'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
-    data: {'action': 'getPresignedUrlS3', 'contractId': signId, 'contractType': "2"},
-  );
-
-  String presignedUrl = res.data['url'];
-  String s3Key = res.data['key'];
-
-  // 2. ارفع على S3 مباشرة
-  await Dio().put(
-    presignedUrl,
-    data: signatureBytes,
-    options: Options(
-      headers: {
-        'Content-Type': 'image/png',
-        'Content-Length': signatureBytes!.length,
+    // 1. اجيب presigned URL من السيرفر
+    var res = await getDio().post(
+      'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+      data: {
+        'action': 'getPresignedUrlS3',
+        'contractId': signId,
+        'contractType': "2",
       },
-    ),
-  );
+    );
 
-  // 3. ابعت الـ key للسيرفر عشان يحفظه في DB
-  var response = await getDio().post(
-    'https://daltalifts.com/app2026/sql.php',
-    data: {
-      'action': 'UploadSignature',
-      'contractId': signId,
-      's3Key': s3Key,
-      
-    },
-  );
+    String presignedUrl = res.data['url'];
+    String s3Key = res.data['key'];
 
-  if (response.data['success'] == true) {
-    downloadAndUploadPdf(signId);
-  } else {
-    throw Exception(response.data['message'] ?? 'خطأ في الحفظ');
+    // 2. ارفع على S3 مباشرة
+    await Dio().put(
+      presignedUrl,
+      data: signatureBytes,
+      options: Options(
+        headers: {
+          'Content-Type': 'image/png',
+          'Content-Length': signatureBytes!.length,
+        },
+      ),
+    );
+
+    // 3. ابعت الـ key للسيرفر عشان يحفظه في DB
+    var response = await getDio().post(
+      'https://daltalifts.com/app2026/sql.php',
+      data: {'action': 'UploadSignature', 'contractId': signId, 's3Key': s3Key},
+    );
+
+    if (response.data['success'] == true) {
+      downloadAndUploadPdf(signId);
+    } else {
+      throw Exception(response.data['message'] ?? 'خطأ في الحفظ');
+    }
   }
-}
 
-Future downloadAndUploadPdf(signId) async {
+  Future downloadAndUploadPdf(signId) async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
     String? oid = prefx.getString("orderId");
     try {
@@ -151,44 +150,45 @@ Future downloadAndUploadPdf(signId) async {
         });
         Provider.of<AppProvider>(context, listen: false).jumpToTabx(1);
       }
- 
     } catch (e) {
       print('Error: $e');
     }
   }
 
   Future<void> sendTelegramMessageDocs({
-  required String s3PdfUrl,
-  required String message,
-}) async {
-  const String botToken = '8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI';
+    required String s3PdfUrl,
+    required String message,
+  }) async {
+    const String botToken = '8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI';
 
-  try {
-    final response = await Dio().post(
-      'https://api.telegram.org/bot$botToken/sendDocument',
-      queryParameters: {
-        'chat_id': "-1003877690157",
-        'document': s3PdfUrl,
-        'caption': message,
-        'parse_mode': 'HTML',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      
-      await Dio().post(
-        'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
-        data: {
-          "action": "updateMaintenanceContract",
-          "contractId": Provider.of<AppProvider>(context, listen: false).signId
-        }
+    try {
+      final response = await Dio().post(
+        'https://api.telegram.org/bot$botToken/sendDocument',
+        queryParameters: {
+          'chat_id': "-1003877690157",
+          'document': s3PdfUrl,
+          'caption': message,
+          'parse_mode': 'HTML',
+        },
       );
-      print('✅ تم الإرسال');
+
+      if (response.statusCode == 200) {
+        await Dio().post(
+          'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+          data: {
+            "action": "updateMaintenanceContract",
+            "contractId": Provider.of<AppProvider>(
+              context,
+              listen: false,
+            ).signId,
+          },
+        );
+        print('✅ تم الإرسال');
+      }
+    } on DioException catch (e) {
+      print('❌ خطأ: ${e.message}');
     }
-  } on DioException catch (e) {
-    print('❌ خطأ: ${e.message}');
   }
-}
 
   @override
   void initState() {
@@ -323,7 +323,8 @@ Future downloadAndUploadPdf(signId) async {
                           context,
                           listen: false,
                         ).signId;
-                        String msg = """
+                        String msg =
+                            """
                 🛗 <b>عقد صيانة مصاعد جديد</b>
           
                 نُفيدكم بإصدار عقد صيانة دورية جديد ويستلزم متابعتكم.
@@ -354,12 +355,13 @@ Future downloadAndUploadPdf(signId) async {
                             "type": "5",
                             "a2": contractDate,
                             "a3": userName,
-                            "a19": intlx.DateFormat("yyyy-MM-dd")
-                                .format(DateTime.now())
-                                .toString(),
+                            "a19": intlx.DateFormat(
+                              "yyyy-MM-dd",
+                            ).format(DateTime.now()).toString(),
                             "a20": intlx.DateFormat("yyyy-MM-dd")
-                                .format(DateTime.now()
-                                    .add(const Duration(days: 365)))
+                                .format(
+                                  DateTime.now().add(const Duration(days: 365)),
+                                )
                                 .toString(),
                             "a30": prefx.getString("userId"),
                           };
@@ -369,9 +371,10 @@ Future downloadAndUploadPdf(signId) async {
                             data: data,
                           );
                           if (response.data['success'] == true) {
-                            Provider.of<AppProvider>(context, listen: false)
-                                .getSignId(
-                                    response.data['data']['id'].toString());
+                            Provider.of<AppProvider>(
+                              context,
+                              listen: false,
+                            ).getSignId(response.data['data']['id'].toString());
                             uploadSignature(response.data['data']['id']);
                           }
                         } else {

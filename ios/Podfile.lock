@@ -114,13 +114,9 @@ PODS:
     - OneSignalXCFramework/OneSignalNotifications
     - OneSignalXCFramework/OneSignalOSCore
     - OneSignalXCFramework/OneSignalOutcomes
-  - open_file_ios (1.0.3):
-    - Flutter
   - package_info_plus (0.4.5):
     - Flutter
   - permission_handler_apple (9.3.0):
-    - Flutter
-  - printing (1.0.0):
     - Flutter
   - restart_app (1.7.2):
     - Flutter
@@ -170,10 +166,8 @@ DEPENDENCIES:
   - html_to_pdf (from `.symlinks/plugins/html_to_pdf/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - onesignal_flutter (from `.symlinks/plugins/onesignal_flutter/ios`)
-  - open_file_ios (from `.symlinks/plugins/open_file_ios/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
-  - printing (from `.symlinks/plugins/printing/ios`)
   - restart_app (from `.symlinks/plugins/restart_app/ios`)
   - sentry_flutter (from `.symlinks/plugins/sentry_flutter/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -221,14 +215,10 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   onesignal_flutter:
     :path: ".symlinks/plugins/onesignal_flutter/ios"
-  open_file_ios:
-    :path: ".symlinks/plugins/open_file_ios/ios"
   package_info_plus:
     :path: ".symlinks/plugins/package_info_plus/ios"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
-  printing:
-    :path: ".symlinks/plugins/printing/ios"
   restart_app:
     :path: ".symlinks/plugins/restart_app/ios"
   sentry_flutter:
@@ -269,10 +259,8 @@ SPEC CHECKSUMS:
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   onesignal_flutter: d706835865d1adf2f03afc7c7b6d237494e693e3
   OneSignalXCFramework: 0b85a8d949247f80809a9d5598200cc263591129
-  open_file_ios: 46184d802ee7959203f6392abcfa0dd49fdb5be0
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
-  printing: 54ff03f28fe9ba3aa93358afb80a8595a071dd07
   restart_app: 98825697952793b5a8e489df3d52ed5ac4fd536d
   SDWebImage: 1bb6a1b84b6fe87b972a102bdc77dd589df33477
   Sentry: da60d980b197a46db0b35ea12cb8f39af48d8854
