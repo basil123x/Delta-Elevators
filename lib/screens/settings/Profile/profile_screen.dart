@@ -1096,11 +1096,28 @@ class _ProfileScreenState extends State<ProfileScreen> with CodeAutoFill {
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Text('🇶🇦', style: TextStyle(fontSize: 14)),
-                          SizedBox(width: 4),
-                          Text(
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
+                            child: SizedBox(
+                              width: 22,
+                              height: 14,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    color: const Color(0xFF8D1B3D),
+                                  ),
+                                  Expanded(
+                                    child: Container(color: Colors.white),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
                             '+974',
                             style: TextStyle(
                               fontSize: 12,

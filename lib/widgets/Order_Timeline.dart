@@ -1,10 +1,12 @@
+import 'package:Delta/services/DioServiceCert.dart';
+import 'package:Delta/services/OneSignalServices.dart';
 import 'package:Delta/widgets/Order_Completed.dart';
-import 'package:Delta/widgets/Order_Importing.dart';
-import 'package:Delta/widgets/Order_Installation.dart';
 import 'package:Delta/widgets/Order_Playing.dart';
 import 'package:Delta/widgets/Order_Waiting.dart';
+import 'package:Delta/widgets/order_stage_gallery.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum OrderStatus {
   contracting(
@@ -65,9 +67,10 @@ enum OrderStatus {
     required this.subTitle,
     required this.description,
   });
-}
 
-bool isEnabled = false;
+  /// bookings.stl value (1..9)
+  int get stageNumber => index + 1;
+}
 
 class _TimelineColors {
   static const orange = Color(0xFFF37021);
@@ -79,33 +82,223 @@ class _TimelineColors {
   static const border = Color(0xFFEBEBEB);
 }
 
-class OrderTimelineWidget extends StatelessWidget {
+class OrderTimelineWidget extends StatefulWidget {
   final String currentStatus;
   final String bookId;
+  final bool isAdmin;
+  final ValueChanged<String>? onStageUpdated;
 
   const OrderTimelineWidget({
     super.key,
     required this.currentStatus,
     required this.bookId,
+    this.isAdmin = false,
+    this.onStageUpdated,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final currentIndex = OrderStatus.values.indexWhere(
-      (e) => e.name.toLowerCase() == currentStatus.toLowerCase(),
+  State<OrderTimelineWidget> createState() => _OrderTimelineWidgetState();
+}
+
+class _OrderTimelineWidgetState extends State<OrderTimelineWidget> {
+  bool _sending = false;
+  int? _sendingStage;
+
+  int get _currentIndex => OrderStatus.values.indexWhere(
+        (e) => e.name.toLowerCase() == widget.currentStatus.toLowerCase(),
+      );
+
+  Future<void> _sendStage(OrderStatus status) async {
+    if (!widget.isAdmin || _sending) return;
+    final stage = status.stageNumber;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'تفعيل المرحلة',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+          ),
+          content: Text(
+            'هل تريد الانتقال إلى «${status.subTitle}» وإرسالها للعميل؟\nسيتحدّث التطبيق والسيستم فوراً ويصله إشعار.',
+            style: const TextStyle(height: 1.5, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _TimelineColors.orange,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'تأكيد',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _sending = true;
+      _sendingStage = stage;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('userId') ?? '';
+      final result = await getDio().post(
+        'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+        data: {
+          'action': 'updateBookingStage',
+          'uid': uid,
+          'bookId': widget.bookId,
+          'stage': stage,
+        },
+      );
+      final ok = result.data['success'] == true ||
+          result.data['success'] == 1 ||
+          result.data['success'] == 'true';
+      if (!mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.data['message']?.toString() ?? 'فشل إرسال المرحلة',
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Backup push from the app (in addition to server OneSignal)
+      try {
+        final data = result.data['data'];
+        final players = data is Map ? data['playerIds'] : null;
+        final title = data is Map
+            ? (data['title']?.toString() ?? status.subTitle)
+            : status.subTitle;
+        final body = data is Map
+            ? (data['content']?.toString() ?? status.description)
+            : status.description;
+        if (players is List) {
+          for (final p in players) {
+            final id = p?.toString() ?? '';
+            if (id.isEmpty) continue;
+            await OneSignalNotification.sendToUser(
+              subscriptionId: id,
+              title: title,
+              message: body,
+              extra: {
+                'headings': {'en': title, 'ar': title},
+                'contents': {'en': body, 'ar': body},
+                'data': {
+                  'type': 'booking_stage',
+                  'bookId': widget.bookId,
+                  'stage': '$stage',
+                },
+              },
+            );
+          }
+        }
+      } catch (e) {
+        debugPrint('Stage push backup error: $e');
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تم تفعيل «${status.subTitle}» وإرسالها للعميل ✓'),
+          backgroundColor: _TimelineColors.green,
+        ),
+      );
+      widget.onStageUpdated?.call(status.name);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('حدث خطأ أثناء إرسال المرحلة')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _sending = false;
+          _sendingStage = null;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = _currentIndex;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'مراحل التنفيذ',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: _TimelineColors.textPrimary,
-          ),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'مراحل التنفيذ',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: _TimelineColors.textPrimary,
+                ),
+              ),
+            ),
+            if (widget.isAdmin)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0E5),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'وضع الأدمن',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _TimelineColors.orange,
+                  ),
+                ),
+              ),
+          ],
         ),
+        if (widget.isAdmin) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFFE0C2)),
+            ),
+            child: const Text(
+              'اضغط على الكارد أو الدائرة لأي مرحلة عشان تنتقل ليها وتتبعت للعميل تلقائي',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF9A3412),
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         ...OrderStatus.values.asMap().entries.map((entry) {
           final index = entry.key;
@@ -113,13 +306,19 @@ class OrderTimelineWidget extends StatelessWidget {
           final isLast = index == OrderStatus.values.length - 1;
           final isCompleted = currentIndex >= 0 && index < currentIndex;
           final isCurrent = index == currentIndex;
+          // Admin can tap ANY stage (card or circle) to jump + notify.
+          final canSend = widget.isAdmin;
 
           return _TimelineStep(
             status: status,
             isCompleted: isCompleted,
             isCurrent: isCurrent,
             isLast: isLast,
-            bookId: bookId,
+            bookId: widget.bookId,
+            isAdmin: widget.isAdmin,
+            canSend: canSend,
+            sending: _sending && _sendingStage == status.stageNumber,
+            onSend: canSend ? () => _sendStage(status) : null,
           );
         }),
       ],
@@ -133,6 +332,10 @@ class _TimelineStep extends StatelessWidget {
   final bool isCurrent;
   final bool isLast;
   final String bookId;
+  final bool isAdmin;
+  final bool canSend;
+  final bool sending;
+  final VoidCallback? onSend;
 
   const _TimelineStep({
     required this.status,
@@ -140,6 +343,10 @@ class _TimelineStep extends StatelessWidget {
     required this.isCurrent,
     required this.isLast,
     required this.bookId,
+    this.isAdmin = false,
+    this.canSend = false,
+    this.sending = false,
+    this.onSend,
   });
 
   bool get _isPending => !isCompleted && !isCurrent;
@@ -186,42 +393,67 @@ class _TimelineStep extends StatelessWidget {
       iconColor = _TimelineColors.textSecondary;
     }
 
-    return Container(
+    final circle = Container(
       width: 44,
       height: 44,
-      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-      child: Icon(icon, color: iconColor, size: 20),
+      decoration: BoxDecoration(
+        color: bg,
+        shape: BoxShape.circle,
+        border: canSend && !isCompleted
+            ? Border.all(color: _TimelineColors.orange, width: 2)
+            : null,
+      ),
+      child: sending
+          ? const Padding(
+              padding: EdgeInsets.all(10),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : Icon(icon, color: iconColor, size: 20),
+    );
+
+    if (!canSend) return circle;
+    return GestureDetector(
+      onTap: onSend,
+      behavior: HitTestBehavior.opaque,
+      child: circle,
     );
   }
 
   Widget _buildStageCard() {
-    Widget caseContainer = const SizedBox.shrink();
-    switch (status.toString()) {
-      case 'OrderStatus.importing':
-        isEnabled = true;
-        caseContainer = OrderImporting(bookId: bookId);
+    Widget? media;
+    switch (status) {
+      case OrderStatus.importing:
+        media = OrderStageGallery(
+          bookId: bookId,
+          processType: 'importing',
+          isAdmin: isAdmin,
+        );
         break;
-      case 'OrderStatus.installation':
-        isEnabled = true;
-        caseContainer = OrderInstallation(bookId: bookId);
+      case OrderStatus.installation:
+        media = OrderStageGallery(
+          bookId: bookId,
+          processType: 'installation',
+          isAdmin: isAdmin,
+          maxImages: 1,
+        );
         break;
-      case 'OrderStatus.waiting':
-        isEnabled = true;
-        caseContainer = OrderWaiting(bookId: bookId);
+      case OrderStatus.waiting:
+        media = isAdmin ? null : OrderWaiting(bookId: bookId);
         break;
-      case 'OrderStatus.playing':
-        isEnabled = true;
-        caseContainer = OrderPlaying(bookId: bookId);
+      case OrderStatus.playing:
+        media = OrderPlaying(bookId: bookId, isAdmin: isAdmin);
         break;
-      case 'OrderStatus.completed':
-        isEnabled = true;
-        caseContainer = OrderCompleted(bookId: bookId);
+      case OrderStatus.completed:
+        media = isAdmin ? null : OrderCompleted(bookId: bookId);
         break;
       default:
-        isEnabled = false;
+        media = null;
     }
 
-    final showActions = (isCompleted || isCurrent) && isEnabled;
+    final showMedia = (isCompleted || isCurrent) && media != null;
 
     return Container(
       width: double.infinity,
@@ -229,7 +461,12 @@ class _TimelineStep extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _TimelineColors.border),
+        border: Border.all(
+          color: canSend && !isCompleted
+              ? _TimelineColors.orange.withValues(alpha: 0.45)
+              : _TimelineColors.border,
+          width: canSend && !isCompleted ? 1.5 : 1,
+        ),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0D000000),
@@ -239,10 +476,11 @@ class _TimelineStep extends StatelessWidget {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             status.title,
+            textAlign: TextAlign.right,
             style: const TextStyle(
               fontSize: 11,
               color: _TimelineColors.textSecondary,
@@ -251,6 +489,7 @@ class _TimelineStep extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             status.subTitle,
+            textAlign: TextAlign.right,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -269,13 +508,57 @@ class _TimelineStep extends StatelessWidget {
             ),
             textAlign: TextAlign.right,
           ),
+          if (showMedia) ...[
+            const SizedBox(height: 12),
+            media,
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
               _buildBadge(),
-              if (showActions) ...[
-                const SizedBox(width: 10),
-                Flexible(child: caseContainer),
+              if (canSend) ...[
+                const Spacer(),
+                sending
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: _TimelineColors.orange,
+                        ),
+                      )
+                    : GestureDetector(
+                        onTap: onSend,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _TimelineColors.orange,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'إرسال للعميل',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(
+                                Iconsax.send_2,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
               ],
             ],
           ),
@@ -285,6 +568,23 @@ class _TimelineStep extends StatelessWidget {
   }
 
   Widget _buildBadge() {
+    if (canSend && !isCompleted && !isCurrent) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF0E5),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          'اضغط للتفعيل',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: _TimelineColors.orange,
+          ),
+        ),
+      );
+    }
     final done = isCompleted || isCurrent;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

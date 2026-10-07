@@ -22,8 +22,12 @@ class _BookingscreenState extends State<Bookingscreen>
   late TabController _tabController;
   List myBookings = [];
   Timer? _timer;
+  bool _isAdmin = false;
+  int _lastSyncedIndex = 0;
 
   String getTimeAgo(String date, String time) {
+    if (date.trim().isEmpty) return '';
+    try {
     // دمج التاريخ والوقت
     String dateTimeString = '$date $time';
     DateTime pastDate = DateTime.parse(
@@ -86,6 +90,9 @@ class _BookingscreenState extends State<Bookingscreen>
       if (years == 2) return 'منذ سنتين';
       return 'منذ $years سنوات';
     }
+    } catch (_) {
+      return date;
+    }
   }
 
   int _progressPercentFromBooking(dynamic booking) {
@@ -102,13 +109,58 @@ class _BookingscreenState extends State<Bookingscreen>
   }
 
   String _elevatorTypeLabel(dynamic booking) {
+    final enter = booking['enter']?.toString() ?? '';
+    if (enter.isNotEmpty &&
+        enter != 'true' &&
+        enter != 'false' &&
+        enter != '0' &&
+        enter != '1') {
+      return enter;
+    }
     final v =
-        booking['elevator_type'] ??
-        booking['type'] ??
-        booking['service_type'] ??
-        booking['stt'];
-    if (v == null || v.toString().isEmpty) return 'مصعد';
-    return v.toString();
+        booking['elevator_type'] ?? booking['type'] ?? booking['service_type'];
+    if (v != null &&
+        v.toString().isNotEmpty &&
+        v.toString() != '0' &&
+        v.toString() != '1') {
+      return v.toString();
+    }
+    return 'مصعد';
+  }
+
+  Widget _bookingInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color valueColor,
+  }) {
+    // عربي RTL: يمين = أيقونة + اللابل ، شمال = القيمة
+    return Row(
+      textDirection: TextDirection.rtl,
+      children: [
+        Icon(icon, size: 13, color: Colors.grey.shade600),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.left,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: valueColor,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _openBookingDetail(dynamic booking) {
@@ -141,8 +193,16 @@ class _BookingscreenState extends State<Bookingscreen>
       // ✅ تحقق تاني بعد الـ await لأن الـ widget ممكن يتشال خلال الـ request
       if (!mounted) return;
 
+      final raw = result.data['data'];
+      final list = raw is List ? List.from(raw) : <dynamic>[];
+      final visible = list.where(_isVisibleBooking).toList();
+      visible.sort((a, b) {
+        final ia = int.tryParse(a['id']?.toString() ?? '') ?? 0;
+        final ib = int.tryParse(b['id']?.toString() ?? '') ?? 0;
+        return ib.compareTo(ia);
+      });
       setState(() {
-        myBookings = result.data['data'] ?? [];
+        myBookings = visible;
       });
     } on DioException catch (e) {
       if (!mounted) return;
@@ -158,16 +218,71 @@ class _BookingscreenState extends State<Bookingscreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    getMyBookings();
-    _tabController.addListener(() {
-      setState(() {});
-      if (!_tabController.indexIsChanging) {
-        getMyBookings();
-      }
-    });
+    final pendingTab = Provider.of<AppProvider>(context, listen: false).currentTab1;
+    if (pendingTab >= 0 && pendingTab < 3) {
+      _tabController.index = pendingTab;
+      _lastSyncedIndex = pendingTab;
+    }
+    _bootstrap();
+    _tabController.addListener(_onTabControllerTick);
     _timer = Timer.periodic(Duration(seconds: 5), (timer) {
       getMyBookings();
     });
+  }
+
+  void _onTabControllerTick() {
+    if (!mounted || _tabController.indexIsChanging) return;
+    final index = _tabController.index;
+    if (index == _lastSyncedIndex) return;
+    _lastSyncedIndex = index;
+    context.read<AppProvider>().jumpToTabx(index);
+    getMyBookings();
+    setState(() {});
+  }
+
+  void _selectTab(int index) {
+    if (_tabController.index == index) return;
+    _lastSyncedIndex = index;
+    context.read<AppProvider>().jumpToTabx(index);
+    _tabController.animateTo(
+      index,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
+    getMyBookings();
+    setState(() {});
+  }
+
+  Future<void> _bootstrap() async {
+    await _loadAdmin();
+    await getMyBookings();
+  }
+
+  Future<void> _loadAdmin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getBool('is_app_manager') ?? false;
+    if (!mounted) return;
+    setState(() => _isAdmin = cached);
+  }
+
+  bool _isMaintenanceBooking(dynamic booking) {
+    final enter = booking['enter']?.toString() ?? '';
+    if (enter.contains('صيانة')) return true;
+    final combined =
+        '${booking['elevator_type'] ?? ''} ${booking['type'] ?? ''} ${booking['service_type'] ?? ''} ${booking['status'] ?? ''}';
+    return combined.contains('صيانة');
+  }
+
+  bool _isPendingClientAction(dynamic booking) {
+    final stt = booking['stt']?.toString() ?? '0';
+    final stx = booking['stx']?.toString() ?? '0';
+    return stt != '1' || stx == '0' || stx == '1';
+  }
+
+  bool _isVisibleBooking(dynamic booking) {
+    if (_isMaintenanceBooking(booking)) return false;
+    if (_isAdmin && _isPendingClientAction(booking)) return false;
+    return true;
   }
 
   @override
@@ -179,6 +294,32 @@ class _BookingscreenState extends State<Bookingscreen>
 
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppProvider>();
+    if (app.isAppManager != _isAdmin) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _isAdmin = app.isAppManager);
+        getMyBookings();
+      });
+    }
+    // Provider-driven tab (e.g. Home shortcuts). Never animate from build —
+    // that fights the user's tap and freezes the UI.
+    if (!_tabController.indexIsChanging &&
+        app.currentTab1 >= 0 &&
+        app.currentTab1 < 3 &&
+        _tabController.index != app.currentTab1) {
+      final target = app.currentTab1;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _tabController.indexIsChanging) return;
+        if (_tabController.index != target) {
+          _lastSyncedIndex = target;
+          _tabController.index = target;
+          getMyBookings();
+          setState(() {});
+        }
+      });
+    }
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -223,7 +364,12 @@ class _BookingscreenState extends State<Bookingscreen>
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
+                          padding: EdgeInsets.fromLTRB(
+                            14,
+                            14,
+                            14,
+                            MediaQuery.paddingOf(context).bottom + 130,
+                          ),
                           itemCount: myBookings.length,
                           itemBuilder: (context, index) {
                             return _buildBookingCard(myBookings[index]);
@@ -259,7 +405,7 @@ class _BookingscreenState extends State<Bookingscreen>
       child: Column(
         children: [
           const Text(
-            'حجوزاتي',
+            'الحجوزات',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w900,
@@ -290,15 +436,7 @@ class _BookingscreenState extends State<Bookingscreen>
     final bool isActive = _tabController.index == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          if (_tabController.index != index) {
-            _tabController.animateTo(
-              index,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-            );
-          }
-        },
+        onTap: () => _selectTab(index),
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -325,20 +463,34 @@ class _BookingscreenState extends State<Bookingscreen>
   Widget _buildBookingCard(dynamic booking) {
     final isRejected = booking['stb']?.toString() == '4';
     final stl = booking['stl']?.toString() ?? '';
-    final String statusText =
-        (booking['status']?.toString().isNotEmpty ?? false)
-        ? booking['status'].toString()
-        : _getStatusText(stl);
+    final pendingClient = _isPendingClientAction(booking);
+    final String statusText;
+    if (isRejected) {
+      statusText = (booking['status']?.toString().isNotEmpty ?? false)
+          ? booking['status'].toString()
+          : _getStatusText(stl);
+    } else if (_isAdmin && pendingClient) {
+      statusText = 'معلق';
+    } else if (booking['status']?.toString().isNotEmpty ?? false) {
+      statusText = booking['status'].toString();
+    } else {
+      statusText = _getStatusText(stl);
+    }
 
-    final bool isDone =
-        stl == '9' ||
-        statusText.contains('مكتمل') ||
-        statusText.toLowerCase().contains('complete');
-    final bool isWaiting =
-        stl == '0' ||
-        statusText.contains('انتظار') ||
-        statusText.contains('إنتظار') ||
-        statusText.toLowerCase().contains('wait');
+    final bool isDone = _isAdmin
+        ? (!pendingClient &&
+            (stl == '9' ||
+                statusText.contains('مكتمل') ||
+                statusText.toLowerCase().contains('complete')))
+        : (stl == '9' ||
+            statusText.contains('مكتمل') ||
+            statusText.toLowerCase().contains('complete'));
+    final bool isWaiting = _isAdmin
+        ? pendingClient
+        : (stl == '0' ||
+            statusText.contains('انتظار') ||
+            statusText.contains('إنتظار') ||
+            statusText.toLowerCase().contains('wait'));
     final bool isProgress = !isDone && !isWaiting;
 
     final Color stripColor = isDone
@@ -360,10 +512,16 @@ class _BookingscreenState extends State<Bookingscreen>
         : const Color(0xFF3B82F6);
 
     final String badgeText = isDone
-        ? '✓ مكتمل'
+        ? 'مكتمل'
         : isProgress
-        ? '⏳ قيد التنفيذ'
-        : '🕐 قيد الانتظار';
+        ? 'قيد التنفيذ'
+        : (_isAdmin ? 'معلق' : 'قيد الانتظار');
+
+    final IconData badgeIcon = isDone
+        ? Icons.check_circle_rounded
+        : isProgress
+        ? Icons.timelapse_rounded
+        : Icons.schedule_rounded;
 
     final int progressPct = isProgress
         ? _progressPercentFromBooking(booking)
@@ -418,27 +576,48 @@ class _BookingscreenState extends State<Bookingscreen>
                   child: Column(
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        textDirection: TextDirection.rtl,
                         children: [
+                          Text(
+                            orderLabel,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1A1A2E),
+                            ),
+                          ),
+                          const Spacer(),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: 10,
                                   vertical: 5,
                                 ),
                                 decoration: BoxDecoration(
                                   color: badgeBg,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
-                                child: Text(
-                                  badgeText,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: badgeColor,
-                                  ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  textDirection: TextDirection.rtl,
+                                  children: [
+                                    Text(
+                                      badgeText,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: badgeColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      badgeIcon,
+                                      size: 14,
+                                      color: badgeColor,
+                                    ),
+                                  ],
                                 ),
                               ),
                               if (isRejected) ...[
@@ -457,13 +636,8 @@ class _BookingscreenState extends State<Bookingscreen>
                                   ),
                                   child: const Row(
                                     mainAxisSize: MainAxisSize.min,
+                                    textDirection: TextDirection.rtl,
                                     children: [
-                                      Icon(
-                                        Iconsax.close_circle,
-                                        color: Color(0xFFEF4444),
-                                        size: 14,
-                                      ),
-                                      SizedBox(width: 4),
                                       Text(
                                         "مرفوض",
                                         style: TextStyle(
@@ -472,83 +646,34 @@ class _BookingscreenState extends State<Bookingscreen>
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
+                                      SizedBox(width: 4),
+                                      Icon(
+                                        Icons.cancel_rounded,
+                                        color: Color(0xFFEF4444),
+                                        size: 14,
+                                      ),
                                     ],
                                   ),
                                 ),
                               ],
                             ],
                           ),
-                          Text(
-                            orderLabel,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF1A1A2E),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _elevatorTypeLabel(booking),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A1A2E),
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Icon(
-                                Iconsax.building,
-                                size: 13,
-                                color: Colors.grey.shade600,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'النوع',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      // عربي: اللابل يمين، القيمة شمال
+                      _bookingInfoRow(
+                        icon: Iconsax.building,
+                        label: 'النوع',
+                        value: _elevatorTypeLabel(booking),
+                        valueColor: const Color(0xFF1A1A2E),
                       ),
                       const SizedBox(height: 7),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            statusText,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: stripColor,
-                            ),
-                          ),
-                          Row(
-                            children: [
-                              Icon(
-                                Iconsax.chart_2,
-                                size: 13,
-                                color: Colors.grey.shade600,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'الحالة',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      _bookingInfoRow(
+                        icon: Icons.info_outline_rounded,
+                        label: 'الحالة',
+                        value: statusText,
+                        valueColor: stripColor,
                       ),
                     ],
                   ),
@@ -559,21 +684,22 @@ class _BookingscreenState extends State<Bookingscreen>
                     child: Column(
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          textDirection: TextDirection.rtl,
                           children: [
+                            Text(
+                              'نسبة الإنجاز',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const Spacer(),
                             Text(
                               '$progressPct%',
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 color: Color(0xFFF37021),
-                              ),
-                            ),
-                            Text(
-                              'نسبة الإنجاز',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade600,
                               ),
                             ),
                           ],
@@ -603,39 +729,8 @@ class _BookingscreenState extends State<Bookingscreen>
                     vertical: 12,
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    textDirection: TextDirection.rtl,
                     children: [
-                      GestureDetector(
-                        onTap: () => _openBookingDetail(booking),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF0E5),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Iconsax.arrow_right_3,
-                                size: 12,
-                                color: Color(0xFFF37021),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                isProgress ? 'تابع الطلب' : 'عرض التفاصيل',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFFF37021),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                       Row(
                         children: [
                           Icon(
@@ -652,6 +747,39 @@ class _BookingscreenState extends State<Bookingscreen>
                             ),
                           ),
                         ],
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _openBookingDetail(booking),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF0E5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Text(
+                                isProgress ? 'تابع الطلب' : 'عرض التفاصيل',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFF37021),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Iconsax.arrow_left_2,
+                                size: 12,
+                                color: Color(0xFFF37021),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),

@@ -1,8 +1,11 @@
+import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/items/items_details_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
+import 'package:Delta/services/quote_request.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:provider/provider.dart';
 
 // Design tokens
 const _bg = Color(0xFFF2F3F7);
@@ -47,30 +50,104 @@ class _ItemsScreenState extends State<ItemsScreen> {
   String currentGrpname = "الكل";
 
   Future getGroups() async {
-    var request = await getDio().post(
-      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-      data: {"action": "groups"},
-    );
-    setState(() {
-      groups = request.data['data'];
-    });
+    try {
+      var request = await getDio().post(
+        "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+        data: {"action": "groups"},
+      );
+      final raw = request.data is Map ? request.data['data'] : null;
+      if (!mounted) return;
+      setState(() {
+        groups = raw is List ? List.from(raw) : [];
+      });
+    } catch (e) {
+      debugPrint('getGroups error: $e');
+    }
   }
 
   Future getItems({String? grpx}) async {
-    var request = await getDio().post(
-      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-      data: {"action": "items", "grp": grpx},
-    );
-    setState(() {
-      items = request.data['data'];
-    });
+    try {
+      var request = await getDio().post(
+        "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+        data: {"action": "items", "grp": grpx},
+      );
+      final raw = request.data is Map ? request.data['data'] : null;
+      if (!mounted) return;
+      setState(() {
+        items = raw is List ? List.from(raw) : [];
+      });
+    } catch (e) {
+      debugPrint('getItems error: $e');
+    }
   }
+
+  Set<String> _addingIds = {};
+  Set<String> _addedIds = {};
 
   @override
   void initState() {
     getGroups();
     getItems();
+    _loadQuotedItems();
     super.initState();
+  }
+
+  Future<void> _loadQuotedItems() async {
+    try {
+      final ids = await fetchQuoteItemIds();
+      if (!mounted) return;
+      setState(() => _addedIds = ids);
+    } catch (e) {
+      debugPrint('loadQuotedItems error: $e');
+    }
+  }
+
+  Future<void> _addToQuote(dynamic itemId) async {
+    final id = itemId?.toString() ?? '';
+    if (id.isEmpty || _addingIds.contains(id)) return;
+    setState(() => _addingIds.add(id));
+    try {
+      final ok = await addItemToQuoteRequest(
+        id,
+        app: context.read<AppProvider>(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _addingIds.remove(id);
+        if (ok) _addedIds.add(id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? 'تمت إضافة المنتج لطلب العرض'
+                : 'تعذر إضافة المنتج، حاول مرة أخرى',
+            style: _cairo(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+          backgroundColor: ok ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      debugPrint('addToQuote error: $e');
+      if (!mounted) return;
+      setState(() => _addingIds.remove(id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تعذر إضافة المنتج، حاول مرة أخرى',
+            style: _cairo(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _openQuoteTab() {
+    context.read<AppProvider>().jumpToPagex(2);
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Widget _buildChip({
@@ -128,6 +205,13 @@ class _ItemsScreenState extends State<ItemsScreen> {
               color: _textPrimary,
             ),
           ),
+          actions: [
+            IconButton(
+              tooltip: 'تقديم طلب العرض',
+              onPressed: _openQuoteTab,
+              icon: const Icon(Iconsax.clipboard_text, color: _orange, size: 22),
+            ),
+          ],
           bottom: const PreferredSize(
             preferredSize: Size.fromHeight(1),
             child: Divider(height: 1, thickness: 1, color: _appBarBorder),
@@ -227,16 +311,20 @@ class _ItemsScreenState extends State<ItemsScreen> {
                   ),
                   itemCount: items.length,
                   itemBuilder: (context, i) {
+                    final itemId = items[i]['id']?.toString() ?? '';
                     return _ProductCard(
-                      name: items[i]['a1'],
+                      name: items[i]['a1']?.toString() ?? '',
                       imageUrl:
-                          'https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${items[i]['id']}/1.jpg',
+                          'https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/$itemId/1.jpg',
+                      adding: _addingIds.contains(itemId),
+                      added: _addedIds.contains(itemId),
+                      onAdd: () => _addToQuote(itemId),
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
-                                ItemsDetailsScreen(itmid: items[i]['id']),
+                                ItemsDetailsScreen(itmid: itemId),
                           ),
                         );
                       },
@@ -257,11 +345,17 @@ class _ProductCard extends StatefulWidget {
     required this.name,
     required this.imageUrl,
     required this.onTap,
+    required this.onAdd,
+    this.adding = false,
+    this.added = false,
   });
 
   final String name;
   final String imageUrl;
   final VoidCallback onTap;
+  final VoidCallback onAdd;
+  final bool adding;
+  final bool added;
 
   @override
   State<_ProductCard> createState() => _ProductCardState();
@@ -300,38 +394,93 @@ class _ProductCardState extends State<_ProductCard> {
                 children: [
                   Expanded(
                     flex: 65,
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                      child: Image.network(
-                        widget.imageUrl,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return Container(
-                            color: _placeholder,
-                            child: const Center(
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: _orange,
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(16),
+                            ),
+                            child: Image.network(
+                              widget.imageUrl,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              loadingBuilder: (context, child, progress) {
+                                if (progress == null) return child;
+                                return Container(
+                                  color: _placeholder,
+                                  child: const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: _orange,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                              errorBuilder: (_, __, ___) => Container(
+                                color: _placeholder,
+                                child: const Icon(
+                                  Iconsax.image,
+                                  color: Color(0xFFCCCCCC),
                                 ),
                               ),
                             ),
-                          );
-                        },
-                        errorBuilder: (_, __, ___) => Container(
-                          color: _placeholder,
-                          child: const Icon(
-                            Iconsax.image,
-                            color: Color(0xFFCCCCCC),
                           ),
                         ),
-                      ),
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: widget.adding
+                                  ? null
+                                  : () {
+                                      widget.onAdd();
+                                    },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: widget.added
+                                      ? const Color(0xFF16A34A)
+                                      : _orange,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.12),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                alignment: Alignment.center,
+                                child: widget.adding
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Icon(
+                                        widget.added
+                                            ? Iconsax.tick_circle
+                                            : Iconsax.add,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   Expanded(

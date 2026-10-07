@@ -1,4 +1,5 @@
 import 'package:Delta/provider/app_provider.dart';
+import 'package:Delta/screens/order/add_address_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
@@ -42,14 +43,20 @@ class AddressesDisplayListState extends State<AddressesDisplayList> {
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "getAddresses", "uid": prefx.getString("userId")},
     );
-    final loaded = result.data['data'] as List;
+    if (!mounted) return;
+    final loaded = (result.data['data'] as List?) ?? [];
     setState(() {
       addresses = loaded;
-      final savedId = prefx.getString("addId");
+      final savedId = prefx.getString("addId") ?? '';
       if (loaded.isNotEmpty) {
-        final savedIndex = loaded.indexWhere((a) => a['id'] == savedId);
+        final savedIndex = loaded.indexWhere(
+          (a) => a['id']?.toString() == savedId,
+        );
         currentAddress = savedIndex >= 0 ? savedIndex : 0;
-        currentAddressId = loaded[currentAddress]['id'];
+        currentAddressId = loaded[currentAddress]['id']?.toString();
+      } else {
+        currentAddress = 0;
+        currentAddressId = null;
       }
     });
     widget.onAddressesChanged?.call(loaded.isEmpty);
@@ -57,7 +64,7 @@ class AddressesDisplayListState extends State<AddressesDisplayList> {
     if (loaded.isNotEmpty &&
         (prefx.getString("addId") == null ||
             prefx.getString("addId")!.isEmpty)) {
-      final firstId = loaded[0]['id'];
+      final firstId = loaded[0]['id'].toString();
       await prefx.setString('addId', firstId);
       if (!mounted) return;
       Provider.of<AppProvider>(
@@ -141,21 +148,22 @@ class AddressesDisplayListState extends State<AddressesDisplayList> {
     final currentAdd = Provider.of<AppProvider>(context);
     const cityGradient = [Color(0xFFF37021), Color(0xFFFF8C00)];
 
-    final isSelected = currentAddressId == address[index]['id'];
+    final isSelected = currentAddressId?.toString() == address[index]['id']?.toString();
 
     return addresses.isEmpty
         ? Column()
         : GestureDetector(
             onTap: () async {
               SharedPreferences prefx = await SharedPreferences.getInstance();
+              final selectedId = address[index]['id'].toString();
 
-              currentAddress = index;
-              currentAddressId = address[index]['id'];
+              setState(() {
+                currentAddress = index;
+                currentAddressId = selectedId;
+              });
 
-              prefx.setString('addId', address[index]['id']);
-              currentAdd.getCurrentAddress(address[index]['id']);
-
-              setState(() {});
+              await prefx.setString('addId', selectedId);
+              currentAdd.getCurrentAddress(selectedId);
             },
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -355,7 +363,19 @@ class AddressesDisplayListState extends State<AddressesDisplayList> {
             icon: Iconsax.edit,
             label: 'تعديل',
             gradient: gradient,
-            onTap: () {},
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddressFormWidget(
+                    id: address[index]['id'].toString(),
+                  ),
+                ),
+              );
+              if (result == true && mounted) {
+                await getAddresses();
+              }
+            },
           ),
         ),
         const SizedBox(width: 10),

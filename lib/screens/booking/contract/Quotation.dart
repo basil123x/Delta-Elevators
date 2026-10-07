@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/screens/booking/contract/QuantityWidget.dart';
 import 'package:Delta/screens/booking/contract/contract_theme.dart';
+import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
@@ -224,11 +225,45 @@ class _QuotationScreenState extends State<QuotationScreen> {
   @override
   void initState() {
     super.initState();
-    _currentStb = widget.bookDets[0]['stb'].toString();
-    setState(() {
-      floors = int.parse(widget.bookDets[0]['floors']);
-      persons = int.parse(widget.bookDets[0]['persons']);
-    });
+    _syncFromBookDets();
+  }
+
+  @override
+  void didUpdateWidget(covariant QuotationScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldStb = oldWidget.bookDets.isNotEmpty
+        ? oldWidget.bookDets[0]['stb']?.toString()
+        : null;
+    final newStb = widget.bookDets.isNotEmpty
+        ? widget.bookDets[0]['stb']?.toString()
+        : null;
+    // تحديث لايف لما الشركة تغيّر الحالة (عرض سعر / موافقة / ...)
+    if (newStb != null && newStb != oldStb && newStb != _currentStb) {
+      _syncFromBookDets();
+    } else if (widget.bookDets.isNotEmpty) {
+      final remoteFloors =
+          int.tryParse(widget.bookDets[0]['floors']?.toString() ?? '') ?? 0;
+      final remotePersons =
+          int.tryParse(widget.bookDets[0]['persons']?.toString() ?? '') ?? 0;
+      // لو القيم اتبعتت من السيرفر بعد الإرسال، حدّث العرض
+      if (_currentStb != '0' &&
+          (remoteFloors != floors || remotePersons != persons)) {
+        setState(() {
+          floors = remoteFloors;
+          persons = remotePersons;
+        });
+      }
+    }
+  }
+
+  void _syncFromBookDets() {
+    if (widget.bookDets.isEmpty) return;
+    var stb = widget.bookDets[0]['stb']?.toString() ?? '0';
+    if (stb.isEmpty || stb == 'null') stb = '0';
+    _currentStb = stb;
+    floors = int.tryParse(widget.bookDets[0]['floors']?.toString() ?? '') ?? 0;
+    persons =
+        int.tryParse(widget.bookDets[0]['persons']?.toString() ?? '') ?? 0;
 
     if (_currentStb == '4') {
       _loadRejectionReason();
@@ -238,6 +273,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
 
     if (_currentStb == '5') {
       _loadChat();
+      _chatTimer?.cancel();
+      _typingTimer?.cancel();
       _chatTimer = Timer.periodic(
         const Duration(seconds: 5),
         (_) => _loadChat(),
@@ -247,10 +284,22 @@ class _QuotationScreenState extends State<QuotationScreen> {
         (_) => _checkAdminTyping(),
       );
     } else {
+      _chatTimer?.cancel();
+      _typingTimer?.cancel();
       _chatLoading = false;
     }
 
-    _downloadPdf();
+    if (_currentStb == '2' || _currentStb == '4' || _currentStb == '5') {
+      // عرض السعر يبقى ظاهر أثناء الرفض والاستفسار؛ بعد الموافقة يتشال من الصفحة دي
+      if (_localPdfPath == null) {
+        _downloadPdf();
+      } else {
+        _pdfLoading = false;
+      }
+    } else {
+      _pdfLoading = false;
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -781,6 +830,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
               children: [
                 if (_localPdfPath != null)
                   PDFView(
+                    key: ValueKey('quote_pdf_$_localPdfPath'),
                     filePath: _localPdfPath!,
                     enableSwipe: true,
                     swipeHorizontal: false,
@@ -793,12 +843,194 @@ class _QuotationScreenState extends State<QuotationScreen> {
                   const Center(
                     child: CircularProgressIndicator(color: Color(0xFFF37021)),
                   ),
+                if (!_pdfLoading && _localPdfPath == null)
+                  const Center(
+                    child: Text(
+                      'تعذر تحميل عرض السعر',
+                      style: TextStyle(color: ContractTheme.textSecondary),
+                    ),
+                  ),
+                if (_localPdfPath != null)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Material(
+                      color: ContractTheme.orange.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(20),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () => _openFullQuotePreview(_localPdfPath!),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Iconsax.search_zoom_in_1,
+                                color: Colors.white,
+                                size: 15,
+                              ),
+                              SizedBox(width: 5),
+                              Text(
+                                'تكبير',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
         ),
         const SizedBox(height: 16),
       ],
+    );
+  }
+
+  Widget _buildQuotePreviewButton() {
+    return GestureDetector(
+      onTap: () async {
+        if (_localPdfPath == null && !_pdfLoading) {
+          setState(() => _pdfLoading = true);
+          await _downloadPdf();
+        }
+        if (!mounted) return;
+        final path = _localPdfPath;
+        if (path == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تعذر تحميل عرض السعر')),
+          );
+          return;
+        }
+        await _openFullQuotePreview(path);
+      },
+      child: Container(
+        width: double.infinity,
+        height: 48,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF0E5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: ContractTheme.orange.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_pdfLoading)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: ContractTheme.orange,
+                ),
+              )
+            else
+              const Icon(
+                Iconsax.document_text,
+                color: ContractTheme.orange,
+                size: 20,
+              ),
+            const SizedBox(width: 8),
+            const Text(
+              'عرض السعر',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: ContractTheme.orange,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openFullQuotePreview(String path) async {
+    if (!mounted) return;
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'إغلاق',
+      barrierColor: Colors.black.withValues(alpha: 0.85),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (context, anim1, anim2) {
+        return SafeArea(
+          child: Material(
+            color: Colors.transparent,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Iconsax.close_circle,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'معاينة عرض السعر',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    clipBehavior: Clip.hardEdge,
+                    child: PDFView(
+                      filePath: path,
+                      enableSwipe: true,
+                      swipeHorizontal: false,
+                      autoSpacing: true,
+                      pageFling: true,
+                      pageSnap: true,
+                      fitEachPage: false,
+                      fitPolicy: FitPolicy.WIDTH,
+                      backgroundColor: Colors.grey.shade200,
+                    ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'اسحب لأعلى/أسفل للتنقل بين الصفحات',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -963,7 +1195,7 @@ class _QuotationScreenState extends State<QuotationScreen> {
               if (result.data['success'] == true) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text("تم إرسال موافقتك , في إنتظار الشركة"),
+                    content: Text("تم إرسال موافقتك، جاري تجهيز العقد"),
                     backgroundColor: AppColors.success,
                   ),
                 );
@@ -1026,6 +1258,11 @@ class _QuotationScreenState extends State<QuotationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.bookDets.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: ContractTheme.orange),
+      );
+    }
     final stb = _currentStb;
 
     return SingleChildScrollView(
@@ -1036,16 +1273,35 @@ class _QuotationScreenState extends State<QuotationScreen> {
           if (stb == '1')
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               decoration: ContractTheme.cardDecoration(),
-              alignment: Alignment.center,
-              child: const Text(
-                "في إنتظار الرد من الشركة",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: ContractTheme.textPrimary,
-                ),
+              child: const Column(
+                children: [
+                  Icon(
+                    Iconsax.clock,
+                    color: ContractTheme.orange,
+                    size: 40,
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    "في انتظار عرض السعر",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: ContractTheme.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "تم استلام طلبك بنجاح، وجاري إعداد عرض السعر ومراجعته من قبل الشركة",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: ContractTheme.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
               ),
             ),
           if (stb == '3')
@@ -1055,7 +1311,8 @@ class _QuotationScreenState extends State<QuotationScreen> {
               decoration: ContractTheme.cardDecoration(),
               alignment: Alignment.center,
               child: const Text(
-                "تمت الموافقة، في انتظار الشركة",
+                "تمت الموافقة على العرض، جاري تجهيز العقد",
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -1067,16 +1324,22 @@ class _QuotationScreenState extends State<QuotationScreen> {
             _buildRejectionUI(),
             const SizedBox(height: 16),
             _buildRejectionReasonForm(),
+            const SizedBox(height: 16),
+            _buildQuotePreviewButton(),
           ],
-          if (stb == '5') _buildChatUI(),
-          if (stb == '5') _buildActionButtons(),
+          if (stb == '5') ...[
+            _buildChatUI(),
+            _buildActionButtons(),
+            const SizedBox(height: 16),
+            _buildQuotePreviewButton(),
+          ],
           if (stb == '0')
             GestureDetector(
               onTap: () async {
                 if (_isLoading) return;
                 setState(() => _isLoading = true);
                 try {
-                  var result = await Dio().post(
+                  var result = await getDio().post(
                     "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
                     data: {
                       "action": "updateCounterRequest",
@@ -1093,7 +1356,9 @@ class _QuotationScreenState extends State<QuotationScreen> {
                       setState(() => _currentStb = '1');
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("تم إرسال الطلب، في انتظار رد الشركة"),
+                          content: Text(
+                            "تم إرسال الطلب، في انتظار إعداد عرض السعر ومراجعته",
+                          ),
                           backgroundColor: Color(0xFFF37021),
                         ),
                       );

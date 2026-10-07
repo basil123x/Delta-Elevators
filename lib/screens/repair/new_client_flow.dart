@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:Delta/screens/booking/contract/ContractWait.dart';
 import 'package:Delta/screens/repair/repair_screen.dart';
 import 'package:Delta/screens/repair/repair_theme.dart';
 import 'package:Delta/services/DioServiceCert.dart';
@@ -106,9 +108,9 @@ class _NewClientDataScreenState extends State<NewClientDataScreen> {
   }
 }
 
-/// Step 2 of the new-client maintenance flow: preview the maintenance contract
-/// PDF (ktype=4), approve it, sign it, upload the signature to S3 with
-/// contractType="4", then continue to the repair request screen.
+/// Step 2 of the new-client maintenance flow:
+/// Wait until ERP sets contract_ready=1, then preview PDF (ktype=4),
+/// approve, sign, upload with contractType="4", continue to repair request.
 class NewClientContractScreen extends StatefulWidget {
   final String bookingId;
   final bool startFromSignature;
@@ -124,11 +126,16 @@ class NewClientContractScreen extends StatefulWidget {
 }
 
 class _NewClientContractScreenState extends State<NewClientContractScreen> {
+  /// false = waiting ERP approval, true = approved & preparing contract.
+  bool _erpApproved = false;
+  bool _contractReady = false;
   bool _contractApproved = false;
-  bool _pdfLoading = true;
+  bool _pdfLoading = false;
   String? _localPdfPath;
   bool _isLoading = false;
   String isLoadingTxt = "جاري رفع التوقيع...";
+  Timer? _pollTimer;
+  late String _bookingId;
 
   late SignatureController signatureController = SignatureController(
     penStrokeWidth: 5,
@@ -140,24 +147,181 @@ class _NewClientContractScreenState extends State<NewClientContractScreen> {
   @override
   void initState() {
     super.initState();
-    _contractApproved = widget.startFromSignature;
-    _downloadPdf();
+    _bookingId = widget.bookingId;
+    _initResumeState();
+  }
+
+  Future<void> _initResumeState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('maint_customer_type', 'new');
+    await prefs.setInt('currentCard', 2);
+
+    // Resolve the real booking id from server (fixes stale/null local ids).
+    await _resolveBookingId(prefs);
+    await prefs.setString('maint_booking_id', _bookingId);
+
+    final approved =
+        prefs.getBool('contractApproved_$_bookingId') ?? false;
+    _contractApproved = widget.startFromSignature || approved;
+
+    if (widget.startFromSignature) {
+      if (!mounted) return;
+      setState(() {
+        _erpApproved = true;
+        _contractReady = true;
+      });
+      await _downloadPdf();
+      return;
+    }
+
+    await _pollBookingState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!_contractReady) _pollBookingState();
+    });
+  }
+
+  Future<void> _resolveBookingId(SharedPreferences prefs) async {
+    final uid = prefs.getString('userId') ?? '';
+    final current = _bookingId.trim();
+    final looksBad = current.isEmpty ||
+        current == 'null' ||
+        current == '0' ||
+        int.tryParse(current) == null;
+
+    if (!looksBad && uid.isEmpty) return;
+
+    try {
+      if (uid.isEmpty) return;
+      final result = await getDio().post(
+        "$_endpoint?k=${DateTime.now().millisecondsSinceEpoch}",
+        data: {"action": "checkMaintenanceStatus", "uid": uid},
+      );
+      final data = result.data;
+      if (data is! Map || data['success'] != true) return;
+      final serverId = data['bookingId']?.toString() ?? '';
+      if (serverId.isNotEmpty && serverId != 'null') {
+        _bookingId = serverId;
+      }
+    } catch (e) {
+      debugPrint('resolve booking id error: $e');
+    }
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     signatureController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pollBookingState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('userId') ?? '';
+
+      // Primary: status by uid (authoritative for approval / contract_ready).
+      if (uid.isNotEmpty) {
+        final statusResult = await getDio().post(
+          "$_endpoint?k=${DateTime.now().millisecondsSinceEpoch}",
+          data: {"action": "checkMaintenanceStatus", "uid": uid},
+        );
+        final statusData = statusResult.data;
+        if (statusData is Map && statusData['success'] == true) {
+          final serverId = statusData['bookingId']?.toString() ?? '';
+          if (serverId.isNotEmpty && serverId != 'null') {
+            _bookingId = serverId;
+            await prefs.setString('maint_booking_id', _bookingId);
+          }
+
+          final status = statusData['status']?.toString() ?? '';
+          final stx = statusData['stx']?.toString() ?? '0';
+          final readyFlag = statusData['contract_ready']?.toString() ?? '';
+          final erpApproved = stx == '1' ||
+              stx == '2' ||
+              status == 'pending_prepare' ||
+              status == 'pending_contract' ||
+              status == 'completed';
+          final ready = readyFlag == '1' ||
+              readyFlag == 'true' ||
+              status == 'pending_contract' ||
+              status == 'completed';
+
+          if (!mounted) return;
+          await _applyPollState(
+            erpApproved: erpApproved,
+            ready: ready,
+            prefs: prefs,
+          );
+          return;
+        }
+      }
+
+      // Fallback: direct booking row.
+      if (_bookingId.isEmpty || _bookingId == 'null') return;
+      final result = await getDio().post(
+        "$_endpoint?k=${DateTime.now().millisecondsSinceEpoch}",
+        data: {
+          "action": "getMyBookingOne",
+          "bookid": _bookingId,
+        },
+      );
+      final data = result.data['data'];
+      if (data is! List || data.isEmpty) {
+        return;
+      }
+      final row = data[0];
+      final stx = row['stx']?.toString() ?? '0';
+      final erpApproved = stx == '1' || stx == '2';
+      final readyFlag = row['contract_ready']?.toString() ?? '';
+      final ready = readyFlag == '1' || readyFlag == 'true';
+
+      if (!mounted) return;
+      await _applyPollState(
+        erpApproved: erpApproved,
+        ready: ready,
+        prefs: prefs,
+      );
+    } catch (e) {
+      debugPrint('Maintenance contract state poll error: $e');
+    }
+  }
+
+  Future<void> _applyPollState({
+    required bool erpApproved,
+    required bool ready,
+    required SharedPreferences prefs,
+  }) async {
+    if (ready && !_contractReady) {
+      final localApproved =
+          prefs.getBool('contractApproved_$_bookingId') ?? false;
+      setState(() {
+        _erpApproved = true;
+        _contractReady = true;
+        _pdfLoading = true;
+        if (localApproved) _contractApproved = true;
+      });
+      _pollTimer?.cancel();
+      await _downloadPdf();
+      return;
+    }
+
+    if (erpApproved != _erpApproved || ready != _contractReady) {
+      setState(() {
+        _erpApproved = erpApproved;
+        // Only flip ready via the branch above (needs PDF download).
+        if (!ready) _contractReady = false;
+      });
+    }
   }
 
   Future<void> _downloadPdf() async {
     try {
       final response = await Dio().get(
-        'https://daltalifts.com/app2026/PDF_Final/index.php?ktype=4&batchId=${widget.bookingId}',
+        'https://daltalifts.com/app2026/PDF_Final/index.php?ktype=4&batchId=$_bookingId',
         options: Options(responseType: ResponseType.bytes),
       );
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/maint_contract_${widget.bookingId}.pdf');
+      final file = File('${dir.path}/maint_contract_$_bookingId.pdf');
       await file.writeAsBytes(response.data);
       if (mounted) {
         setState(() {
@@ -185,16 +349,28 @@ class _NewClientContractScreenState extends State<NewClientContractScreen> {
     });
 
     try {
-      // 1. Create the maintenance contract record.
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString("userId") ?? "";
+      final profileResult = await getDio().post(
+        _endpoint,
+        data: {"action": "profile", "uid": uid},
+      );
+      final profile = profileResult.data is Map
+          ? (profileResult.data['data'] is Map
+              ? profileResult.data['data'] as Map
+              : {})
+          : {};
+      final userName = profile['a1']?.toString() ?? '';
+      final userPhone = profile['a2']?.toString() ?? '';
+
+      // 1. Create the maintenance contract record (type 4 = app maint PDF).
       final contractRes = await getDio().post(
         "$_endpoint?k=${DateTime.now().millisecondsSinceEpoch}",
         data: {
           "action": "addContract",
           "type": "4",
-          "a2": intlx.DateFormat(
-            "yyyy-MM-dd",
-          ).format(DateTime.now()).toString(),
-          "a3": "",
+          "a2": intlx.DateFormat("yyyy-MM-dd").format(DateTime.now()),
+          "a3": userName,
         },
       );
       if (contractRes.data['success'] != true) {
@@ -202,99 +378,187 @@ class _NewClientContractScreenState extends State<NewClientContractScreen> {
       }
       final String contractId = contractRes.data['data']['id'].toString();
 
-      // 2. Get a presigned upload URL (contractType 4 ->
-      //    Maintenance_Contracts_New on the server).
+      // 2. Presigned upload URL → Maintenance_Contracts_New
       final presignedRes = await getDio().post(
         '$_endpoint?k=${DateTime.now().millisecondsSinceEpoch}',
         data: {
           'action': 'getPresignedUrlS3',
           'contractId': contractId,
           'contractType': "4",
+          'bookingId': _bookingId,
+          'bookId': _bookingId,
         },
       );
-      final String presignedUrl = presignedRes.data['url'];
-      final String s3Key = presignedRes.data['key'];
+      final String? presignedUrl = presignedRes.data['url']?.toString();
+      final String? s3Key = presignedRes.data['key']?.toString();
+      if (presignedUrl == null ||
+          presignedUrl.isEmpty ||
+          s3Key == null ||
+          s3Key.isEmpty) {
+        throw Exception('تعذر تجهيز رفع التوقيع');
+      }
+      if (!s3Key.contains('Maintenance_Contracts_New')) {
+        debugPrint('Unexpected signature key: $s3Key');
+      }
 
-      // 3. Upload the signature image to S3.
+      // 3. Upload signature PNG to S3
       final Uint8List? signatureBytes = await signatureController.toPngBytes();
+      if (signatureBytes == null || signatureBytes.isEmpty) {
+        throw Exception('تعذر قراءة التوقيع');
+      }
       await Dio().put(
         presignedUrl,
         data: signatureBytes,
         options: Options(
           headers: {
             'Content-Type': 'image/png',
-            'Content-Length': signatureBytes!.length,
+            'Content-Length': signatureBytes.length,
           },
+          validateStatus: (code) => code != null && code >= 200 && code < 300,
         ),
       );
 
-      // 4. Persist the signature key on the server.
-      await getDio().post(
+      // 4. Wait until signature is readable on S3
+      final publicSignUrl =
+          'https://daltaliftstech.s3.ap-south-1.amazonaws.com/$s3Key';
+      var signatureReady = false;
+      for (var i = 0; i < 8; i++) {
+        try {
+          final check = await Dio().get<List<int>>(
+            publicSignUrl,
+            options: Options(
+              responseType: ResponseType.bytes,
+              receiveTimeout: const Duration(seconds: 10),
+              validateStatus: (c) => c != null && c < 500,
+            ),
+          );
+          final bytes = check.data;
+          if (check.statusCode == 200 &&
+              bytes != null &&
+              bytes.length > 100 &&
+              !(String.fromCharCodes(bytes.take(80)).contains('<Error>'))) {
+            signatureReady = true;
+            break;
+          }
+        } catch (_) {}
+        await Future.delayed(Duration(milliseconds: 400 + (i * 200)));
+      }
+      if (!signatureReady) {
+        debugPrint('Signature not publicly readable yet for $contractId');
+      }
+
+      // 5. Persist signature key + link booking
+      final upRes = await getDio().post(
         _endpoint,
         data: {
           'action': 'UploadSignature',
           'contractId': contractId,
           's3Key': s3Key,
+          'bookingId': _bookingId,
+          'bookId': _bookingId,
         },
       );
+      if (upRes.data is Map && upRes.data['success'] != true) {
+        throw Exception(upRes.data['message'] ?? 'فشل حفظ التوقيع');
+      }
 
-      // 5. Save contract to booking.
-      final saveResult = await getDio().post(
+      await getDio().post(
         _endpoint,
         data: {
           'action': 'saveMaintenanceContract',
-          'bookId': widget.bookingId,
+          'bookId': _bookingId,
+          'bookingId': _bookingId,
           'contractId': contractId,
+          'uid': uid,
         },
       );
-      print("DEBUG step5 save: ${saveResult.data}");
 
-      // 6. Generate PDF with signature and upload to S3.
+      // 6. Generate signed PDF (retry)
       setState(() => isLoadingTxt = "جاري إنشاء العقد...");
-      final prefs = await SharedPreferences.getInstance();
-      final orderId = prefs.getString("orderId") ?? "";
-      final pdfResponse = await Dio().get(
-        'https://daltalifts.com/app2026/pdf/index.php?contractId=$contractId&sign=1&orderId=$orderId&ktype=4&batchId=${widget.bookingId}',
+      final pdfDio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 90),
+          validateStatus: (code) => code != null && code < 600,
+        ),
       );
-      final pdfUrl = pdfResponse.data['url'];
-      print("DEBUG pdfResponse: ${pdfResponse.data}");
-      print("DEBUG pdfUrl: $pdfUrl");
 
-      // 7. Download PDF to device Downloads folder.
+      Map? pdfPayload;
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        final pdfResponse = await pdfDio.get(
+          'https://daltalifts.com/app2026/pdf/index.php'
+          '?contractId=$contractId&sign=1'
+          '&ktype=4&batchId=$_bookingId',
+        );
+        if (pdfResponse.statusCode == 200 && pdfResponse.data is Map) {
+          pdfPayload = Map<String, dynamic>.from(pdfResponse.data as Map);
+          if (pdfPayload['success'] == true ||
+              pdfPayload['success'] == 1 ||
+              pdfPayload['success'] == 'true') {
+            break;
+          }
+        }
+        pdfPayload = null;
+        await Future.delayed(Duration(milliseconds: 700 * attempt));
+      }
+
+      final pdfUrl = pdfPayload?['url']?.toString() ?? '';
+      if (pdfUrl.isEmpty) {
+        final err = pdfPayload?['error']?.toString() ?? '';
+        throw Exception(
+          err.isNotEmpty ? err : 'فشل إنشاء ملف العقد الموقّع',
+        );
+      }
+
+      // 7. Download PDF locally
       setState(() => isLoadingTxt = "جاري تحميل العقد...");
-      final dir = Platform.isAndroid
-          ? Directory('/storage/emulated/0/Download')
-          : await getApplicationDocumentsDirectory();
+      final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/maintenance_contract_$contractId.pdf');
-      await Dio().download(pdfUrl, file.path);
-      print("DEBUG file path: ${file.path}");
-      print("DEBUG file exists: ${await file.exists()}");
+      await pdfDio.download(pdfUrl, file.path);
 
-      // 8. Send to Telegram.
+      // 8. Telegram: prefer uploading the local signed file
       setState(() => isLoadingTxt = "جاري الإرسال...");
-      final profileResult = await getDio().post(
-        _endpoint,
-        data: {"action": "profile", "uid": prefs.getString("userId") ?? ""},
-      );
-      final userName = profileResult.data['data']['a1'] ?? '';
-      final userPhone = profileResult.data['data']['a2'] ?? '';
-      await Dio().post(
-        'https://api.telegram.org/bot8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI/sendDocument',
-        queryParameters: {
-          'chat_id': '-1003877690157',
-          'document': pdfUrl,
-          'caption':
-              """
-🔧 <b>عقد صيانة جديد</b>
+      try {
+        const botToken =
+            '8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI';
+        const chatId = '-1003877690157';
+        final caption = """
+🔧 <b>عقد صيانة جديد (موقّع)</b>
 
 📋 <b>رقم العقد:</b> $contractId
+🔢 <b>رقم الطلب:</b> $_bookingId
 👤 <b>العميل:</b> $userName
 📞 <b>الهاتف:</b> $userPhone
 🗓 <b>التاريخ:</b> ${DateTime.now().toString().substring(0, 10)}
-    """,
-          'parse_mode': 'HTML',
-        },
-      );
+""";
+        await Dio().post(
+          'https://api.telegram.org/bot$botToken/sendDocument',
+          data: FormData.fromMap({
+            'chat_id': chatId,
+            'caption': caption,
+            'parse_mode': 'HTML',
+            'document': await MultipartFile.fromFile(
+              file.path,
+              filename: 'maintenance_contract_$contractId.pdf',
+            ),
+          }),
+        );
+      } catch (e) {
+        // Fallback: send by public S3 URL
+        try {
+          await Dio().post(
+            'https://api.telegram.org/bot8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI/sendDocument',
+            queryParameters: {
+              'chat_id': '-1003877690157',
+              'document': pdfUrl,
+              'caption': 'عقد صيانة #$contractId - $userName',
+              'parse_mode': 'HTML',
+            },
+          );
+        } catch (e2) {
+          debugPrint('Telegram send skipped: $e2');
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -315,24 +579,33 @@ class _NewClientContractScreenState extends State<NewClientContractScreen> {
           ),
         );
 
-        // Clear approval flag.
         final p = await SharedPreferences.getInstance();
-        await p.remove('contractApproved_${widget.bookingId}');
+        await p.remove('contractApproved_$_bookingId');
+        await p.remove('maint_booking_id');
 
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => RepairScreen()),
-          (route) => false, // removes everything including RepairFirst
+          MaterialPageRoute(builder: (_) => const RepairScreen()),
+          (route) => false,
         );
       }
     } catch (e) {
-      print('Sign error: $e');
+      debugPrint('Sign error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("حدث خطأ أثناء التوقيع")));
-        setState(() => _isLoading = false);
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              msg.isNotEmpty && msg != 'null'
+                  ? msg
+                  : "حدث خطأ أثناء التوقيع",
+            ),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -423,7 +696,7 @@ class _NewClientContractScreenState extends State<NewClientContractScreen> {
         icon: Iconsax.tick_circle,
         onTap: () async {
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('contractApproved_${widget.bookingId}', true);
+          await prefs.setBool('contractApproved_$_bookingId', true);
           if (!mounted) return;
           setState(() => _contractApproved = true);
         },
@@ -466,6 +739,23 @@ class _NewClientContractScreenState extends State<NewClientContractScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_contractReady) {
+      // Stage 1: waiting ERP approval of the request
+      // Stage 2: approved → preparing contract (still no PDF)
+      if (_erpApproved) {
+        return const ContractWait(
+          title: 'جاري تجهيز العقد',
+          message:
+              'تمت الموافقة على طلبك. جاري تجهيز عقد الصيانة من قبل الشركة. سيظهر العقد هنا تلقائياً فور إرساله لمراجعتك وتوقيعه.',
+        );
+      }
+      return const ContractWait(
+        title: 'في انتظار الموافقة',
+        message:
+            'تم استلام طلبك بنجاح. في انتظار موافقة الشركة على طلب الصيانة. بعد الموافقة سيبدأ تجهيز العقد.',
+      );
+    }
+
     final showPdfStep = !_contractApproved;
 
     return Directionality(

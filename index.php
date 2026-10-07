@@ -492,7 +492,7 @@ function getMyBookingOne($input) {
     global $conx;
     $bookid = sanitize($input['bookid']);
     $bookarr = array();
-    $bookxQuery = "SELECT stx, stt, stl FROM bookings WHERE id = '$bookid'";
+    $bookxQuery = "SELECT id, stx, stt, stl, stb, floors, persons, orderId, contract_id, contract_ready FROM bookings WHERE id = '$bookid'";
     $bookxResult = $conx->query($bookxQuery);
     while($rows=mysqli_fetch_assoc($bookxResult)) {$bookarr[] = $rows;}
     sendResponse(true, '',$bookarr);
@@ -505,7 +505,7 @@ function getMyBookingDet($input) {
     global $conx;
     $bookId = sanitize($input['bookId']);
     $bookarr = array();
-    $bookxQuery = "SELECT bookings.id , bookings.stt , bookings.stl , bookings.orderId , bookings.date , addresses.city , addresses.zone , addresses.street , addresses.building , addresses.latitude , addresses.longitude , cust_app.a1 , cust_app.a2 , addresses.uid , bookings.contract_id , contracts.a15 , contracts.a16 , contracts.a17 , contracts.a18 FROM bookings LEFT JOIN addresses ON bookings.addressId = addresses.id LEFT JOIN cust_app ON bookings.uid = cust_app.a3 LEFT JOIN contracts ON bookings.contract_id = contracts.id WHERE bookings.id = '$bookId'";
+    $bookxQuery = "SELECT bookings.id , bookings.stt , bookings.stl , bookings.stb , bookings.contract_ready , bookings.floors , bookings.persons , bookings.orderId , bookings.date , addresses.city , addresses.zone , addresses.street , addresses.building , addresses.latitude , addresses.longitude , cust_app.a1 , cust_app.a2 , addresses.uid , bookings.contract_id , contracts.a15 , contracts.a16 , contracts.a17 , contracts.a18 FROM bookings LEFT JOIN addresses ON bookings.addressId = addresses.id LEFT JOIN cust_app ON bookings.uid = cust_app.a3 LEFT JOIN contracts ON bookings.contract_id = contracts.id WHERE bookings.id = '$bookId'";
     $bookxResult = $conx->query($bookxQuery);
     while($rows=mysqli_fetch_assoc($bookxResult)) {$bookarr[] = $rows;}
     sendResponse(true, '',$bookarr);

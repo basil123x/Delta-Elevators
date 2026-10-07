@@ -40,26 +40,31 @@ class _AddressesScreenState extends State<AddressesScreen> {
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "getAddresses", "uid": prefx.getString("userId")},
     );
-    final loaded = result.data['data'] as List;
+    final loaded = (result.data['data'] as List?) ?? [];
     setState(() {
       addresses = loaded;
-      final savedId = prefx.getString("addId");
+      final savedId = (prefx.getString("addId") ?? '').toString();
       if (loaded.isNotEmpty) {
-        // find index of saved address, fallback to 0
-        final savedIndex = loaded.indexWhere((a) => a['id'] == savedId);
+        // Prefer saved address; otherwise first address is main/default.
+        final savedIndex = loaded.indexWhere(
+          (a) => a['id']?.toString() == savedId,
+        );
         currentAddress = savedIndex >= 0 ? savedIndex : 0;
-        currentAddressId = loaded[currentAddress]['id'];
+        currentAddressId = loaded[currentAddress]['id']?.toString();
+      } else {
+        currentAddress = 0;
+        currentAddressId = null;
       }
     });
-    if (loaded.isNotEmpty &&
-        (prefx.getString("addId") == null ||
-            prefx.getString("addId")!.isEmpty)) {
-      await prefx.setString('addId', loaded[0]['id']);
+    if (loaded.isNotEmpty) {
+      final firstId = loaded[0]['id'].toString();
+      final selectedId = currentAddressId ?? firstId;
+      await prefx.setString('addId', selectedId);
       if (!mounted) return;
       Provider.of<AppProvider>(
         context,
         listen: false,
-      ).getCurrentAddress(loaded[0]['id']);
+      ).getCurrentAddress(selectedId);
     }
   }
 
@@ -85,15 +90,17 @@ class _AddressesScreenState extends State<AddressesScreen> {
 
   Future<void> _selectAddress(int i) async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
+    final id = addresses[i]['id']?.toString() ?? '';
     setState(() {
       currentAddress = i;
-      currentAddressId = addresses[i]['id'];
+      currentAddressId = id;
     });
-    prefx.setString('addId', addresses[i]['id']);
+    await prefx.setString('addId', id);
+    if (!mounted) return;
     Provider.of<AppProvider>(
       context,
       listen: false,
-    ).getCurrentAddress(addresses[i]['id']);
+    ).getCurrentAddress(id);
   }
 
   @override
@@ -128,7 +135,9 @@ class _AddressesScreenState extends State<AddressesScreen> {
                   padding: const EdgeInsets.fromLTRB(0, 8, 0, 100),
                   itemCount: addresses.length,
                   itemBuilder: (context, i) {
-                    final isSelected = currentAddressId == addresses[i]['id'];
+                    final isSelected =
+                        currentAddressId?.toString() ==
+                        addresses[i]['id']?.toString();
                     return AnimationConfiguration.staggeredList(
                       position: i,
                       duration: const Duration(milliseconds: 380),
@@ -168,7 +177,12 @@ class _AddressesScreenState extends State<AddressesScreen> {
                   isLoading = true;
                 });
                 if (widget.returnMode) {
-                  Navigator.pop(context, currentAddressId);
+                  final id = (currentAddressId ??
+                          (addresses.isNotEmpty
+                              ? addresses[0]['id']?.toString()
+                              : null))
+                      ?.toString();
+                  Navigator.pop(context, id);
                 } else {
                   Navigator.pop(context);
                 }

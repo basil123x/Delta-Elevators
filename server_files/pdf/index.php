@@ -33,6 +33,13 @@ if (!$contracts) {
     exit;
 }
 
+$oid = $_GET['orderId'] ?? null;
+if (!empty($oid) && !empty($contractId)) {
+    $oidEsc = mysqli_real_escape_string($conx, (string)$oid);
+    $cidEsc = mysqli_real_escape_string($conx, (string)$contractId);
+    $conx->query("UPDATE bookings SET contract_id='$cidEsc' WHERE orderId='$oidEsc'");
+}
+
 $lift_id  = $contracts['a7'] ?? null;
 $liftData = [];
 if ($lift_id) {
@@ -99,6 +106,11 @@ switch ($ktype) {
         $contex = "maintenance_content";
         $contractFolder = "Maintenance_Contracts";
         break;
+    case '4':
+        // New-client maintenance contracts (app onboarding)
+        $contex = "maintenance_new_content";
+        $contractFolder = "Maintenance_Contracts_New";
+        break;
     default:
         break;
 }
@@ -107,6 +119,14 @@ if (empty($contex)) {
     ob_end_clean();
     echo json_encode(['success' => false, 'error' => 'ktype غلط أو مش موجود: ' . $ktype]);
     exit;
+}
+
+// Link booking → contract BEFORE rendering so signature/content can resolve.
+$batchIdEarly = $_GET['batchId'] ?? '';
+if (!empty($batchIdEarly) && !empty($contractId)) {
+    $bid = mysqli_real_escape_string($conx, (string)$batchIdEarly);
+    $cidEsc = mysqli_real_escape_string($conx, (string)$contractId);
+    $conx->query("UPDATE bookings SET contract_id='$cidEsc' WHERE id='$bid'");
 }
 
 include(__DIR__ . '/'.$contex.'.php');
@@ -120,28 +140,7 @@ $html = ob_get_clean();
 $mpdf->WriteHTML($html);
 $oid        = $_GET['orderId']        ?? null;
 
-$orderArr = array();
-$orderSql = $conx->query("SELECT itmid FROM orders WHERE oid = '$oid' ");
-while($rows=mysqli_fetch_assoc($orderSql)) {$orderArr[] = $rows;}
-
-// صفحة جديدة للصور
-if ($ktype == '1') {
-  $mpdf->AddPage();
-
-  $imagesHtml = '<div style="direction:rtl; font-family:cairo; text-align:center;">';
-
-
-
-  foreach ($orderArr as $img) {
-      $imagesHtml .= '<img src="https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/'.$img['itmid'].'/1.jpg" style="width:180mm; margin-bottom:10px;"/>';
-      $imagesHtml .= '<br>';
-  }
-
-  $imagesHtml .= '</div>';
-
-  $mpdf->WriteHTML($imagesHtml);
-}
-
+// صور المصاعد مكانها في عرض السعر فقط — مش في عقد التوريد
 $filename  = 'contract_'.$contractId.'_'.time().'.pdf';
 $localPath = __DIR__ . '/tmp/' . $filename;
 $mpdf->Output($localPath, 'F');
@@ -154,7 +153,13 @@ if (file_exists($localPath)) unlink($localPath);
 ob_end_clean();
 
 if ($s3Url) {
-    $conx->query("UPDATE bookings SET contract_id='$contractId', stt='1' WHERE orderId='$oid'");
+    $batchId = $_GET['batchId'] ?? '';
+    if (!empty($batchId)) {
+        $bid = mysqli_real_escape_string($conx, (string)$batchId);
+        $conx->query("UPDATE bookings SET contract_id='$contractId', stt='1' WHERE id='$bid'");
+    } elseif (!empty($oid)) {
+        $conx->query("UPDATE bookings SET contract_id='$contractId', stt='1' WHERE orderId='$oid'");
+    }
     echo json_encode([
         'success' => true,
         'url'     => $s3Url,

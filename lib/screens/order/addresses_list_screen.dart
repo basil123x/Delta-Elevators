@@ -1,7 +1,10 @@
+import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/order/add_address_screen.dart';
 import 'package:Delta/screens/order/addresses_display_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AddressesListScreen extends StatefulWidget {
   const AddressesListScreen({super.key});
@@ -56,15 +59,30 @@ class _AddressesListScreenState extends State<AddressesListScreen> {
       floatingActionButton: GestureDetector(
         onTap: () async {
           if (_addressesEmpty) {
-            await Navigator.push(
+            final result = await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => const AddressFormWidget(),
               ),
             );
-            await _displayKey.currentState?.getAddresses();
+            if (result == true) {
+              await _displayKey.currentState?.getAddresses();
+            }
             return;
           }
+          // تأكيد اختيار العنوان الحالي قبل الرجوع
+          final selectedId = _displayKey.currentState?.currentAddressId;
+          if (selectedId != null && selectedId.isNotEmpty) {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('addId', selectedId);
+            if (mounted) {
+              Provider.of<AppProvider>(
+                context,
+                listen: false,
+              ).getCurrentAddress(selectedId);
+            }
+          }
+          if (!mounted) return;
           Navigator.pop(context, true);
         },
         child: Container(

@@ -6,7 +6,50 @@ $userCont = $conx->query("SELECT cust_app.a1 , cust_app.a2 FROM bookings LEFT JO
 
 $bookCont = $conx->query("SELECT items.a4, bookings.orderId FROM bookings LEFT JOIN orders ON bookings.orderId = orders.oid LEFT JOIN items ON orders.itmid = items.id WHERE bookings.contract_id = '$contractId'")->fetch_array();
 
-$oid = $bookCont[1];
+if ((!is_array($bookCont) || empty($bookCont[1])) && !empty($_GET["orderId"])) {
+    $oidFallback = mysqli_real_escape_string($conx, (string)$_GET["orderId"]);
+    $bookCont = $conx->query("SELECT items.a4, bookings.orderId FROM bookings LEFT JOIN orders ON bookings.orderId = orders.oid LEFT JOIN items ON orders.itmid = items.id WHERE bookings.orderId = '$oidFallback' LIMIT 1")->fetch_array();
+    if ((!is_array($userCont) || empty($userCont[0]))) {
+        $userCont = $conx->query("SELECT cust_app.a1 , cust_app.a2 FROM bookings LEFT JOIN cust_app ON bookings.uid = cust_app.a3 WHERE bookings.orderId = '$oidFallback' LIMIT 1")->fetch_array();
+    }
+}
+
+$oid = (is_array($bookCont) && isset($bookCont[1])) ? $bookCont[1] : ($_GET["orderId"] ?? "");
+
+$bookingId = (string)($_GET['batchId'] ?? '');
+if ($bookingId === '' && !empty($contractId)) {
+    $bookIdRow = $conx->query("SELECT id FROM bookings WHERE contract_id = '$contractId' LIMIT 1")->fetch_array();
+    $bookingId = (string)($bookIdRow[0] ?? '');
+}
+if ($bookingId === '' && $oid !== '') {
+    $oidEsc = mysqli_real_escape_string($conx, (string)$oid);
+    $bookIdRow = $conx->query("SELECT id FROM bookings WHERE orderId = '$oidEsc' LIMIT 1")->fetch_array();
+    $bookingId = (string)($bookIdRow[0] ?? '');
+}
+
+if (!function_exists('delta_load_sign_png')) {
+    function delta_load_sign_png($urls, $localPath) {
+        foreach ((array)$urls as $url) {
+            if (!$url) continue;
+            $bytes = @file_get_contents($url);
+            if ($bytes === false || strlen($bytes) < 100) continue;
+            $xmlProbe = '<' . '?xml';
+            $isXml = (stripos($bytes, '<Error>') !== false)
+                || (strpos(ltrim($bytes), $xmlProbe) === 0);
+            if ($isXml) continue;
+            @file_put_contents($localPath, $bytes);
+            $info = @getimagesize($localPath);
+            if (is_array($info) && !empty($info[0])) return true;
+        }
+        return false;
+    }
+}
+
+$companySignLocal = __DIR__ . '/tmp/company_sign_' . ($bookingId !== '' ? $bookingId : $contractId) . '.png';
+$companySignOk = delta_load_sign_png([
+    $bookingId !== '' ? "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/signatures/IIP_Contracts/company_signature_{$bookingId}.png" : '',
+    !empty($contractId) ? "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/signatures/IIP_Contracts/company_signature_{$contractId}.png" : '',
+], $companySignLocal);
 
 $arr = array();
 for ($i=1; $i <= 23; $i++) { 
@@ -53,14 +96,15 @@ $liftData = array();
         $liftData = mysqli_fetch_assoc($liftQuery);
     }
 
-$persons = $lift_det['a7'] ?? 0;
+$persons = $liftData['a7'] ?? 0;
 $weight_per_person = 75;
 $total_weight = $persons * $weight_per_person;
 
 $lftxarr = array();
-$lftxQuery = "SELECT a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 FROM lifts WHERE id = '".$bookCont[0]."'";
+$itemLiftId = (is_array($bookCont) && isset($bookCont[0])) ? $bookCont[0] : "";
+$lftxQuery = "SELECT a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16 FROM lifts WHERE id = '".$itemLiftId."'";
 $lftxResult = $conx->query($lftxQuery);
-while($rows=mysqli_fetch_assoc($lftxResult)) {$lftxarr[] = $rows;}
+if ($lftxResult) { while($rows=mysqli_fetch_assoc($lftxResult)) {$lftxarr[] = $rows;} }
 
 $contract_num   = $contracts[0]  ?? '10102024';
 $contract_date  = $contracts['a2']  ?? '01-03-2024';
@@ -69,9 +113,9 @@ $buyer_phone    = $userCont[1];
 $buyer_address  = $client_adress[1] ?? 'الوكير';
 $buyer_id       = $contracts['a23'] ?? '';
 $price          = $contracts['a15'] ?? '70000';
-$pay1           = number_format($contracts['a16'] ?? 35000);
-$pay2           = number_format($contracts['a17'] ?? 28000);
-$pay3           = number_format($contracts['a18'] ?? 7000);
+$pay1           = number_format((float)(($contracts['a16'] ?? null) ?: 35000));
+$pay2           = number_format((float)(($contracts['a17'] ?? null) ?: 28000));
+$pay3           = number_format((float)(($contracts['a18'] ?? null) ?: 7000));
 $contract_type  = 'عقد تركيب و توريد مصعد ركاب فوجي';
 ?>
 
@@ -258,15 +302,34 @@ $contract_type  = 'عقد تركيب و توريد مصعد ركاب فوجي';
               <?if (isset($_GET['sign'])) {
               $signUrl = "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Mobile_App/signatures/IIP_Contracts/signature_{$contractId}.png";
               $signLocal = __DIR__ . '/tmp/sign_' . $contractId . '.png';
-              file_put_contents($signLocal, file_get_contents($signUrl));
-              ?>
+              $signBytes = @file_get_contents($signUrl);
+              $signOk = false;
+              if ($signBytes !== false && strlen($signBytes) > 100) {
+                  $xmlProbe = "<" . "?xml";
+                  $isXml = (stripos($signBytes, "<Error>") !== false)
+                      || (strpos(ltrim($signBytes), $xmlProbe) === 0);
+                  if (!$isXml) {
+                      @file_put_contents($signLocal, $signBytes);
+                      $info = @getimagesize($signLocal);
+                      $signOk = is_array($info) && !empty($info[0]);
+                  }
+              }
+              if ($signOk) { ?>
                 <img src="<?= $signLocal ?>" style="width:100px; height:auto;">
-              <?}?>
+              <? } else { ?>
+                <p>_______________</p>
+              <? }
+              }?>
             </td>
             <td width="50%" style="vertical-align:top; text-align:left;">
                 <p><strong>البائع</strong></p>
                 <p>الساده/ دلتا لتكنولوجيا المصاعد و التجارة ش.م.م</p>
-                <p>التوقيع: _______________</p>
+                <p>التوقيع:</p>
+              <?php if (!empty($companySignOk)) { ?>
+                <img src="<?= $companySignLocal ?>" style="width:100px; height:auto;">
+              <?php } else { ?>
+                <p>_______________</p>
+              <?php } ?>
             </td>
         </tr>
     </table>

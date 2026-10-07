@@ -96,7 +96,13 @@ class _RepairContractState extends State<RepairContract> {
   // استخدام كامل:
   Future downloadAndUploadPdf(signId) async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
-    String? oid = prefx.getString("orderId");
+    // رقم الطلب الخاص بهذا الحجز تحديدًا من الداتا بيز
+    String oid = widget.bookDets.isNotEmpty
+        ? (widget.bookDets[0]['orderId']?.toString() ?? '')
+        : '';
+    if (oid.isEmpty) {
+      oid = prefx.getString("orderId") ?? '';
+    }
     try {
       setState(() {
         isLoadingTxt = "جاري عمل بي دي اف";

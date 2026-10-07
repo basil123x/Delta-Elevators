@@ -42,4 +42,33 @@ include('content.php');
 $html = ob_get_clean();
 
 $mpdf->WriteHTML($html);
+
+// صور المصاعد في آخر عرض السعر فقط (ktype=2)
+$ktype = $_GET['ktype'] ?? '';
+$batchId = $_GET['batchId'] ?? '';
+if ($ktype == '2' && $batchId !== '') {
+    include(__DIR__ . '/../xtras/config.php');
+    $bookRow = $conx->query("SELECT orderId FROM bookings WHERE id = '" . mysqli_real_escape_string($conx, $batchId) . "'")->fetch_assoc();
+    $oid = $bookRow['orderId'] ?? '';
+    if ($oid !== '') {
+        $orderArr = [];
+        $orderSql = $conx->query("SELECT itmid FROM orders WHERE oid = '" . mysqli_real_escape_string($conx, $oid) . "'");
+        while ($rows = mysqli_fetch_assoc($orderSql)) {
+            $orderArr[] = $rows;
+        }
+        if (!empty($orderArr)) {
+            $mpdf->AddPage();
+            $imagesHtml = '<div style="direction:rtl; font-family:cairo; text-align:center;">';
+            $imagesHtml .= '<h3 style="margin-bottom:12px;">صور المصاعد المختارة</h3>';
+            foreach ($orderArr as $img) {
+                $itmid = htmlspecialchars($img['itmid']);
+                $imagesHtml .= '<img src="https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/' . $itmid . '/1.jpg" style="width:180mm; margin-bottom:10px;"/>';
+                $imagesHtml .= '<br>';
+            }
+            $imagesHtml .= '</div>';
+            $mpdf->WriteHTML($imagesHtml);
+        }
+    }
+}
+
 $mpdf->Output('contract.pdf', 'I');

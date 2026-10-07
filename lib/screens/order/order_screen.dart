@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/items/items_screen.dart';
@@ -24,6 +26,10 @@ class _OrderScreenState extends State<OrderScreen> {
   bool isLoading = false;
   String? addId;
   List oneAddress = [];
+  bool _isAdmin = false;
+  AppProvider? _app;
+  int _lastQuoteRev = -1;
+  int _lastTab = -1;
 
   Future getUserProfile() async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
@@ -33,24 +39,42 @@ class _OrderScreenState extends State<OrderScreen> {
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "profile", "uid": uid},
     );
-      setState(() {
-        nameController.text = result.data['data']['a1'];
-        mobileController.text = result.data['data']['a2'];
-        addId = prefx.getString("addId") ?? "";
-      });
+    if (!mounted) return;
+    setState(() {
+      nameController.text = result.data['data']?['a1']?.toString() ?? '';
+      mobileController.text = result.data['data']?['a2']?.toString() ?? '';
+      addId = prefx.getString("addId") ?? "";
+    });
   }
 
   
 
   Future getOneAddress() async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
+    final savedAddId = prefx.getString("addId") ?? '';
+    if (savedAddId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        oneAddress = [];
+        addId = '';
+      });
+      return;
+    }
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-      data: {"action": "getOneAddress", "id": prefx.getString("addId") ?? ''},
+      data: {"action": "getOneAddress", "id": savedAddId},
     );
+    if (!mounted) return;
+    final data = result.data['data'];
     setState(() {
-      oneAddress = result.data['data'];
+      oneAddress = data is List ? data : [];
+      addId = savedAddId;
     });
+    if (oneAddress.isNotEmpty) {
+      context.read<AppProvider>().getCurrentAddress(
+        oneAddress[0]['id'].toString(),
+      );
+    }
   }
 
   Future getMyOrders() async {
@@ -61,9 +85,10 @@ class _OrderScreenState extends State<OrderScreen> {
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "getOrders", "uid": uid},
     );
-      setState(() {
-        myOrders = result.data['data'];
-      });
+    if (!mounted) return;
+    setState(() {
+      myOrders = result.data['data'] ?? [];
+    });
   }
 
       Future<void> sendQuotationRequestToTelegram({
@@ -80,8 +105,16 @@ class _OrderScreenState extends State<OrderScreen> {
         const String botToken = '8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI';
         const String chatId = '-1003877690157';
 
+        final tgDio = Dio(
+          BaseOptions(
+            connectTimeout: const Duration(seconds: 10),
+            sendTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 15),
+          ),
+        );
+
         // 1. الرسالة النصية
-        await Dio().post(
+        await tgDio.post(
           'https://api.telegram.org/bot$botToken/sendMessage',
           queryParameters: {
             'chat_id': chatId,
@@ -103,35 +136,82 @@ class _OrderScreenState extends State<OrderScreen> {
           },
         );
 
-        // 2. صور المنتجات
+        // 2. صور المنتجات (فشل صورة لا يوقف الباقي)
         for (var item in items) {
-          await Dio().post(
-            'https://api.telegram.org/bot$botToken/sendPhoto',
-            queryParameters: {
-              'chat_id': chatId,
-              'photo': "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${item['id']}/1.jpg",
-              'caption': '🛗 ${item['a1']} - ${item['a3']}',
-            },
-          );
+          try {
+            await tgDio.post(
+              'https://api.telegram.org/bot$botToken/sendPhoto',
+              queryParameters: {
+                'chat_id': chatId,
+                'photo': "https://daltaliftstech.s3.ap-south-1.amazonaws.com/Sys/items/${item['id']}/1.jpg",
+                'caption': '🛗 ${item['a1']} - ${item['a3']}',
+              },
+            );
+          } catch (e) {
+            debugPrint('Telegram photo error: $e');
+          }
         }
 
         // 3. الموقع
-        await Dio().post(
-          'https://api.telegram.org/bot$botToken/sendLocation',
-          queryParameters: {
-            'chat_id': chatId,
-            'latitude': latitude,
-            'longitude': longitude,
-          },
-        );
+        if (latitude.isNotEmpty && longitude.isNotEmpty) {
+          await tgDio.post(
+            'https://api.telegram.org/bot$botToken/sendLocation',
+            queryParameters: {
+              'chat_id': chatId,
+              'latitude': latitude,
+              'longitude': longitude,
+            },
+          );
+        }
       }
 
   @override
   void initState() {
+    _loadAdmin();
     getUserProfile();
     getMyOrders();
     getOneAddress();
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final app = context.read<AppProvider>();
+    if (!identical(_app, app)) {
+      _app?.removeListener(_onAppChanged);
+      _app = app;
+      _app!.addListener(_onAppChanged);
+    }
+  }
+
+  void _onAppChanged() {
+    final app = _app;
+    if (app == null || !mounted) return;
+    final rev = app.quoteCartRevision;
+    final tab = app.currentTab;
+    if (rev != _lastQuoteRev) {
+      _lastQuoteRev = rev;
+      getMyOrders();
+    } else if (tab == 2 && _lastTab != 2) {
+      getMyOrders();
+    }
+    _lastTab = tab;
+  }
+
+  @override
+  void dispose() {
+    _app?.removeListener(_onAppChanged);
+    nameController.dispose();
+    mobileController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAdmin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getBool('is_app_manager') ?? false;
+    if (!mounted) return;
+    setState(() => _isAdmin = cached);
   }
 
   String _addrVal(String key) {
@@ -142,11 +222,37 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 
   Future<void> _openAddressPicker() async {
-    final result = await Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddressesListScreen()),
     );
-    if (result == true && mounted) {
+    if (!mounted) return;
+    await getOneAddress();
+  }
+
+  Future<void> _openAddAddress() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddressFormWidget()),
+    );
+    if (!mounted) return;
+    if (result == true) {
+      await getOneAddress();
+    }
+  }
+
+  Future<void> _openEditAddress() async {
+    if (oneAddress.isEmpty) return;
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddressFormWidget(
+          id: oneAddress[0]['id'].toString(),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (result == true) {
       await getOneAddress();
     }
   }
@@ -282,48 +388,57 @@ class _OrderScreenState extends State<OrderScreen> {
     String label,
     String value,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(7),
+    return SizedBox(
+      height: 100,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(6, 10, 6, 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFEBEBEB)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Icon(icon, size: 12, color: color),
             ),
-            child: Icon(icon, size: 12, color: color),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            value,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF1A1A2E),
+            const SizedBox(height: 6),
+            Expanded(
+              child: Center(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1A1A2E),
+                    height: 1.2,
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 9,
-              color: Colors.grey,
-              fontWeight: FontWeight.w600,
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 9,
+                color: Colors.grey,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -340,14 +455,10 @@ class _OrderScreenState extends State<OrderScreen> {
         ),
         Consumer<AppProvider>(
           builder: (context, app, _) {
-            if (app.currentAdd.isNotEmpty &&
-                oneAddress.isNotEmpty &&
-                app.currentAdd != oneAddress[0]['id'].toString()) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) getOneAddress();
-              });
-            }
-            if (app.currentAdd.isNotEmpty && oneAddress.isEmpty) {
+            final currentId = oneAddress.isEmpty
+                ? ''
+                : oneAddress[0]['id'].toString();
+            if (app.currentAdd.isNotEmpty && app.currentAdd != currentId) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) getOneAddress();
               });
@@ -458,14 +569,7 @@ class _OrderScreenState extends State<OrderScreen> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AddressFormWidget(),
-                            ),
-                          );
-                        },
+                        onTap: _openAddAddress,
                         child: Container(
                           height: 40,
                           decoration: BoxDecoration(
@@ -497,17 +601,7 @@ class _OrderScreenState extends State<OrderScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
-                          if (oneAddress.isEmpty) return;
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AddressFormWidget(
-                                id: oneAddress[0]['id'].toString(),
-                              ),
-                            ),
-                          );
-                        },
+                        onTap: _openEditAddress,
                         child: Container(
                           height: 40,
                           decoration: BoxDecoration(
@@ -722,8 +816,8 @@ class _OrderScreenState extends State<OrderScreen> {
                                     'id': myOrders[i]['oid'],
                                   },
                                 );
-                                getMyOrders();
-                                setState(() {});
+                                if (!mounted) return;
+                                context.read<AppProvider>().bumpQuoteCart();
                               },
                               child: Container(
                                 width: 38,
@@ -788,7 +882,7 @@ class _OrderScreenState extends State<OrderScreen> {
                 ),
                 const SizedBox(width: 10),
                 const Text(
-                  'إضافة منتج',
+                  'إضافة مصعد',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -804,17 +898,60 @@ class _OrderScreenState extends State<OrderScreen> {
   }
 
   Future<void> _submitOrder(AppProvider currentTab) async {
-    if (addId != '' &&
-        (nameController.text.trim() != '' &&
-            mobileController.text.trim() != '') &&
-        myOrders.isNotEmpty) {
-      setState(() {
-        isLoading = true;
-      });
+    if (isLoading) return;
+
+    if (oneAddress.isEmpty ||
+        nameController.text.trim().isEmpty ||
+        mobileController.text.trim().isEmpty ||
+        myOrders.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('من فضلك أكمل المطلوب')),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
       final SharedPreferences prefx = await SharedPreferences.getInstance();
       final String? addIdPref = prefx.getString('addId');
       final String? uid = prefx.getString('userId');
-      final String? oid = prefx.getString('orderId');
+      String oid = prefx.getString('orderId') ?? '';
+
+      // السيرفر يعتبر أي حجز بنفس uid + orderId تكرارًا فيحدّث الحجز القديم
+      // بدل إضافة جديد. لو الرقم الحالي مستخدم في حجز سابق، نولّد رقمًا جديدًا
+      // وننقل منتجات السلة إليه قبل الإرسال
+      final bookingsRes = await getDio().post(
+        'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+        data: {'action': 'getMyBookings', 'uid': uid},
+      );
+      final existingBookings = (bookingsRes.data['data'] as List?) ?? [];
+      final oidUsed = oid.isEmpty ||
+          existingBookings.any((b) => b['orderId']?.toString() == oid);
+
+      if (oidUsed) {
+        final newOid =
+            (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+        for (final item in List.from(myOrders)) {
+          await getDio().post(
+            'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+            data: {'action': 'deleteMyOrders', 'id': item['oid']},
+          );
+          await getDio().post(
+            'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+            data: {
+              'action': 'addOneItem',
+              'itmid': item['id'],
+              'uid': uid,
+              'oid': newOid,
+            },
+          );
+        }
+        oid = newOid;
+        await prefx.setString('orderId', newOid);
+      }
 
       final result = await getDio().post(
         'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
@@ -826,24 +963,47 @@ class _OrderScreenState extends State<OrderScreen> {
         },
       );
 
-      if (result.data['success'] == true) {
-        setState(() {
-          isLoading = false;
-        });
-        await sendQuotationRequestToTelegram(
+      final ok = result.data['success'] == true ||
+          result.data['success'] == 1 ||
+          result.data['success'] == 'true';
+      if (!ok) {
+        throw Exception(result.data['message'] ?? 'فشل تقديم الطلب');
+      }
+
+      // تجديد رقم دورة الطلب حتى يحصل الطلب التالي على رقم فريد
+      await prefx.setString(
+        'orderId',
+        (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString(),
+      );
+
+      // إشعار تليجرام في الخلفية بدون انتظار حتى لا يعطل ظهور رسالة النجاح
+      final submittedItems = List.from(myOrders);
+      final addr = Map<String, dynamic>.from(oneAddress[0] as Map);
+      unawaited(
+        sendQuotationRequestToTelegram(
           clientName: nameController.text.trim(),
           phone: mobileController.text.trim(),
-          city: oneAddress[0]['city'],
-          zone: oneAddress[0]['zone'],
-          street: oneAddress[0]['street'],
-          building: oneAddress[0]['building'],
-          latitude: oneAddress[0]['latitude'],
-          longitude: oneAddress[0]['longitude'],
-          items: myOrders,
-        );
-        currentTab.jumpToPagex(1);
-        if (!mounted) return;
-        showModalBottomSheet(
+          city: addr['city']?.toString() ?? '',
+          zone: addr['zone']?.toString() ?? '',
+          street: addr['street']?.toString() ?? '',
+          building: addr['building']?.toString() ?? '',
+          latitude: addr['latitude']?.toString() ?? '',
+          longitude: addr['longitude']?.toString() ?? '',
+          items: submittedItems,
+        ).catchError((Object e) {
+          debugPrint('Telegram notify error: $e');
+        }),
+      );
+
+      await getMyOrders();
+
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+      });
+      context.read<AppProvider>().bumpQuoteCart();
+      currentTab.jumpToPagex(1);
+      showModalBottomSheet(
           context: context,
           backgroundColor: Colors.transparent,
           isScrollControlled: true,
@@ -934,10 +1094,16 @@ class _OrderScreenState extends State<OrderScreen> {
             );
           },
         );
-      }
-    } else {
+    } catch (e) {
+      debugPrint('🔴 Submit order error: $e');
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('من فضلك أكمل المطلوب')),
+        const SnackBar(
+          content: Text('حدث خطأ أثناء تقديم الطلب، تأكد من الاتصال وحاول مرة أخرى'),
+        ),
       );
     }
   }
@@ -1018,22 +1184,78 @@ class _OrderScreenState extends State<OrderScreen> {
                   ),
                 ),
                 clipBehavior: Clip.hardEdge,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildAddressSection(),
-                      const SizedBox(height: 12),
-                      _buildClientSection(),
-                      const SizedBox(height: 12),
-                      _buildProductSection(),
-                      const SizedBox(height: 14),
-                      _buildSubmitButton(currentTab),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
+                child: _isAdmin
+                    ? _buildAdminBlocked()
+                    : SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          14,
+                          14,
+                          14,
+                          MediaQuery.paddingOf(context).bottom + 120,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildAddressSection(),
+                            const SizedBox(height: 12),
+                            _buildClientSection(),
+                            const SizedBox(height: 12),
+                            _buildProductSection(),
+                            const SizedBox(height: 14),
+                            _buildSubmitButton(currentTab),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminBlocked() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF0E5),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFF37021).withValues(alpha: 0.25),
                 ),
+              ),
+              child: const Icon(
+                Iconsax.info_circle,
+                color: Color(0xFFF37021),
+                size: 38,
+              ),
+            ),
+            const SizedBox(height: 22),
+            const Text(
+              'تقديم الطلب للعملاء فقط',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1A1A2E),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'الموظف أو الأدمن لا يقدّم طلب مصعد لنفسه. تابع حجوزات العملاء من قائمة الحجوزات، وستظهر مراحل التنفيذ بعد توقيع العميل.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.6,
+                color: Colors.black.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:Delta/screens/auth/auth_design.dart';
+import 'package:Delta/screens/admin/engineer_task_scope.dart';
 import 'package:Delta/screens/main/main_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:Delta/services/OneSignalServices.dart';
@@ -30,8 +31,7 @@ class OTPScreen extends StatefulWidget {
   State<OTPScreen> createState() => _OTPScreenState();
 }
 
-class _OTPScreenState extends State<OTPScreen>
-    with TickerProviderStateMixin {
+class _OTPScreenState extends State<OTPScreen> with TickerProviderStateMixin {
   static const int _otpLength = 6;
   static const Color _orange = Color(0xFFF37021);
   static const Color _textDark = Color(0xFF1A1A2E);
@@ -222,6 +222,35 @@ class _OTPScreenState extends State<OTPScreen>
     }
   }
 
+  Future<void> _persistEngineerFlags(
+    SharedPreferences prefs,
+    String uid,
+  ) async {
+    if (uid.isEmpty) return;
+    try {
+      var result = await getDio().post(
+        'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+        data: {'action': 'profile', 'uid': uid},
+      );
+      var payload = result.data['data'];
+      if (payload is! Map || payload['is_engineer'] == null) {
+        result = await getDio().post(
+          'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+          data: {'action': 'dashboard', 'uid': uid},
+        );
+        payload = result.data['data'];
+      }
+      if (payload is Map) {
+        await EngineerTaskScope.persistFromPayload(
+          Map<String, dynamic>.from(payload),
+          prefs,
+        );
+      }
+    } catch (e) {
+      debugPrint('Persist engineer flags error: $e');
+    }
+  }
+
   Future<void> _verifyOtp() async {
     final code = _otpCode();
     if (code.length != _otpLength) return;
@@ -231,125 +260,150 @@ class _OTPScreenState extends State<OTPScreen>
       setState(() {
         isLoading = true;
       });
-      final playerId = OneSignal.User.pushSubscription.id;
-      if (widget.keylogin == 'Register') {
-        final uid = 1000 + math.Random().nextInt(9000);
-        final oid = 1000 + math.Random().nextInt(9000);
-        final result = await getDio().post(
-          "https://daltalifts.com/app2026/sql.php",
-          options: Options(headers: {"Content-Type": "application/json"}),
-          data: {
-            "action": "register",
-            "name": widget.name,
-            "created_at": intlx.DateFormat(
-              'yyyy-MM-dd',
-            ).format(DateTime.now()).toString(),
-            "phone": widget.mobile,
-            "uid": uid,
-            "oid": oid,
-            "playerId": playerId,
-          },
-        );
-        final prefx = await SharedPreferences.getInstance();
-        final regBody = authResponseAsMap(result.data);
-        final regOk =
-            regBody['success'] == true ||
-            regBody['success'] == 1 ||
-            regBody['success'] == 'true';
-        if (regOk) {
-          await prefx.setString("userId", uid.toString());
-          await prefx.setString("orderId", oid.toString());
-          if (!mounted) return;
-          setState(() {
-            isLoading = false;
-          });
-          final playerIdsx = <String>[];
-          final playerIds = await getDio().post(
+      try {
+        final playerId = OneSignal.User.pushSubscription.id ?? '';
+        if (widget.keylogin == 'Register') {
+          final uid = 1000 + math.Random().nextInt(9000);
+          final oid = 1000 + math.Random().nextInt(9000);
+          final result = await getDio().post(
             "https://daltalifts.com/app2026/sql.php",
-            data: {"action": "getPlayerIds"},
+            options: Options(headers: {"Content-Type": "application/json"}),
+            data: {
+              "action": "register",
+              "name": widget.name,
+              "created_at": intlx.DateFormat(
+                'yyyy-MM-dd',
+              ).format(DateTime.now()).toString(),
+              "phone": widget.mobile,
+              "uid": uid,
+              "oid": oid,
+              "playerId": playerId,
+            },
           );
-          final pidBody = authResponseAsMap(playerIds.data);
-          final rawPlayerData = pidBody['data'];
-          if (rawPlayerData is List) {
-            for (var i = 0; i < rawPlayerData.length; i++) {
-              final row = rawPlayerData[i];
-              if (row is Map && row['player_id'] != null) {
-                playerIdsx.add(row['player_id'].toString());
+          final prefx = await SharedPreferences.getInstance();
+          final regBody = authResponseAsMap(result.data);
+          final regOk =
+              regBody['success'] == true ||
+              regBody['success'] == 1 ||
+              regBody['success'] == 'true';
+          if (regOk) {
+            await prefx.setString("userId", uid.toString());
+            await prefx.setString("orderId", oid.toString());
+            try {
+              await OneSignal.login(uid.toString());
+            } catch (_) {}
+            await EngineerTaskScope.clearTasksCache(prefx);
+            await _persistEngineerFlags(prefx, uid.toString());
+            if (!mounted) return;
+            setState(() {
+              isLoading = false;
+            });
+            final playerIdsx = <String>[];
+            final playerIds = await getDio().post(
+              "https://daltalifts.com/app2026/sql.php",
+              data: {"action": "getPlayerIds"},
+            );
+            final pidBody = authResponseAsMap(playerIds.data);
+            final rawPlayerData = pidBody['data'];
+            if (rawPlayerData is List) {
+              for (var i = 0; i < rawPlayerData.length; i++) {
+                final row = rawPlayerData[i];
+                if (row is Map && row['player_id'] != null) {
+                  playerIdsx.add(row['player_id'].toString());
+                }
+              }
+            } else if (rawPlayerData is Map) {
+              for (final entry in rawPlayerData.entries) {
+                final v = entry.value;
+                if (v is Map && v['player_id'] != null) {
+                  playerIdsx.add(v['player_id'].toString());
+                }
               }
             }
-          } else if (rawPlayerData is Map) {
-            for (final entry in rawPlayerData.entries) {
-              final v = entry.value;
-              if (v is Map && v['player_id'] != null) {
-                playerIdsx.add(v['player_id'].toString());
-              }
-            }
+            if (!mounted) return;
+            setState(() {});
+            await OneSignalNotification.sendToMultipleUsers(
+              subscriptionIds: playerIdsx,
+              title: "مستخدم جديد",
+              message: "يوجد لديك مستخدم جديد من التطبيق الأن",
+            );
+            if (!mounted) return;
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute<void>(builder: (context) => MainScreen()),
+            );
+          } else {
+            if (!mounted) return;
+            setState(() => isLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("المستخدم موجود بالفعل")),
+            );
           }
-          if (!mounted) return;
-          setState(() {});
-          await OneSignalNotification.sendToMultipleUsers(
-            subscriptionIds: playerIdsx,
-            title: "مستخدم جديد",
-            message: "يوجد لديك مستخدم جديد من التطبيق الأن",
-          );
-          if (!mounted) return;
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute<void>(builder: (context) => MainScreen()),
-          );
         } else {
-          if (!mounted) return;
-          setState(() => isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("المستخدم موجود بالفعل")),
+          final result = await getDio().post(
+            "https://daltalifts.com/app2026/sql.php",
+            options: Options(headers: {"Content-Type": "application/json"}),
+            data: {
+              "action": "login",
+              "phone": widget.mobile,
+              "playerId": playerId,
+            },
           );
+          final prefx = await SharedPreferences.getInstance();
+          final loginBody = authResponseAsMap(result.data);
+          final loginOk =
+              loginBody['success'] == true ||
+              loginBody['success'] == 1 ||
+              loginBody['success'] == 'true';
+          if (loginOk) {
+            final data = loginBody['data'];
+            final a3Str = data is Map ? (data['a3']?.toString() ?? '') : '';
+            final a4Str = data is Map ? (data['a4']?.toString() ?? '') : '';
+            await prefx.setString("userId", a3Str);
+            await prefx.setString("orderId", a4Str);
+            if (a3Str.isNotEmpty) {
+              try {
+                await OneSignal.login(a3Str);
+              } catch (_) {}
+            }
+            await prefx.setBool('just_logged_in', true);
+            // Clear any old customer_type from previous session
+            await prefx.remove('customer_type');
+            await prefx.remove('customer_uid');
+            await prefx.remove('customer_phone');
+            await prefx.remove('contract_id');
+            await prefx.remove('currentCard');
+            await prefx.remove('maint_customer_type');
+            await prefx.remove('maint_booking_id');
+            await prefx.remove('maint_delta_verified');
+            await prefx.remove('maint_erp_contract_id');
+            await prefx.remove('addId');
+            await EngineerTaskScope.clearTasksCache(prefx);
+            await _persistEngineerFlags(prefx, a3Str);
+            if (!mounted) return;
+            setState(() {
+              isLoading = false;
+            });
+            await prefx.remove('fresh_login');
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute<void>(builder: (context) => MainScreen()),
+            );
+          } else {
+            if (!mounted) return;
+            setState(() => isLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("المستخدم ليس مسجلاً")),
+            );
+          }
         }
-      } else {
-        final result = await getDio().post(
-          "https://daltalifts.com/app2026/sql.php",
-          options: Options(headers: {"Content-Type": "application/json"}),
-          data: {
-            "action": "login",
-            "phone": widget.mobile,
-            "playerId": playerId,
-          },
+      } catch (e) {
+        debugPrint('OTP verify error: $e');
+        if (!mounted) return;
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("تعذر تسجيل الدخول، حاول مرة أخرى")),
         );
-        final prefx = await SharedPreferences.getInstance();
-        final loginBody = authResponseAsMap(result.data);
-        final loginOk =
-            loginBody['success'] == true ||
-            loginBody['success'] == 1 ||
-            loginBody['success'] == 'true';
-        if (loginOk) {
-          final data = loginBody['data'];
-          final a3Str = data is Map ? (data['a3']?.toString() ?? '') : '';
-          final a4Str = data is Map ? (data['a4']?.toString() ?? '') : '';
-          await prefx.setString("userId", a3Str);
-          await prefx.setString("orderId", a4Str);
-          await prefx.setBool('just_logged_in', true);
-          // Clear any old customer_type from previous session
-          await prefx.remove('customer_type');
-          await prefx.remove('customer_uid');
-          await prefx.remove('customer_phone');
-          await prefx.remove('contract_id');
-          await prefx.remove('currentCard');
-          await prefx.remove('addId');
-          if (!mounted) return;
-          setState(() {
-            isLoading = false;
-          });
-          await prefx.remove('fresh_login');
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute<void>(builder: (context) => MainScreen()),
-          );
-        } else {
-          if (!mounted) return;
-          setState(() => isLoading = false);
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("المستخدم ليس مسجلاً")));
-        }
       }
     } else {
       if (!mounted) return;
@@ -512,7 +566,7 @@ class _OTPScreenState extends State<OTPScreen>
                                 children: List.generate(_otpLength, (i) {
                                   return Padding(
                                     padding: EdgeInsets.only(
-                                      left: i < _otpLength - 1 ? 6 : 0,
+                                      left: i == 0 ? 0 : 8,
                                     ),
                                     child: SizedBox(
                                       width: 42,

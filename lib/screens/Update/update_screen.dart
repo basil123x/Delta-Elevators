@@ -18,71 +18,82 @@ class ForceUpdateScreen extends StatefulWidget {
 }
 
 class _ForceUpdateScreenState extends State<ForceUpdateScreen> {
-  void _launchStore() async {
-    if (await canLaunchUrl(Uri.parse(widget.storeUrl))) {
-      await launchUrl(
-        Uri.parse(widget.storeUrl),
-        mode: LaunchMode.externalApplication,
+  Future<void> _launchStore() async {
+    final url = widget.storeUrl.trim();
+    final uri = Uri.tryParse(url);
+    if (uri == null || url.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('رابط المتجر غير موجود في ملف الإعداد')),
       );
+      return;
     }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primary,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Iconsax.refresh_circle, size: 100, color: Colors.white),
-            SizedBox(height: 20),
-            Text(
-              "تحديث جديد!",
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              widget.message,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 30),
-            Container(
-              margin: EdgeInsets.symmetric(horizontal: 10),
-              child: GestureDetector(
-                onTap: () {
-                  _launchStore();
-                },
-                child: Container(
-                  alignment: Alignment.center,
-                  width: double.maxFinite,
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        backgroundColor: AppColors.primary,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Iconsax.refresh_circle, size: 100, color: Colors.white),
+                const SizedBox(height: 20),
+                const Text(
+                  'تحديث جديد!',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    "تحديث الأن",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  widget.message,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'لازم تحدّث التطبيق عشان تكمل. مش هتقدر تقفل الشاشة دي.',
+                  style: TextStyle(fontSize: 15, color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 30),
+                GestureDetector(
+                  onTap: _launchStore,
+                  child: Container(
+                    alignment: Alignment.center,
+                    width: double.maxFinite,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'تحديث الأن',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

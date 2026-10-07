@@ -1,3 +1,8 @@
+import 'dart:async';
+
+import 'package:Delta/screens/admin/engineer_task_scope.dart';
+import 'package:Delta/screens/booking/contract/ContractScreen.dart';
+import 'package:Delta/screens/settings/Maintenance/MaintenanceDetails.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,18 +24,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List notifications = [];
   String _filter = 'all';
   Set<String> _readIds = {};
+  Timer? _refreshTimer;
 
   Future<void> getNotifications() async {
-    final SharedPreferences prefx = await SharedPreferences.getInstance();
-    final result = await getDio().post(
-      "https://daltalifts.com/app2026/sql.php",
-      data: {"action": "getNotify", "uid": prefx.getString("userId")},
-    );
-    if (result.data['success'] == true) {
-      setState(() {
-        notifications = result.data['data'];
-      });
-    }
+    try {
+      final SharedPreferences prefx = await SharedPreferences.getInstance();
+      final result = await getDio().post(
+        "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+        data: {"action": "getNotify", "uid": prefx.getString("userId")},
+      );
+      if (!mounted) return;
+      if (result.data['success'] == true) {
+        setState(() {
+          notifications = result.data['data'];
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _deleteAll() async {
@@ -59,6 +68,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _readIds.add(notifId));
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('read_notification_ids', _readIds.toList());
+  }
+
+  void _openNotification(Map<dynamic, dynamic> n, String idStr) {
+    _markAsRead(idStr);
+    final type = _typeStr(n);
+    final bookingId = n['booking_id']?.toString() ??
+        n['bookingId']?.toString() ??
+        '';
+    if (type == 'task_assigned' && bookingId.isNotEmpty) {
+      EngineerTaskScope.clearTasksCache();
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => ContractScreen(orderId: bookingId),
+        ),
+      );
+      return;
+    }
+    final title = n['title']?.toString() ?? '';
+    final body = n['content']?.toString() ?? '';
+    final combined = '$title $body';
+    final match = RegExp(r'#\s*(\d+)').firstMatch(combined);
+    final isMaintenance = title.contains('فني') ||
+        title.contains('صيانة') ||
+        body.contains('صيانة');
+    if (match != null && isMaintenance) {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              MaintenanceDetailScreen(maintenanceId: match.group(1)!),
+        ),
+      );
+    }
   }
 
   bool _isRead(dynamic notif) {
@@ -240,6 +283,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _loadReadIds().then((_) {
       if (mounted) getNotifications();
     });
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      getNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   Widget _filterTab(String label, String value) {
@@ -508,7 +560,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           },
           child: GestureDetector(
             behavior: HitTestBehavior.deferToChild,
-            onTap: () => _markAsRead(idStr),
+            onTap: () => _openNotification(n, idStr),
             child: _NotifCard(
               title: n['title']?.toString() ?? '',
               body: n['content']?.toString() ?? '',

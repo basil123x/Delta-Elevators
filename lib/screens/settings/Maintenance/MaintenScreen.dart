@@ -1,14 +1,17 @@
-import 'package:Delta/constants/app_colors.dart';
+import 'dart:async';
+
 import 'package:Delta/provider/app_provider.dart';
-import 'package:Delta/screens/settings/Maintenance/MaintenanceDetails.dart' hide AppColors;
+import 'package:Delta/screens/repair/repair_screen.dart';
+import 'package:Delta/screens/settings/Maintenance/MaintenanceDetails.dart';
 import 'package:Delta/services/DioServiceCert.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// طلبات الصيانة — نفس قالب صفحة الحجوزات (curves / tabs / cards).
 class MaintenanceScreen extends StatefulWidget {
   const MaintenanceScreen({super.key});
 
@@ -20,21 +23,146 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List myMaintenance = [];
+  Timer? _timer;
+  int _lastSyncedIndex = 0;
 
-  Future getMyMaintenance() async {
-    SharedPreferences prefx = await SharedPreferences.getInstance();
-    String uid = prefx.getString("userId") ?? "";
-    var result = await getDio().post(
-      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-      data: {
-        "action": "getMaintenances",
-        "uid": uid,
-        "indexChanged": _tabController.index,
-      },
+  String getTimeAgo(String date, String time) {
+    if (date.trim().isEmpty) return '';
+    try {
+      String dateTimeString = '$date $time';
+      DateTime pastDate = DateTime.parse(
+        dateTimeString.replaceAll(' PM', '').replaceAll(' AM', ''),
+      );
+
+      if (time.contains('PM') || time.contains('AM')) {
+        List<String> timeParts = time
+            .replaceAll(' PM', '')
+            .replaceAll(' AM', '')
+            .split(':');
+        int hour = int.parse(timeParts[0]);
+        int minute = int.parse(timeParts[1]);
+
+        if (time.contains('PM') && hour != 12) {
+          hour += 12;
+        } else if (time.contains('AM') && hour == 12) {
+          hour = 0;
+        }
+
+        pastDate = DateTime.parse(
+          '$date ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:00',
+        );
+      }
+
+      final now = DateTime.now();
+      final diff = now.difference(pastDate);
+      final seconds = diff.inSeconds;
+      final minutes = diff.inMinutes;
+      final hours = diff.inHours;
+      final days = diff.inDays;
+
+      if (seconds < 60) {
+        return 'منذ أقل من دقيقة';
+      } else if (minutes < 60) {
+        if (minutes == 1) return 'منذ دقيقة';
+        if (minutes == 2) return 'منذ دقيقتين';
+        return 'منذ $minutes دقائق';
+      } else if (hours < 24) {
+        if (hours == 1) return 'منذ ساعة';
+        if (hours == 2) return 'منذ ساعتين';
+        return 'منذ $hours ساعات';
+      } else if (days == 1) {
+        return 'منذ يوم';
+      } else if (days == 2) {
+        return 'منذ يومين';
+      } else if (days < 30) {
+        return 'منذ $days أيام';
+      } else if (days < 365) {
+        final months = (days / 30).floor();
+        if (months == 1) return 'منذ شهر';
+        if (months == 2) return 'منذ شهرين';
+        return 'منذ $months أشهر';
+      } else {
+        final years = (days / 365).floor();
+        if (years == 1) return 'منذ سنة';
+        if (years == 2) return 'منذ سنتين';
+        return 'منذ $years سنوات';
+      }
+    } catch (_) {
+      return date;
+    }
+  }
+
+  Widget _infoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color valueColor,
+  }) {
+    return Row(
+      textDirection: TextDirection.rtl,
+      children: [
+        Icon(icon, size: 13, color: Colors.grey.shade600),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.left,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: valueColor,
+            ),
+          ),
+        ),
+      ],
     );
-    setState(() {
-      myMaintenance = result.data['data'];
+  }
+
+  void _openDetail(dynamic row) {
+    Provider.of<AppProvider>(context, listen: false).jumpToTabx(0);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MaintenanceDetailScreen(
+          maintenanceId: row['id'].toString(),
+        ),
+      ),
+    ).then((_) {
+      if (mounted) getMyMaintenance();
     });
+  }
+
+  Future<void> getMyMaintenance() async {
+    if (!mounted) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('userId') ?? '';
+      final result = await getDio().post(
+        'https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}',
+        data: {
+          'action': 'getMaintenances',
+          'uid': uid,
+          'indexChanged': _tabController.index,
+        },
+      );
+      if (!mounted) return;
+      final raw = result.data['data'];
+      setState(() {
+        myMaintenance = raw is List ? List.from(raw) : <dynamic>[];
+      });
+    } on DioException catch (e) {
+      debugPrint('Maintenance list error: ${e.message}');
+    } catch (e) {
+      debugPrint('Maintenance list unexpected: $e');
+    }
   }
 
   @override
@@ -42,15 +170,45 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     getMyMaintenance();
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        getMyMaintenance();
-      }
+    _tabController.addListener(_onTabControllerTick);
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      getMyMaintenance();
+    });
+  }
+
+  void _onTabControllerTick() {
+    if (!mounted || _tabController.indexIsChanging) return;
+    final index = _tabController.index;
+    if (index == _lastSyncedIndex) return;
+    _lastSyncedIndex = index;
+    getMyMaintenance();
+    setState(() {});
+  }
+
+  void _selectTab(int index) {
+    if (_tabController.index == index) return;
+    _lastSyncedIndex = index;
+    _tabController.animateTo(
+      index,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
+    getMyMaintenance();
+    setState(() {});
+  }
+
+  void _openNewRequest() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RepairScreen()),
+    ).then((_) {
+      if (mounted) getMyMaintenance();
     });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _tabController.dispose();
     super.dispose();
   }
@@ -60,273 +218,420 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: AppBar(
-          title: const Text(
-            "طلبات الصيانة",
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          centerTitle: true,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(60),
-            child: Container(
-              color: Colors.white,
-              child: TabBar(
-                controller: _tabController,
-                labelColor: AppColors.primary,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: AppColors.primary,
-                indicatorWeight: 3,
-                labelStyle: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: GoogleFonts.cairo().fontFamily,
+        backgroundColor: const Color(0xFFF37021),
+        body: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
                 ),
-                unselectedLabelStyle: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: GoogleFonts.cairo().fontFamily,
-                ),
-                tabs: const [
-                  Tab(text: "الكل"),
-                  Tab(text: "صيانة عادية"),
-                  Tab(text: "صيانة عاجلة"),
-                ],
-              ),
-            ),
-          ),
-        ),
-        body: myMaintenance.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SvgPicture.asset('assets/img/icons/no_address.svg'),
-                    SizedBox(height: 10),
-                    Text(
-                      "لا يوجد طلبات الصيانة بعد",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                child: Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF2F3F7),
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(28),
+                      topRight: Radius.circular(28),
                     ),
-                    SizedBox(height: 10),
-                    Text("إحجز طلب ثم إرجع لاحقاً"),
-                  ],
+                  ),
+                  child: myMaintenance.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SvgPicture.asset(
+                                'assets/img/icons/no_address.svg',
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'لا يوجد طلبات صيانة بعد',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text('أضف طلب ثم ارجع لاحقاً'),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
+                          itemCount: myMaintenance.length,
+                          itemBuilder: (context, index) {
+                            return _buildRequestCard(myMaintenance[index]);
+                          },
+                        ),
                 ),
-              )
-            : TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildBookingsList(),
-                  _buildBookingsList(),
-                  _buildBookingsList(),
-                ],
               ),
+            ),
+            SafeArea(
+              top: false,
+              child: Container(
+                color: const Color(0xFFF2F3F7),
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                child: GestureDetector(
+                  onTap: _openNewRequest,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFF37021), Color(0xFFFF8C00)],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFF37021).withValues(alpha: 0.35),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Iconsax.add_circle, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'إضافة طلب صيانة',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildBookingsList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: myMaintenance.length,
-      itemBuilder: (context, index) {
-        return _buildBookingCard(index);
-      },
+  Widget _buildHeader() {
+    final topPad = MediaQuery.paddingOf(context).top;
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF37021),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(28),
+          bottomRight: Radius.circular(28),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        top: topPad + 12,
+        bottom: 28,
+        left: 16,
+        right: 16,
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.maybePop(context),
+                behavior: HitTestBehavior.opaque,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    Iconsax.arrow_right_3,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+              const Expanded(
+                child: Text(
+                  'طلبات الصيانة',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 32),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.20),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                _buildTab('الكل', 0),
+                _buildTab('صيانة عادية', 1),
+                _buildTab('صيانة عاجلة', 2),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildBookingCard(int index) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withOpacity(0.1),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
+  Widget _buildTab(String label, int index) {
+    final bool isActive = _tabController.index == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _selectTab(index),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive ? const Color(0xFFF37021) : Colors.white,
             ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRequestCard(dynamic row) {
+    final stx = row['stx']?.toString() ?? '0';
+    final typeRaw = (row['a5']?.toString() ?? '').toLowerCase();
+    final isUrgent = typeRaw.contains('urgent');
+    final typeLabel = isUrgent ? 'صيانة عاجلة' : 'صيانة عادية';
+
+    final bool isDone = stx == '2';
+    final bool isProgress = stx == '1';
+    final bool isWaiting = !isDone && !isProgress;
+
+    final Color stripColor = isDone
+        ? const Color(0xFF22C55E)
+        : isProgress
+            ? const Color(0xFFF37021)
+            : const Color(0xFF3B82F6);
+
+    final Color badgeBg = isDone
+        ? const Color(0xFFEDFAF4)
+        : isProgress
+            ? const Color(0xFFFFF7ED)
+            : const Color(0xFFEEF4FF);
+
+    final Color badgeColor = isDone
+        ? const Color(0xFF16A34A)
+        : isProgress
+            ? const Color(0xFFF37021)
+            : const Color(0xFF3B82F6);
+
+    final String badgeText = isDone
+        ? 'مكتمل'
+        : isProgress
+            ? 'قيد التنفيذ'
+            : 'قيد الانتظار';
+
+    final IconData badgeIcon = isDone
+        ? Icons.check_circle_rounded
+        : isProgress
+            ? Icons.timelapse_rounded
+            : Icons.schedule_rounded;
+
+    final String statusText = _getStatusText(stx);
+    final String timeLabel = getTimeAgo(
+      row['a3']?.toString() ?? '',
+      row['a4']?.toString() ?? '',
+    );
+    final String orderLabel = 'طلب صيانة #${row['id'] ?? ''}';
+    final String desc = (row['a2']?.toString() ?? '').trim();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEBEBEB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
-            onTap: () {
-              Provider.of<AppProvider>(context, listen: false).jumpToTabx(0);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => MaintenanceDetailScreen(maintenanceId: myMaintenance[index]['id'],),
+            onTap: () => _openDetail(row),
+            child: Column(
+              children: [
+                Container(
+                  height: 5,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerRight,
+                      end: Alignment.centerLeft,
+                      colors: isDone
+                          ? const [Color(0xFF22C55E), Color(0xFF16A34A)]
+                          : isProgress
+                              ? const [Color(0xFFF37021), Color(0xFFFF9A57)]
+                              : isUrgent
+                                  ? const [Color(0xFFEF4444), Color(0xFFF97316)]
+                                  : const [Color(0xFF3B82F6), Color(0xFF60A5FA)],
+                    ),
+                  ),
                 ),
-              );
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                children: [
-                  Row(
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     children: [
-                      // Icon Container with gradient
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.primary,
-                              AppColors.primary.withOpacity(0.7),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                      Row(
+                        textDirection: TextDirection.rtl,
+                        children: [
+                          Text(
+                            orderLabel,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF1A1A2E),
+                            ),
                           ),
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
                             ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Iconsax.briefcase,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 15),
-                      // Booking Info
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "طلب صيانة رقم #${myMaintenance[index]['id']}",
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
+                            decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              textDirection: TextDirection.rtl,
                               children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Iconsax.calendar_1,
-                                      size: 16,
-                                      color: Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(myMaintenance[index]['a3']),
-                                  ],
+                                Text(
+                                  badgeText,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: badgeColor,
+                                  ),
                                 ),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Iconsax.clock,
-                                      size: 16,
-                                      color: Colors.grey[600],
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(myMaintenance[index]['a4']),
-                                  ],
-                                ),
+                                const SizedBox(width: 4),
+                                Icon(badgeIcon, size: 14, color: badgeColor),
                               ],
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _infoRow(
+                        icon: isUrgent ? Iconsax.flash_1 : Iconsax.setting_2,
+                        label: 'النوع',
+                        value: typeLabel,
+                        valueColor: isUrgent
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF1A1A2E),
+                      ),
+                      const SizedBox(height: 7),
+                      _infoRow(
+                        icon: Icons.info_outline_rounded,
+                        label: 'الحالة',
+                        value: statusText,
+                        valueColor: stripColor,
+                      ),
+                      if (desc.isNotEmpty) ...[
+                        const SizedBox(height: 7),
+                        _infoRow(
+                          icon: Iconsax.note_text,
+                          label: 'الوصف',
+                          value: desc,
+                          valueColor: const Color(0xFF1A1A2E),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Iconsax.clock,
+                            size: 12,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            timeLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _openDetail(row),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF0E5),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Text(
+                                isProgress ? 'تابع الطلب' : 'عرض التفاصيل',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFF37021),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Iconsax.arrow_left_2,
+                                size: 12,
+                                color: Color(0xFFF37021),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 15),
-                  // Divider
-                  Container(
-                    height: 1,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          Colors.grey[300]!,
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 15),
-                  // Bottom Row
-                  // Action Button
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primary.withOpacity(0.8),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MaintenanceDetailScreen(maintenanceId: myMaintenance[index]['id'],),
-                            ),
-                          );
-                        },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Iconsax.arrow_left_3,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                "عرض التفاصيل",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -334,25 +639,14 @@ class _MaintenanceScreenState extends State<MaintenanceScreen>
     );
   }
 
-  Color _getStatusColor(String index) {
-    switch (index) {
-      case "1":
-        return Colors.orange;
-      case "2":
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
   String _getStatusText(String index) {
     switch (index) {
-      case "1":
-        return "قيد التنفيذ";
-      case "2":
-        return "مكتمل";
+      case '1':
+        return 'قيد التنفيذ';
+      case '2':
+        return 'مكتمل';
       default:
-        return "قيد الإنتظار";
+        return 'قيد الانتظار';
     }
   }
 }

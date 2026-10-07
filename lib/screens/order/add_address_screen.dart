@@ -1,12 +1,13 @@
 import 'dart:convert';
 
-import 'package:Delta/screens/order/addresses_list_screen.dart';
+import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:Delta/services/LocationService.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iconsax/iconsax.dart';
 
@@ -38,25 +39,30 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
   bool _isLoading = false;
 
   Future getOneAddress() async {
+    if (widget.id == null || widget.id!.isEmpty) return;
     var result = await getDio().post(
       "https://daltalifts.com/app2026/sql.php",
       data: {"action": "getOneAddress", "id": widget.id},
     );
+    if (!mounted) return;
+    final data = result.data['data'];
+    if (data is! List || data.isEmpty) return;
     setState(() {
-      selectedCity = result.data['data'][0]['city'];
-      _zoneController.text = result.data['data'][0]['zone'];
-      _streetController.text = result.data['data'][0]['street'];
-      _buildController.text = result.data['data'][0]['building'];
+      selectedCity = data[0]['city']?.toString();
+      _zoneController.text = data[0]['zone']?.toString() ?? '';
+      _streetController.text = data[0]['street']?.toString() ?? '';
+      _buildController.text = data[0]['building']?.toString() ?? '';
     });
     LocationService locationService = LocationService();
     await locationService.getCurrentLocation();
     String address = await locationService.getAddressFromCoordinates(
-      double.parse(result.data['data'][0]['latitude']),
-      double.parse(result.data['data'][0]['longitude']),
+      double.parse(data[0]['latitude'].toString()),
+      double.parse(data[0]['longitude'].toString()),
     );
+    if (!mounted) return;
     _locationController.text = address;
-    lat = double.parse(result.data['data'][0]['latitude']);
-    lng = double.parse(result.data['data'][0]['longitude']);
+    lat = double.parse(data[0]['latitude'].toString());
+    lng = double.parse(data[0]['longitude'].toString());
     setState(() {});
   }
 
@@ -464,6 +470,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
     setState(() => _isLoading = true);
     try {
       SharedPreferences prefx = await SharedPreferences.getInstance();
+      final uid = prefx.getString("userId") ?? '';
       var data = {
         "action": widget.id != null ? "updateOneAddress" : "addNewAddress",
         "city": selectedCity,
@@ -472,13 +479,46 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
         "building": _buildController.text.trim(),
         "latitude": lat,
         "longitude": lng,
-        "uid": widget.id ?? prefx.getString("userId"),
+        "uid": widget.id ?? uid,
       };
       print(data);
       await getDio().post(
         "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
         data: data,
       );
+
+      // بعد الحفظ: حدّد العنوان المضاف/المعدّل كالعنوان الحالي فورًا
+      String selectedId = widget.id?.toString() ?? '';
+      if (selectedId.isEmpty) {
+        final listRes = await getDio().post(
+          "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+          data: {"action": "getAddresses", "uid": uid},
+        );
+        final list = (listRes.data['data'] as List?) ?? [];
+        if (list.isNotEmpty) {
+          final city = selectedCity ?? '';
+          final zone = _zoneController.text.trim();
+          final street = _streetController.text.trim();
+          final building = _buildController.text.trim();
+          final match = list.cast<dynamic>().lastWhere(
+            (a) =>
+                a['city']?.toString() == city &&
+                a['zone']?.toString() == zone &&
+                a['street']?.toString() == street &&
+                a['building']?.toString() == building,
+            orElse: () => list.last,
+          );
+          selectedId = match['id'].toString();
+        }
+      }
+
+      if (selectedId.isNotEmpty) {
+        await prefx.setString('addId', selectedId);
+        if (mounted) {
+          context.read<AppProvider>().getCurrentAddress(selectedId);
+        }
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -495,10 +535,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
           margin: const EdgeInsets.all(16),
         ),
       );
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => AddressesListScreen()),
-      );
+      Navigator.pop(context, true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -733,6 +770,7 @@ class _AddressFormWidgetState extends State<AddressFormWidget>
 
   Widget _cityPickerFormField() {
     return FormField<String>(
+      key: ValueKey(selectedCity ?? 'city_empty'),
       initialValue: selectedCity,
       validator: (_) {
         if (selectedCity == null || selectedCity!.isEmpty) {

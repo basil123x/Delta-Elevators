@@ -15,7 +15,10 @@ class _OrderWaitingState extends State<OrderWaiting> {
   bool isEnter = false;
 
   Future getBookingStatus() async {
-    var request = await Dio().post("https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}", data: {"action": "getEnterClient", "bookId": widget.bookId});
+    var request = await Dio().post(
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+      data: {"action": "getEnterClient", "bookId": widget.bookId},
+    );
     setState(() {
       bookStat = request.data['data'];
     });
@@ -25,7 +28,8 @@ class _OrderWaitingState extends State<OrderWaiting> {
     const String botToken = '8499367531:AAEnMG1yvNeAIanEgCbyYGlXWuYWImeTMyI';
     const String chatId = '-1003877690157';
 
-    final message = """
+    final message =
+        """
       ⚡️ *إعلام دخول الكهرباء*
 
       ✅ تم توصيل الكهرباء
@@ -41,7 +45,7 @@ class _OrderWaitingState extends State<OrderWaiting> {
       queryParameters: {
         'chat_id': chatId,
         'parse_mode': 'HTML',
-        'text': message
+        'text': message,
       },
     );
   }
@@ -64,14 +68,17 @@ class _OrderWaitingState extends State<OrderWaiting> {
       default:
     }
     return CustomCheckbox(
-      label: "الموافقة",
+      label: "إعلام دخول الكهرباء",
       initialValue: isEnter,
       onChanged: (val) async {
-        await Dio().post("https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}", data: {
-          "action": "updateEnterClient",
-          "bookId": widget.bookId,
-          "enter": val.toString()
-        });
+        await Dio().post(
+          "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+          data: {
+            "action": "updateEnterClient",
+            "bookId": widget.bookId,
+            "enter": val.toString(),
+          },
+        );
         if (val == true) {
           await sendToTelegram();
         }

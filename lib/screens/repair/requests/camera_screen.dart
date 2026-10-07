@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:Delta/provider/app_provider.dart';
+import 'package:Delta/screens/repair/requests/media_preview_gallery.dart';
 import 'package:camerawesome/pigeon.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +9,6 @@ import 'package:iconsax/iconsax.dart';
 import 'package:camerawesome/camerawesome_plugin.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class CameraWorking extends StatefulWidget {
   const CameraWorking({super.key});
@@ -110,33 +110,31 @@ class _CameraWorkingState extends State<CameraWorking> {
                 ),
               ),
               onMediaCaptureEvent: (MediaCapture capture) async {
-                SharedPreferences prefx = await SharedPreferences.getInstance();
-                final file = File(capture.captureRequest.path!);
+                final path = capture.captureRequest.path;
+                if (path == null || path.isEmpty) return;
+                final file = File(path);
 
                 if (await file.exists() && mounted) {
-                  final isVideo = capture.captureRequest.path!.contains(
-                    'video_',
-                  );
+                  final video = isMaintenanceMediaVideo(path);
 
                   debugPrint(
-                    '📸 ${isVideo ? "Video" : "Photo"} captured: ${file.path}',
+                    '📸 ${video ? "Video" : "Photo"} captured: ${file.path}',
                   );
                   myImagesProv.getMyImages(file.path);
                   setState(() {
-                    if (isVideo) {
+                    if (video) {
                       videoCounter++;
                     } else {
                       photoCounter++;
                     }
                   });
 
-                  // Show success feedback
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        isVideo
-                            ? 'تم تسجيل الفيديو ${myImagesProv.allImagesList.where((p) => p.contains('video_')).length} ✅'
-                            : 'تم التقاط الصورة ${myImagesProv.allImagesList.where((p) => p.contains('photo_')).length} ✅',
+                        video
+                            ? 'تم تسجيل الفيديو ${myImagesProv.allImagesList.where((p) => isMaintenanceMediaVideo(p.toString())).length} ✅'
+                            : 'تم التقاط الصورة ${myImagesProv.allImagesList.where((p) => !isMaintenanceMediaVideo(p.toString())).length} ✅',
                         style: GoogleFonts.cairo(),
                       ),
                       backgroundColor: Colors.green,

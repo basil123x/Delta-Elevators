@@ -28,6 +28,7 @@ class _SalesScreenState extends State<SalesScreen> {
     {"name": "محمد رأفت", "mobile": "30006374"},
     {"name": "خالد", "mobile": "33856188"},
     {"name": "نور", "mobile": "30006532"},
+    {"name": "فراس الابراهيم", "mobile": "66691206"},
   ];
 
   bool isLoading = false;

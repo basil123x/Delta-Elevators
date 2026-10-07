@@ -1,9 +1,15 @@
 import 'package:Delta/provider/app_provider.dart';
+import 'package:Delta/screens/admin/admin_contact_screen.dart';
+import 'package:Delta/screens/admin/admin_inventory_screen.dart';
+import 'package:Delta/screens/admin/admin_report_issue_screen.dart';
+import 'package:Delta/screens/admin/admin_tasks_screen.dart';
+import 'package:Delta/screens/admin/engineer_task_scope.dart';
+import 'package:Delta/screens/home/admin_search_screen.dart';
 import 'package:Delta/screens/home/notifications_screen.dart';
 import 'package:Delta/screens/settings/Profile/profile_screen.dart';
 import 'package:Delta/screens/home/search_screen.dart';
 import 'package:Delta/screens/items/items_screen.dart';
-import 'package:Delta/screens/repair/repair_first.dart';
+import 'package:Delta/screens/settings/Maintenance/maintenScreen.dart';
 import 'package:Delta/screens/settings/About/about_screen.dart';
 import 'package:Delta/screens/settings/Complaints/Complaints_screen.dart';
 import 'package:Delta/screens/settings/Sales/SalesScreen.dart';
@@ -31,16 +37,62 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool isSearch = false;
   List searchItemsList = [];
+  List adminSearchResults = [];
   List promosImages = [];
   String userName = "";
   String? _profileImageUrl;
   String _serviceStatus = 'جاري التحميل...';
-  String _lastOrderText = '';
+  String _stageLabel = '';
+  String _lastOrderId = '';
+  String _lastOrderCustomer = '';
+  bool _isAppManager = false;
   Color _statusDotColor = Colors.grey;
   int _activeOrdersCount = 0;
   int _completedOrdersCount = 0;
 
+  String _highLevelStatus({required String stl, required String stb}) {
+    if (stb == '4') return 'مرفوض';
+    if (stl == '9') return 'مكتمل';
+    if (stl == '0') return 'قيد الانتظار';
+    return 'قيد التنفيذ';
+  }
+
+  String _stageNameFromStl(String stl) {
+    switch (stl) {
+      case '0':
+        return 'في انتظار عرض السعر';
+      case '1':
+        return 'مرحلة التعاقد';
+      case '2':
+        return 'طلب المصعد من المصنع';
+      case '3':
+        return 'تصنيع المصعد';
+      case '4':
+        return 'شحن المصعد';
+      case '5':
+        return 'توريد المصعد';
+      case '6':
+        return 'تركيب المصعد ميكانيكياً';
+      case '7':
+        return 'إنتظار دخول الكهرباء للعقار';
+      case '8':
+        return 'تشغيل المصعد';
+      case '9':
+        return 'تسليم المصعد';
+      default:
+        return '';
+    }
+  }
+
+  Color _dotColorFromBooking({required String stl, required String stb}) {
+    if (stb == '4') return const Color(0xFFEF4444);
+    if (stl == '9') return const Color(0xFF4CAF50);
+    if (stl == '0' || stl.isEmpty) return const Color(0xFF3B82F6);
+    return const Color(0xFFF37021);
+  }
+
   Future<void> getUserProfile() async {
+    try {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getString("userId") ?? "";
     final result = await getDio().post(
@@ -54,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (photo.isNotEmpty) {
       await prefs.setString('profilePhoto', photo);
     }
+    await EngineerTaskScope.persistFromPayload(data, prefs);
 
     if (!mounted) return;
     setState(() {
@@ -66,6 +119,9 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     });
     debugPrint('🖼️ Home photo from API a6: $photo');
+    } catch (e) {
+      debugPrint('getUserProfile error: $e');
+    }
   }
 
   Future<void> searchItems(dynamic kval) async {
@@ -73,19 +129,40 @@ class _HomeScreenState extends State<HomeScreen> {
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "search", "kval": kval},
     );
+    if (!mounted) return;
     setState(() {
-      searchItemsList = result.data['data'];
+      searchItemsList = result.data['data'] ?? [];
+    });
+  }
+
+  Future<void> searchAdmin(dynamic query) async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString('userId') ?? '';
+    final result = await getDio().post(
+      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+      data: {"action": "searchAdmin", "uid": uid, "query": query},
+    );
+    if (!mounted) return;
+    final payload = result.data['data'];
+    setState(() {
+      adminSearchResults = payload is List ? payload : [];
     });
   }
 
   Future<void> getPromos() async {
-    final result = await getDio().post(
-      "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-      data: {"action": "promos"},
-    );
-    setState(() {
-      promosImages = result.data['data'];
-    });
+    try {
+      final result = await getDio().post(
+        "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
+        data: {"action": "promos"},
+      );
+      if (!mounted) return;
+      final raw = result.data is Map ? result.data['data'] : null;
+      setState(() {
+        promosImages = raw is List ? List.from(raw) : [];
+      });
+    } catch (e) {
+      debugPrint('getPromos error: $e');
+    }
   }
 
   Future<void> _loadDashboardData() async {
@@ -110,55 +187,58 @@ class _HomeScreenState extends State<HomeScreen> {
           int.tryParse(payload['active_orders']?.toString() ?? '0') ?? 0;
       final completed =
           int.tryParse(payload['completed_orders']?.toString() ?? '0') ?? 0;
-      final lastOrder = payload['last_order_date']?.toString() ?? '';
-
-      String lastOrderText = '';
-      if (lastOrder.isNotEmpty) {
-        try {
-          final date = DateTime.parse(lastOrder);
-          final diff = DateTime.now().difference(date);
-          if (diff.inDays == 0) {
-            lastOrderText = 'آخر طلب: اليوم';
-          } else if (diff.inDays == 1) {
-            lastOrderText = 'آخر طلب: أمس';
-          } else if (diff.inDays < 30) {
-            lastOrderText = 'آخر طلب: منذ ${diff.inDays} أيام';
-          } else if (diff.inDays < 365) {
-            final months = (diff.inDays / 30).floor();
-            lastOrderText = 'آخر طلب: منذ $months شهر';
-          } else {
-            lastOrderText = 'آخر طلب: منذ فترة';
-          }
-        } catch (_) {}
-      }
+      final lastOrderId = payload['last_order_id']?.toString() ?? '';
+      final lastStl = payload['last_order_stl']?.toString() ?? '';
+      final lastStb = payload['last_order_stb']?.toString() ?? '';
+      final lastCustomer = payload['last_order_customer']?.toString() ?? '';
+      final isAppManager =
+          payload['is_app_manager']?.toString() == '1' ||
+          payload['is_app_manager'] == 1 ||
+          payload['is_app_manager'] == true;
 
       String status;
+      String stage = '';
       Color dotColor;
-      if (active > 0) {
-        status = 'نشطة';
-        dotColor = const Color(0xFF4CAF50);
-      } else if (completed > 0) {
-        status = 'لا يوجد طلبات نشطة';
-        dotColor = Colors.orange;
-      } else {
+      if (lastOrderId.isEmpty) {
         status = 'لم يتم الطلب بعد';
         dotColor = Colors.grey;
+      } else {
+        status = _highLevelStatus(stl: lastStl, stb: lastStb);
+        stage = _stageNameFromStl(lastStl);
+        if (lastStb == '4') stage = '';
+        dotColor = _dotColorFromBooking(stl: lastStl, stb: lastStb);
       }
 
       setState(() {
         _serviceStatus = status;
+        _stageLabel = stage;
         _statusDotColor = dotColor;
-        _lastOrderText = lastOrderText;
+        _lastOrderId = lastOrderId;
+        _lastOrderCustomer = lastCustomer;
+        _isAppManager = isAppManager;
         _activeOrdersCount = active;
         _completedOrdersCount = completed;
       });
+      // Cache for other screens (e.g. Processing stages admin send).
+      await prefs.setBool('is_app_manager', isAppManager);
+      await EngineerTaskScope.persistFromPayload(
+        Map<String, dynamic>.from(payload),
+        prefs,
+      );
+      if (mounted) context.read<AppProvider>().setAppManager(isAppManager);
     } catch (e) {
       debugPrint('Dashboard error: $e');
     }
   }
 
-  void _goToOrderTab() {
-    context.read<AppProvider>().jumpToPagex(2);
+  void _goToBookingsTab() {
+    context.read<AppProvider>().jumpToPagex(1);
+  }
+
+  void _goToBookingsFiltered(int tabIndex) {
+    final app = context.read<AppProvider>();
+    app.jumpToTabx(tabIndex);
+    app.jumpToPagex(1);
   }
 
   void _navigateService(Widget screen) {
@@ -323,73 +403,102 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: _goToOrderTab,
+                  onTap: _goToBookingsTab,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 10,
+                      horizontal: 14,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF37021),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      'اطلب الآن',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'حالة الخدمة',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.75),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          _serviceStatus,
+                          'آخر طلب',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.85),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _lastOrderId.isEmpty ? '—' : '#$_lastOrderId',
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _statusDotColor,
+                      ],
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _goToBookingsTab,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'الحالة',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.white.withOpacity(0.75),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _serviceStatus,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _statusDotColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_stageLabel.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _stageLabel,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.88),
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
-                    ),
-                    if (_lastOrderText.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        _lastOrderText,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.white.withOpacity(0.80),
-                          fontWeight: FontWeight.w500,
+                      if (_isAppManager && _lastOrderCustomer.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          _lastOrderCustomer,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white.withOpacity(0.75),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -437,18 +546,29 @@ class _HomeScreenState extends State<HomeScreen> {
                   setState(() {
                     if (val.isEmpty) {
                       isSearch = false;
+                      adminSearchResults = [];
+                      searchItemsList = [];
                     } else {
                       isSearch = true;
-                      searchItems(val);
+                      if (_isAppManager) {
+                        searchAdmin(val);
+                      } else {
+                        searchItems(val);
+                      }
                     }
                   });
                 },
-                decoration: const InputDecoration(
-                  hintText: 'ابحث هنا...',
+                decoration: InputDecoration(
+                  hintText: _isAppManager
+                      ? 'ابحث في الحجوزات والصيانة...'
+                      : 'ابحث هنا...',
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
-                  hintStyle: TextStyle(color: Color(0xFFCCCCCC), fontSize: 13),
+                  hintStyle: const TextStyle(
+                    color: Color(0xFFCCCCCC),
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ),
@@ -472,6 +592,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 iconBg: const Color(0xFFFFF0E5),
                 iconColor: const Color(0xFFF37021),
                 icon: Iconsax.clock,
+                onTap: () => _goToBookingsFiltered(1),
               ),
             ),
             const SizedBox(width: 10),
@@ -482,6 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 iconBg: const Color(0xFFEDFAF4),
                 iconColor: const Color(0xFF22C55E),
                 icon: Iconsax.tick_circle,
+                onTap: () => _goToBookingsFiltered(2),
               ),
             ),
           ],
@@ -623,6 +745,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildServicesSection() {
+    if (_isAppManager) {
+      return _buildAdminServicesSection();
+    }
     return Column(
       children: [
         Padding(
@@ -658,12 +783,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 iconBg: const Color(0xFFFFF0E5),
                 icon: Iconsax.setting,
                 name: 'صيانة المصاعد',
-                desc: 'طلب صيانة عاجلة أو دورية',
-                onTap: () async {
-                  final prefx = await SharedPreferences.getInstance();
-                  await prefx.remove("currentCard");
-                  if (!mounted) return;
-                  _navigateService(const RepairFirst());
+                desc: 'عرض طلبات الصيانة وإضافة طلب جديد',
+                onTap: () {
+                  _navigateService(const MaintenanceScreen());
                 },
               ),
               const SizedBox(height: 9),
@@ -709,6 +831,112 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildAdminServicesSection() {
+    const tiles = <_AdminServiceData>[
+      _AdminServiceData(
+        color: Color(0xFFF37021),
+        iconBg: Color(0xFFFFF0E5),
+        icon: Iconsax.task_square,
+        name: 'مهامي',
+        desc: 'طلبات الصيانة المسندة لك',
+      ),
+      _AdminServiceData(
+        color: Color(0xFF3B82F6),
+        iconBg: Color(0xFFEEF4FF),
+        icon: Iconsax.box,
+        name: 'المخزون وقطع الغيار',
+        desc: 'تحقق من توفر القطع',
+      ),
+      _AdminServiceData(
+        color: Color(0xFF22C55E),
+        iconBg: Color(0xFFEDFAF4),
+        icon: Iconsax.warning_2,
+        name: 'الإبلاغ عن مشكلة',
+        desc: 'أرسل تقرير عن عطل فني',
+      ),
+      _AdminServiceData(
+        color: Color(0xFFF59E0B),
+        iconBg: Color(0xFFFFF8ED),
+        icon: Iconsax.call,
+        name: 'التواصل مع الإدارة',
+        desc: 'تواصل مباشر مع المسؤول',
+      ),
+      _AdminServiceData(
+        color: Color(0xFF8B5CF6),
+        iconBg: Color(0xFFF3EEFF),
+        icon: Iconsax.user,
+        name: 'حسابي والإعدادات',
+        desc: 'بياناتك وصلاحياتك',
+      ),
+    ];
+    final actions = <VoidCallback>[
+      () => _navigateService(const AdminTasksScreen()),
+      () => _navigateService(const AdminInventoryScreen()),
+      () => _navigateService(const AdminReportIssueScreen()),
+      () => _navigateService(const AdminContactScreen()),
+      () => _navigateService(const ProfileScreen()),
+    ];
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'خدماتنا',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: _textDark,
+                ),
+              ),
+              Text(
+                'عرض الكل',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: _orange,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 20),
+          child: Column(
+            children: [
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: tiles.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  mainAxisExtent: 150,
+                ),
+                itemBuilder: (context, i) {
+                  final tile = tiles[i];
+                  return _AdminServiceCard(
+                    color: tile.color,
+                    iconBg: tile.iconBg,
+                    icon: tile.icon,
+                    name: tile.name,
+                    desc: tile.desc,
+                    onTap: actions[i],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildBodyContent() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -716,7 +944,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _buildSearchField(),
         if (!isSearch) ...[
           _buildStats(),
-          _buildPromoSlider(),
+          if (!_isAppManager) _buildPromoSlider(),
           _buildServicesSection(),
         ],
       ],
@@ -752,9 +980,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: _buildSearchField(),
                           ),
                           Expanded(
-                            child: SearchScreen(
-                              searchItemsList: searchItemsList,
-                            ),
+                            child: _isAppManager
+                                ? AdminSearchScreen(results: adminSearchResults)
+                                : SearchScreen(
+                                    searchItemsList: searchItemsList,
+                                  ),
                           ),
                         ],
                       )
@@ -786,6 +1016,7 @@ class _StatCard extends StatelessWidget {
     required this.iconBg,
     required this.iconColor,
     required this.icon,
+    this.onTap,
   });
 
   final String value;
@@ -793,52 +1024,189 @@ class _StatCard extends StatelessWidget {
   final Color iconBg;
   final Color iconColor;
   final IconData icon;
+  final VoidCallback? onTap;
 
   static const Color _textDark = Color(0xFF1A1A2E);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEBEBEB)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFEBEBEB)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: _textDark,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: iconBg,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: iconColor, size: 18),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+    );
+  }
+}
+
+class _AdminServiceData {
+  const _AdminServiceData({
+    required this.color,
+    required this.iconBg,
+    required this.icon,
+    required this.name,
+    required this.desc,
+  });
+
+  final Color color;
+  final Color iconBg;
+  final IconData icon;
+  final String name;
+  final String desc;
+}
+
+class _AdminServiceCard extends StatelessWidget {
+  const _AdminServiceCard({
+    required this.color,
+    required this.iconBg,
+    required this.icon,
+    required this.name,
+    required this.desc,
+    required this.onTap,
+  });
+
+  final Color color;
+  final Color iconBg;
+  final IconData icon;
+  final String name;
+  final String desc;
+  final VoidCallback onTap;
+
+  static const Color _textDark = Color(0xFF1A1A2E);
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
               children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: _textDark,
-                    height: 1,
+                Positioned(
+                  top: -18,
+                  left: -18,
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: color.withValues(alpha: 0.08),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  label,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(height: 3, color: color),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: iconBg,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(icon, color: color, size: 20),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: _textDark,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        desc,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-        ],
+        ),
       ),
     );
   }

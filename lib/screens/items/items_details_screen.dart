@@ -1,11 +1,10 @@
 import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/items/item_preview.dart';
-import 'package:Delta/screens/main/main_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
+import 'package:Delta/services/quote_request.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iconsax/iconsax.dart';
 
 // Design tokens
@@ -99,10 +98,10 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
   }
 
   Future<void> _loadAllData() async {
-    await getItems(); // الأول لازم يخلص
-    await getItemSela(); // دلوقتي itemDetails جاهزة
-    await getLabelsLifts(); // بعدين
-    await getLiftsDet(); // دي كمان محتاجة itemDetails
+    await getItems();
+    await getItemSela();
+    await getLabelsLifts();
+    await getLiftsDet();
   }
 
   @override
@@ -450,42 +449,37 @@ class _ItemsDetailsScreenState extends State<ItemsDetailsScreen> {
               floatingActionButtonLocation:
                   FloatingActionButtonLocation.centerFloat,
               floatingActionButton: GestureDetector(
-                onTap: () async {
-                  setState(() {
-                    isLoading = true;
-                  });
-                  SharedPreferences prefx =
-                      await SharedPreferences.getInstance();
-                  print({
-                    "action": "addOneItem",
-                    "itmid": itemDetails[0]['id'],
-                    "uid": prefx.getString("userId"),
-                    "oid": prefx.getString("orderId"),
-                  });
-                  var result = await getDio().post(
-                    "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
-                    data: {
-                      "action": "addOneItem",
-                      "itmid": itemDetails[0]['id'],
-                      "uid": prefx.getString("userId"),
-                      "oid": prefx.getString("orderId"),
-                    },
-                  );
-                  if (result.data['success'] == true) {
-                    setState(() {
-                      isLoading = false;
-                    });
-                    currentTab.jumpToPagex(2);
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => MainScreen()),
-                    );
-                  } else {
-                    setState(() {
-                      isLoading = true;
-                    });
-                  }
-                },
+                onTap: isLoading
+                    ? null
+                    : () async {
+                        setState(() => isLoading = true);
+                        try {
+                          final ok = await addItemToQuoteRequest(
+                            itemDetails[0]['id']?.toString() ?? '',
+                            app: currentTab,
+                          );
+                          if (!mounted) return;
+                          setState(() => isLoading = false);
+                          if (!ok) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('تعذر إضافة المنتج، حاول مرة أخرى'),
+                              ),
+                            );
+                            return;
+                          }
+                          currentTab.jumpToPagex(2);
+                          Navigator.of(context).popUntil((route) => route.isFirst);
+                        } catch (_) {
+                          if (!mounted) return;
+                          setState(() => isLoading = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تعذر إضافة المنتج، حاول مرة أخرى'),
+                            ),
+                          );
+                        }
+                      },
                 child: Container(
                   width: double.maxFinite,
                   height: 58,

@@ -1,18 +1,24 @@
 import 'package:Delta/constants/app_colors.dart';
 import 'package:Delta/provider/app_provider.dart';
-import 'package:Delta/screens/home/home_screen.dart';
+import 'package:Delta/screens/admin/admin_my_reports_screen.dart';
+import 'package:Delta/screens/admin/engineer_task_scope.dart';
+import 'package:Delta/screens/admin/admin_support_screen.dart';
+import 'package:Delta/screens/admin/admin_task_history_screen.dart';
+import 'package:Delta/screens/admin/admin_work_zone_screen.dart';
 import 'package:Delta/screens/settings/About/about_screen.dart';
 import 'package:Delta/screens/settings/Addresses/Addresses_Screen.dart';
 import 'package:Delta/screens/settings/Complaints/Complaints_Details.dart';
-import 'package:Delta/screens/settings/Maintenance/maintenScreen.dart';
+import 'package:Delta/screens/settings/Maintenance/maintenance_contracts_screen.dart';
 import 'package:Delta/screens/settings/Profile/profile_screen.dart';
 import 'package:Delta/screens/splash_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -21,24 +27,126 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
+class _SettingsItem {
+  const _SettingsItem({
+    required this.id,
+    required this.text,
+    required this.icon,
+    this.pageBuilder,
+    this.destructive = false,
+  });
+
+  final String id;
+  final String text;
+  final IconData icon;
+  final Widget Function()? pageBuilder;
+  final bool destructive;
+}
+
 class _SettingsScreenState extends State<SettingsScreen> {
   int isLoading = -1;
   int isNotify = -2;
-  List<Map<dynamic, dynamic>> listTileItems = [
-    {"text": "الملف الشخصي", "icon": Iconsax.user, "onTap": ProfileScreen()},
-    {
-      "text": "عقود الصيانة",
-      "icon": Iconsax.stickynote,
-      "onTap": MaintenanceScreen(),
-    },
-    {"text": "العناوين", "icon": Iconsax.location, "onTap": AddressesScreen()},
-    {"text": "حول الشركة", "icon": Iconsax.info_circle, "onTap": AboutScreen()},
-    {"text": "الإشعارات", "icon": Iconsax.notification, "onTap": HomeScreen()},
-    {"text": "شكاوي", "icon": Iconsax.note_2, "onTap": ComplaintDetails()},
-    {"text": "تسجيل الخروج", "icon": Iconsax.logout, "onTap": HomeScreen()},
-    {"text": "حذف الحساب", "icon": Iconsax.trash, "onTap": HomeScreen()},
-  ];
   String name = "";
+  String _appVersion = '—';
+  String _buildNumber = '—';
+  String _shorebirdPatch = '—';
+
+  List<_SettingsItem> _items(bool isAdmin) {
+    if (isAdmin) {
+      return [
+        _SettingsItem(
+          id: 'profile',
+          text: 'الملف الشخصي',
+          icon: Iconsax.user,
+          pageBuilder: () => const ProfileScreen(),
+        ),
+        _SettingsItem(
+          id: 'task_history',
+          text: 'سجل المهام',
+          icon: Iconsax.clipboard_text,
+          pageBuilder: () => const AdminTaskHistoryScreen(),
+        ),
+        _SettingsItem(
+          id: 'work_zone',
+          text: 'منطقة العمل',
+          icon: Iconsax.map,
+          pageBuilder: () => const AdminWorkZoneScreen(),
+        ),
+        const _SettingsItem(
+          id: 'notifications',
+          text: 'الإشعارات',
+          icon: Iconsax.notification,
+        ),
+        _SettingsItem(
+          id: 'my_reports',
+          text: 'بلاغاتي',
+          icon: Iconsax.note_2,
+          pageBuilder: () => const AdminMyReportsScreen(),
+        ),
+        const _SettingsItem(
+          id: 'logout',
+          text: 'تسجيل الخروج',
+          icon: Iconsax.logout,
+          destructive: true,
+        ),
+        _SettingsItem(
+          id: 'support',
+          text: 'الدعم الفني',
+          icon: Iconsax.headphone,
+          pageBuilder: () => const AdminSupportScreen(),
+        ),
+      ];
+    }
+    return [
+      _SettingsItem(
+        id: 'profile',
+        text: 'الملف الشخصي',
+        icon: Iconsax.user,
+        pageBuilder: () => const ProfileScreen(),
+      ),
+      _SettingsItem(
+        id: 'maintenance',
+        text: 'عقود الصيانة',
+        icon: Iconsax.stickynote,
+        pageBuilder: () => const MaintenanceContractsScreen(),
+      ),
+      _SettingsItem(
+        id: 'addresses',
+        text: 'العناوين',
+        icon: Iconsax.location,
+        pageBuilder: () => const AddressesScreen(),
+      ),
+      _SettingsItem(
+        id: 'about',
+        text: 'حول الشركة',
+        icon: Iconsax.info_circle,
+        pageBuilder: () => const AboutScreen(),
+      ),
+      const _SettingsItem(
+        id: 'notifications',
+        text: 'الإشعارات',
+        icon: Iconsax.notification,
+      ),
+      _SettingsItem(
+        id: 'complaints',
+        text: 'شكاوي',
+        icon: Iconsax.note_2,
+        pageBuilder: () => const ComplaintDetails(),
+      ),
+      const _SettingsItem(
+        id: 'logout',
+        text: 'تسجيل الخروج',
+        icon: Iconsax.logout,
+        destructive: true,
+      ),
+      const _SettingsItem(
+        id: 'delete',
+        text: 'حذف الحساب',
+        icon: Iconsax.trash,
+        destructive: true,
+      ),
+    ];
+  }
 
   Future getUserProfile({String? playId}) async {
     SharedPreferences prefx = await SharedPreferences.getInstance();
@@ -47,12 +155,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       "https://daltalifts.com/app2026/sql.php?k=${DateTime.now().millisecondsSinceEpoch}",
       data: {"action": "profile", "uid": uid, "playId": playId},
     );
+    final data = result.data['data'];
+    if (data is Map) {
+      await EngineerTaskScope.persistFromPayload(
+        Map<String, dynamic>.from(data),
+        prefx,
+      );
+    }
+    if (!mounted) return;
     setState(() {
-      name = result.data['data']['a1'];
+      name = data is Map ? (data['a1']?.toString() ?? '') : '';
     });
   }
 
-  Future logoutAccount(i) async {
+  Future logoutAccount(int i) async {
     setState(() {
       isLoading = i;
     });
@@ -65,17 +181,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefx.remove('customer_phone');
     await prefx.remove('contract_id');
     await prefx.remove('currentCard');
+    await prefx.remove('maint_customer_type');
+    await prefx.remove('maint_booking_id');
+    await prefx.remove('maint_delta_verified');
+    await prefx.remove('maint_erp_contract_id');
+    await prefx.remove('is_app_manager');
+    await EngineerTaskScope.clearSession(prefx);
+    currentTab.setAppManager(false);
     await prefx.remove('userId');
     await prefx.remove('addId');
     currentTab.jumpToPagex(0);
     await prefx.setBool('just_logged_in', true);
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => SplashScreen()),
     );
   }
 
-  Future deleteAccount(i) async {
+  Future deleteAccount(int i) async {
     setState(() {
       isLoading = i;
     });
@@ -88,7 +212,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     prefx.remove("userId");
     prefx.remove("orderId");
+    await EngineerTaskScope.clearSession(prefx);
     currentTab.jumpToPagex(0);
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => SplashScreen()),
@@ -101,35 +227,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
+  Future<void> _toggleNotifications(int i) async {
+    SharedPreferences prefx = await SharedPreferences.getInstance();
+    if (isNotify == 4) {
+      isNotify = -1;
+      prefx.setInt('isNotify', isNotify);
+      getUserProfile(playId: "");
+      getNotifyStatus();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("تم إلغاء الإشعارات"),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      setState(() {});
+    } else {
+      isNotify = 4;
+      prefx.setInt('isNotify', isNotify);
+      final playerId = OneSignal.User.pushSubscription.id;
+      getUserProfile(playId: playerId);
+      getNotifyStatus();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("تم تفعيل الإشعارات"),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      setState(() {});
+    }
+  }
+
+  Future<void> _loadAppInfo() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      var patchLabel = '—';
+      try {
+        final patch = await ShorebirdUpdater().readCurrentPatch();
+        patchLabel = patch == null ? '0' : '${patch.number}';
+      } catch (_) {
+        patchLabel = '—';
+      }
+      if (!mounted) return;
+      setState(() {
+        _appVersion = info.version;
+        _buildNumber = info.buildNumber;
+        _shorebirdPatch = patchLabel;
+      });
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     getUserProfile();
     getNotifyStatus();
+    _loadAppInfo();
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = context.watch<AppProvider>().isAppManager;
+    final items = _items(isAdmin);
     final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: AppColors.primary,
       appBar: AppBar(
-        title: Text("الإعدادات", style: TextStyle(color: Colors.white)),
+        title: const Text('الإعدادات', style: TextStyle(color: Colors.white)),
         centerTitle: true,
         forceMaterialTransparency: true,
         backgroundColor: AppColors.primary,
-        iconTheme: IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
-          // ===== الكارد الأبيض =====
           Positioned(
-            top: screenHeight * 0.18, // يبدأ قبل نهاية الجزء الملون بشوية
+            top: screenHeight * 0.18,
             left: 0,
             right: 0,
             bottom: 0,
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(25),
@@ -138,127 +318,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               child: Column(
                 children: [
-                  SizedBox(height: 70),
-                  // ===== Grid الأيقونات =====
+                  const SizedBox(height: 70),
                   Expanded(
-                    child: GridView.builder(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      itemCount: listTileItems.length,
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4, // 4 في الصف زي مطراش
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 20,
-                        childAspectRatio: 0.85,
-                      ),
-                      itemBuilder: (context, i) {
-                        return GestureDetector(
-                          onTap: () async {
-                            SharedPreferences prefx =
-                                await SharedPreferences.getInstance();
-                            switch (i) {
-                              case 4:
-                                if (isNotify == 4) {
-                                  isNotify = -1;
-                                  prefx.setInt('isNotify', isNotify);
-                                  getUserProfile(playId: "");
-                                  getNotifyStatus();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("تم إلغاء الإشعارات"),
-                                      backgroundColor: AppColors.primary,
-                                    ),
-                                  );
-                                  setState(() {});
-                                } else {
-                                  isNotify = 4;
-                                  prefx.setInt('isNotify', isNotify);
-                                  final playerId =
-                                      OneSignal.User.pushSubscription.id;
-                                  getUserProfile(playId: playerId);
-                                  getNotifyStatus();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("تم تفعيل الإشعارات"),
-                                      backgroundColor: AppColors.primary,
-                                    ),
-                                  );
-                                  setState(() {});
-                                }
-                                break;
-                              case 6:
-                                logoutAccount(6);
-                                break;
-                              case 7:
-                                deleteAccount(7);
-                                break;
-                              default:
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        listTileItems[i]['onTap'],
-                                  ),
-                                );
-                                break;
-                            }
-                          },
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        const crossCount = 4;
+                        const hPad = 16.0;
+                        const spacing = 10.0;
+                        final cellWidth = (constraints.maxWidth -
+                                hPad * 2 -
+                                spacing * (crossCount - 1)) /
+                            crossCount;
+                        final fullCount =
+                            (items.length ~/ crossCount) * crossCount;
+                        final leftover = items.sublist(fullCount);
+
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  color: i == 6 || i == 7
-                                      ? Colors.red.withOpacity(0.12)
-                                      : isNotify == i
-                                      ? AppColors.primary
-                                      : AppColors.primary.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(50),
+                              if (fullCount > 0)
+                                GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  padding: EdgeInsets.zero,
+                                  itemCount: fullCount,
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: crossCount,
+                                    crossAxisSpacing: spacing,
+                                    mainAxisSpacing: 20,
+                                    childAspectRatio: 0.85,
+                                  ),
+                                  itemBuilder: (context, i) =>
+                                      _settingsTile(items[i], i),
                                 ),
-                                child: isLoading == i
-                                    ? Center(
-                                        child: CircularProgressIndicator(
-                                          color: i == 6 || i == 7
-                                              ? Colors.red
-                                              : AppColors.primary,
+                              if (leftover.isNotEmpty) ...[
+                                const SizedBox(height: 20),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    for (var i = 0;
+                                        i < leftover.length;
+                                        i++) ...[
+                                      if (i > 0)
+                                        const SizedBox(width: spacing),
+                                      SizedBox(
+                                        width: cellWidth,
+                                        child: _settingsTile(
+                                          leftover[i],
+                                          fullCount + i,
                                         ),
-                                      )
-                                    : Icon(
-                                        listTileItems[i]['icon'],
-                                        color: i == 6 || i == 7
-                                            ? Colors.red
-                                            : isNotify == i
-                                            ? Colors.white
-                                            : AppColors.primary,
-                                        size: 26,
                                       ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                listTileItems[i]['text'],
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
+                                    ],
+                                  ],
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              ],
                             ],
                           ),
                         );
                       },
                     ),
                   ),
+                  if (isAdmin) _buildVersionFooter(),
                 ],
               ),
             ),
           ),
-
-          // ===== صورة البروفايل في المنتصف =====
           Positioned(
             top: screenHeight * 0.11,
             left: 0,
@@ -278,13 +404,127 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     name,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _settingsTile(_SettingsItem item, int i) {
+    final notifyOn = item.id == 'notifications' && isNotify == 4;
+    return GestureDetector(
+      onTap: () async {
+        switch (item.id) {
+          case 'notifications':
+            await _toggleNotifications(i);
+            break;
+          case 'logout':
+            await logoutAccount(i);
+            break;
+          case 'delete':
+            await deleteAccount(i);
+            break;
+          default:
+            final page = item.pageBuilder?.call();
+            if (page == null) return;
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => page),
+            );
+            break;
+        }
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: item.destructive
+                  ? Colors.red.withOpacity(0.12)
+                  : notifyOn
+                      ? AppColors.primary
+                      : AppColors.primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: isLoading == i
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: item.destructive
+                          ? Colors.red
+                          : AppColors.primary,
+                    ),
+                  )
+                : Icon(
+                    item.icon,
+                    color: item.destructive
+                        ? Colors.red
+                        : notifyOn
+                            ? Colors.white
+                            : AppColors.primary,
+                    size: 26,
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item.text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVersionFooter() {
+    final bottomSafe = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 4, 16, bottomSafe + 92),
+      child: Column(
+        children: [
+          const Text(
+            'تطبيق دلتا للموظفين',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF4A4A4A),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'الإصدار $_appVersion  ·  البناء $_buildNumber',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF777777),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'باتش Shorebird  $_shorebirdPatch',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFFF37021),
             ),
           ),
         ],

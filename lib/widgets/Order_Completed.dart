@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -22,6 +23,7 @@ class _OrderCompletedState extends State<OrderCompleted> {
   bool _pdfLoading = true;
   String? _localPdfPath;
   bool _isSigned = false;
+  Timer? _liveTimer;
 
   String get pdfUrl =>
       "https://daltalifts.com/app2026/PDF_Final/index.php?ktype=3&batchId=${widget.bookId}";
@@ -31,6 +33,18 @@ class _OrderCompletedState extends State<OrderCompleted> {
     super.initState();
     _checkDeliveryStatus();
     _loadPdfBytes();
+    _liveTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _checkDeliveryStatus(silent: true);
+      if (_localPdfPath == null && !_pdfLoading) {
+        _loadPdfBytes();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _liveTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadPdfBytes() async {
@@ -54,7 +68,7 @@ class _OrderCompletedState extends State<OrderCompleted> {
     }
   }
 
-  Future<void> _checkDeliveryStatus() async {
+  Future<void> _checkDeliveryStatus({bool silent = false}) async {
     try {
       final result = await Dio().post(
         "https://daltalifts.com/app2026/sql.php",
@@ -63,8 +77,11 @@ class _OrderCompletedState extends State<OrderCompleted> {
           "bookId": widget.bookId,
         },
       );
-      if (result.data['signed'] == true && mounted) {
-        setState(() => _isSigned = true);
+      final signed = result.data['signed'] == true;
+      if (!mounted) return;
+      if (silent && signed == _isSigned) return;
+      if (signed != _isSigned) {
+        setState(() => _isSigned = signed);
       }
     } catch (e) {}
   }

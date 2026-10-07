@@ -1,5 +1,5 @@
 <?
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 include("xtras/config.php");
@@ -15,14 +15,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit(0);
 }
 
-// Get request data
-$input = json_decode(file_get_contents('php://input'), true);
+// Get request data (JSON body preferred; fall back to form POST)
+$rawBody = file_get_contents('php://input');
+$input = json_decode($rawBody, true);
+if (!is_array($input)) {
+    $input = [];
+}
+if (!empty($_POST)) {
+    $input = array_merge($input, $_POST);
+}
 
-$action = isset($input['action']) ? $input['action'] : (isset($_POST['action']) ? $_POST['action'] : '');
+$action = isset($input['action']) ? $input['action'] : '';
 
 function sanitize($data) {
     global $conx;
-    return mysqli_real_escape_string($conx, trim($data));
+    if ($data === null) {
+        $data = '';
+    }
+    return mysqli_real_escape_string($conx, trim((string)$data));
 }
 
 /** Last 8 digits for Qatar local numbers (handles +974 / 974 / spaces). */
@@ -162,6 +172,15 @@ switch ($action) {
     case 'UploadPdf':
         UploadPdf($input);
         break;
+    case 'saveMaintenanceContract':
+        saveMaintenanceContract($input);
+        break;
+    case 'getMyMaintenanceContracts':
+        getMyMaintenanceContracts($input);
+        break;
+    case 'getMaintenanceContractPdf':
+        getMaintenanceContractPdf($input);
+        break;
     case 'getLabelsLifts':
         getLabelsLifts($input);
         break;
@@ -183,8 +202,23 @@ switch ($action) {
     case 'getMaintenances':
         getMaintenances($input);
         break;
+    case 'updateMaintenanceStatus':
+        updateMaintenanceStatus($input);
+        break;
+    case 'getHrTechnicians':
+        getHrTechnicians($input);
+        break;
+    case 'assignMaintenanceTech':
+        assignMaintenanceTech($input);
+        break;
+    case 'getTechnicianWorkZone':
+        getTechnicianWorkZone($input);
+        break;
     case 'search':
         searchItems($input);
+        break;
+    case 'searchAdmin':
+        searchAdmin($input);
         break;
     case 'promos':
         getPromos($input);
@@ -228,6 +262,15 @@ switch ($action) {
     case 'getProcessingImages':
         getProcessingImages($input);
         break;
+    case 'getPresignedProcessingImageUrl':
+        getPresignedProcessingImageUrl($input);
+        break;
+    case 'deleteProcessingImage':
+        deleteProcessingImage($input);
+        break;
+    case 'notifyProcessingMedia':
+        notifyProcessingMedia($input);
+        break;
     case 'updateCounterRequest':
         updateCounterRequest($input);
         break;
@@ -249,6 +292,9 @@ switch ($action) {
     case 'updateQuotationStx':
         updateQuotationStx($input);
         break;
+    case 'approveContract':
+        approveContract($input);
+        break;
     case 'updateEnterClient':
         updateEnterClient($input);
         break;
@@ -269,6 +315,21 @@ switch ($action) {
         break;
     case 'saveDeliveryContract':
         saveDeliveryContract($input);
+        break;
+    case 'getSupervisorContact':
+        getSupervisorContact($input);
+        break;
+    case 'updateBookingStage':
+        updateBookingStage($input);
+        break;
+    case 'addMaintenanceBooking':
+        addMaintenanceBooking($input);
+        break;
+    case 'checkMaintenanceStatus':
+        checkMaintenanceStatus($input);
+        break;
+    case 'updateBookingAddress':
+        updateBookingAddress($input);
         break;
     default:
         sendResponse(false, 'Invalid action');
@@ -614,6 +675,159 @@ function addMyBookings($input) {
 }
 
 /**
+ * App "عميل جديد" maintenance onboarding booking.
+ * ERP قائمة صيانة filters: bookings.enter LIKE '%صيانة%'
+ */
+function addMaintenanceBooking($input) {
+    global $conx;
+    $uid = sanitize($input['uid'] ?? '');
+    $oid = sanitize($input['oid'] ?? '');
+    $addId = sanitize($input['addId'] ?? '0');
+    if ($uid === '') {
+        sendResponse(false, 'uid required');
+    }
+    if ($oid === '') {
+        $oid = (string)(1000 + mt_rand(0, 8999));
+    }
+    if ($addId === '') {
+        $addId = '0';
+    }
+
+    // Reuse an open maintenance booking for this user (avoid duplicates).
+    $existing = $conx->query(
+        "SELECT id, addressId, stx, stt, contract_ready, contract_id
+         FROM bookings
+         WHERE uid = '$uid'
+           AND enter LIKE '%صيانة%'
+           AND (stx = '0' OR (stx = '1' AND IFNULL(stt,0) = '0'))
+         ORDER BY id DESC
+         LIMIT 1"
+    )->fetch_assoc();
+    if ($existing) {
+        echo json_encode([
+            'success' => true,
+            'message' => 'موجود',
+            'bookingId' => (string)$existing['id'],
+            'addressId' => (string)($existing['addressId'] ?? ''),
+            'stx' => (string)($existing['stx'] ?? '0'),
+            'contract_ready' => (string)($existing['contract_ready'] ?? '0'),
+        ]);
+        exit;
+    }
+
+    $date = date('Y-m-d');
+    $time = date('h:i A');
+    $enter = 'صيانة';
+    $conx->query(
+        "INSERT INTO bookings
+         (addressId, uid, orderId, date, time, stx, stt, stl, stb, enter, contract_ready)
+         VALUES
+         ('$addId', '$uid', '$oid', '$date', '$time', '0', '0', '0', '0', '$enter', 0)"
+    );
+    $bookingId = (string)mysqli_insert_id($conx);
+    echo json_encode([
+        'success' => true,
+        'message' => 'تم إنشاء طلب الصيانة',
+        'bookingId' => $bookingId,
+        'addressId' => $addId,
+    ]);
+    exit;
+}
+
+/**
+ * Status for new-client maintenance onboarding resume.
+ * none | pending_address | pending_approval | pending_prepare | pending_contract | completed
+ */
+function checkMaintenanceStatus($input) {
+    global $conx;
+    $uid = sanitize($input['uid'] ?? '');
+    if ($uid === '') {
+        sendResponse(false, 'uid required');
+    }
+
+    $hasContract = $conx->query(
+        "SELECT id FROM contracts
+         WHERE a30 = '$uid' AND (type = '5' OR type = '4')
+         LIMIT 1"
+    )->fetch_assoc();
+
+    $book = $conx->query(
+        "SELECT id, addressId, stx, stt, contract_ready, contract_id
+         FROM bookings
+         WHERE uid = '$uid' AND enter LIKE '%صيانة%'
+         ORDER BY id DESC
+         LIMIT 1"
+    )->fetch_assoc();
+
+    if (!$book) {
+        $status = $hasContract ? 'completed' : 'none';
+        echo json_encode([
+            'success' => true,
+            'status' => $status,
+            'bookingId' => '',
+            'addressId' => '',
+        ]);
+        exit;
+    }
+
+    $bookingId = (string)$book['id'];
+    $addressId = trim((string)($book['addressId'] ?? ''));
+    $stx = (string)($book['stx'] ?? '0');
+    $stt = (string)($book['stt'] ?? '0');
+    $ready = (string)($book['contract_ready'] ?? '0');
+    $cid = trim((string)($book['contract_id'] ?? ''));
+
+    if ($addressId === '' || $addressId === '0') {
+        $status = 'pending_address';
+    } elseif ($stx === '0') {
+        $status = 'pending_approval';
+    } elseif ($ready === '1' || $ready === 'true') {
+        // Contract sent to app for review/sign
+        $status = ($stt === '1' || $cid !== '') ? 'completed' : 'pending_contract';
+    } elseif ($stt === '1' || ($cid !== '' && $hasContract)) {
+        $status = 'completed';
+    } else {
+        // ERP approved, company preparing / editing contract
+        $status = 'pending_prepare';
+    }
+
+    echo json_encode([
+        'success' => true,
+        'status' => $status,
+        'bookingId' => $bookingId,
+        'addressId' => $addressId,
+        'stx' => $stx,
+        'stt' => $stt,
+        'contract_ready' => $ready,
+        'contract_id' => $cid,
+    ]);
+    exit;
+}
+
+function updateBookingAddress($input) {
+    global $conx;
+    $bookingId = sanitize($input['bookingId'] ?? '');
+    $addressId = sanitize($input['addressId'] ?? '');
+    if ($bookingId === '' || $addressId === '' || $addressId === '0') {
+        sendResponse(false, 'bookingId and addressId required');
+    }
+    // Ensure maintenance marker so ERP صيانة tab can see it.
+    $conx->query(
+        "UPDATE bookings
+         SET addressId = '$addressId',
+             enter = IF(enter LIKE '%صيانة%', enter, 'صيانة')
+         WHERE id = '$bookingId'"
+    );
+    echo json_encode([
+        'success' => true,
+        'message' => 'تم تحديث العنوان',
+        'bookingId' => $bookingId,
+        'addressId' => $addressId,
+    ]);
+    exit;
+}
+
+/**
  * get My Bookings
  */
 function getMyBookings($input) {
@@ -635,16 +849,27 @@ function getMyBookings($input) {
                 break;
         }
     }
-    
+
     $bookarr = array();
-    $bookxQuery = "SELECT bookings.*, addresses.city , addresses.zone , addresses.street , addresses.building , bookings.uid , bookings.orderId FROM addresses RIGHT JOIN bookings ON addresses.id = bookings.addressId WHERE bookings.uid = '$uid' $stx";
+    if (isAppManagerUid($uid)) {
+        $bookxQuery = "SELECT bookings.*, addresses.city , addresses.zone , addresses.street , addresses.building , addresses.latitude , addresses.longitude , bookings.uid , bookings.orderId , cust_app.a1 AS client_name
+                       FROM bookings
+                       LEFT JOIN addresses ON addresses.id = bookings.addressId
+                       LEFT JOIN cust_app ON bookings.uid = cust_app.a3
+                       WHERE 1=1 $stx
+                       ORDER BY bookings.id DESC";
+    } else {
+        $bookxQuery = "SELECT bookings.*, addresses.city , addresses.zone , addresses.street , addresses.building , addresses.latitude , addresses.longitude , bookings.uid , bookings.orderId FROM addresses RIGHT JOIN bookings ON addresses.id = bookings.addressId WHERE bookings.uid = '$uid' $stx ORDER BY bookings.id DESC";
+    }
     $bookxResult = $conx->query($bookxQuery);
     while($rows=mysqli_fetch_assoc($bookxResult)) {$bookarr[] = $rows;}
     sendResponse(true, '',$bookarr);
 }
 
 /**
- * Home dashboard: active / completed bookings (same stl rules as getMyBookings) + last booking date.
+ * Home dashboard: active / completed bookings + last booking.
+ * App manager = cust_app.a29=1 OR matching ERP users.a29=1 (by phone).
+ * Managers see the latest booking across all customers.
  */
 function getDashboard($input) {
     global $conx;
@@ -654,36 +879,103 @@ function getDashboard($input) {
             'active_orders' => 0,
             'completed_orders' => 0,
             'last_order_date' => '',
+            'last_order_id' => '',
+            'last_order_stl' => '',
+            'last_order_stb' => '',
+            'last_order_stt' => '',
+            'last_order_customer' => '',
+            'is_app_manager' => 0,
         ));
+        return;
     }
     $uid = sanitize($uidRaw);
 
     $active = 0;
     $completed = 0;
     $lastDate = '';
+    $lastId = '';
+    $lastStl = '';
+    $lastStb = '';
+    $lastStt = '';
+    $lastCustomer = '';
+    $isAppManager = 0;
+    $phoneRaw = '';
 
-    $qActive = "SELECT COUNT(*) AS c FROM bookings WHERE uid = '$uid' AND stl IN ('1','2','3','4','5','6','7','8')";
+    $qRole = "SELECT a2, a29 FROM cust_app WHERE a3 = '$uid' LIMIT 1";
+    $resRole = $conx->query($qRole);
+    if ($resRole && ($rowRole = mysqli_fetch_assoc($resRole))) {
+        $phoneRaw = isset($rowRole['a2']) ? (string)$rowRole['a2'] : '';
+        if ((string)$rowRole['a29'] === '1') {
+            $isAppManager = 1;
+        }
+    }
+
+    // ERP «أدمن الموبايل» lives on users.a29 (matched by phone)
+    if ($isAppManager !== 1 && $phoneRaw !== '') {
+        $phoneCanon = custAppPhoneCanonical8($phoneRaw);
+        if ($phoneCanon !== '') {
+            $phoneEsc = sanitize($phoneCanon);
+            $qErp = "SELECT a29 FROM users
+                     WHERE REPLACE(REPLACE(REPLACE(TRIM(a5), '+', ''), ' ', ''), '-', '') LIKE '%$phoneEsc'
+                     LIMIT 1";
+            $resErp = $conx->query($qErp);
+            if ($resErp && ($rowErp = mysqli_fetch_assoc($resErp)) && (string)$rowErp['a29'] === '1') {
+                $isAppManager = 1;
+            }
+        }
+    }
+
+    if ($isAppManager === 1) {
+        $qActive = "SELECT COUNT(*) AS c FROM bookings WHERE stl IN ('1','2','3','4','5','6','7','8')";
+        $qDone = "SELECT COUNT(*) AS c FROM bookings WHERE stl = '9'";
+    } else {
+        $qActive = "SELECT COUNT(*) AS c FROM bookings WHERE uid = '$uid' AND stl IN ('1','2','3','4','5','6','7','8')";
+        $qDone = "SELECT COUNT(*) AS c FROM bookings WHERE uid = '$uid' AND stl = '9'";
+    }
     $resA = $conx->query($qActive);
     if ($resA && ($rowA = mysqli_fetch_assoc($resA))) {
         $active = (int)$rowA['c'];
     }
 
-    $qDone = "SELECT COUNT(*) AS c FROM bookings WHERE uid = '$uid' AND stl = '9'";
     $resD = $conx->query($qDone);
     if ($resD && ($rowD = mysqli_fetch_assoc($resD))) {
         $completed = (int)$rowD['c'];
     }
 
-    $qLast = "SELECT MAX(`date`) AS last_date FROM bookings WHERE uid = '$uid'";
+    if ($isAppManager === 1) {
+        $qLast = "SELECT bookings.id, bookings.`date`, bookings.stl, bookings.stb, bookings.stt, cust_app.a1 AS customer_name
+                  FROM bookings
+                  LEFT JOIN cust_app ON bookings.uid = cust_app.a3
+                  ORDER BY bookings.id DESC
+                  LIMIT 1";
+    } else {
+        $qLast = "SELECT bookings.id, bookings.`date`, bookings.stl, bookings.stb, bookings.stt, cust_app.a1 AS customer_name
+                  FROM bookings
+                  LEFT JOIN cust_app ON bookings.uid = cust_app.a3
+                  WHERE bookings.uid = '$uid'
+                  ORDER BY bookings.id DESC
+                  LIMIT 1";
+    }
     $resL = $conx->query($qLast);
-    if ($resL && ($rowL = mysqli_fetch_assoc($resL)) && $rowL['last_date'] !== null && $rowL['last_date'] !== '') {
-        $lastDate = $rowL['last_date'];
+    if ($resL && ($rowL = mysqli_fetch_assoc($resL))) {
+        $lastId = (string)$rowL['id'];
+        $lastDate = $rowL['date'] !== null ? (string)$rowL['date'] : '';
+        $lastStl = isset($rowL['stl']) ? (string)$rowL['stl'] : '';
+        $lastStb = isset($rowL['stb']) ? (string)$rowL['stb'] : '';
+        $lastStt = isset($rowL['stt']) ? (string)$rowL['stt'] : '';
+        $lastCustomer = isset($rowL['customer_name']) ? (string)$rowL['customer_name'] : '';
     }
 
     sendResponse(true, '', array(
         'active_orders' => $active,
         'completed_orders' => $completed,
         'last_order_date' => $lastDate,
+        'last_order_id' => $lastId,
+        'last_order_stl' => $lastStl,
+        'last_order_stb' => $lastStb,
+        'last_order_stt' => $lastStt,
+        'last_order_customer' => $lastCustomer,
+        'is_app_manager' => $isAppManager,
     ));
 }
 
@@ -694,7 +986,7 @@ function getMyBookingOne($input) {
     global $conx;
     $bookid = sanitize($input['bookid']);
     $bookarr = array();
-    $bookxQuery = "SELECT stx, stt, stl FROM bookings WHERE id = '$bookid'";
+    $bookxQuery = "SELECT id, stx, stt, stl, stb, floors, persons, orderId, contract_id, contract_ready FROM bookings WHERE id = '$bookid'";
     $bookxResult = $conx->query($bookxQuery);
     while($rows=mysqli_fetch_assoc($bookxResult)) {$bookarr[] = $rows;}
     sendResponse(true, '',$bookarr);
@@ -707,9 +999,16 @@ function getMyBookingDet($input) {
     global $conx;
     $bookId = sanitize($input['bookId']);
     $bookarr = array();
-    $bookxQuery = "SELECT bookings.id , bookings.stt , bookings.stl , bookings.stb ,bookings.floors , bookings.persons , bookings.orderId , bookings.date , addresses.city , addresses.zone , addresses.street , addresses.building , addresses.latitude , addresses.longitude , cust_app.a1 , cust_app.a2 , addresses.uid , bookings.contract_id , contracts.a15 , contracts.a16 , contracts.a17 , contracts.a18 FROM bookings LEFT JOIN addresses ON bookings.addressId = addresses.id LEFT JOIN cust_app ON bookings.uid = cust_app.a3 LEFT JOIN contracts ON bookings.contract_id = contracts.id WHERE bookings.id = '$bookId'";
+    $bookxQuery = "SELECT bookings.id , bookings.stt , bookings.stl , bookings.stb , bookings.contract_ready , bookings.enter , bookings.floors , bookings.persons , bookings.orderId , bookings.date , addresses.city , addresses.zone , addresses.street , addresses.building , addresses.latitude , addresses.longitude , cust_app.a1 , cust_app.a2 , addresses.uid , bookings.contract_id , contracts.a15 , contracts.a16 , contracts.a17 , contracts.a18 FROM bookings LEFT JOIN addresses ON bookings.addressId = addresses.id LEFT JOIN cust_app ON bookings.uid = cust_app.a3 LEFT JOIN contracts ON bookings.contract_id = contracts.id WHERE bookings.id = '$bookId'";
     $bookxResult = $conx->query($bookxQuery);
-    while($rows=mysqli_fetch_assoc($bookxResult)) {$bookarr[] = $rows;}
+    while($rows=mysqli_fetch_assoc($bookxResult)) {
+        $bid = (string)($rows['id'] ?? $bookId);
+        $enter = (string)($rows['enter'] ?? '');
+        $ktype = (strpos($enter, 'صيانة') !== false) ? '4' : '1';
+        $rows['contract_pdf_url'] =
+            'https://daltalifts.com/app2026/PDF_Final/index.php?ktype=' . $ktype . '&batchId=' . rawurlencode($bid);
+        $bookarr[] = $rows;
+    }
     sendResponse(true, '',$bookarr);
 }
 
@@ -749,32 +1048,344 @@ function addMaintenanceContract($input) {
  */
 function UploadSignature($input) {
     global $conx;
-    $contractId = sanitize($input['contractId']);
+    $contractId = sanitize($input['contractId'] ?? '');
+    $bookingId = sanitize($input['bookingId'] ?? ($input['bookId'] ?? ''));
+    if ($contractId === '' && $bookingId !== '') {
+        $contractId = $bookingId;
+    }
 
-    // لو جاي s3Key يعني الرفع على S3
+    // لو جاي s3Key يعني الرفع على S3 — لازم نربط الحجز بالتوقيع
     if (!empty($input['s3Key'])) {
         $s3Key = sanitize($input['s3Key']);
-        $s3Url = S3_BASE_URL . $s3Key;
-        echo json_encode(['success' => true, 'message' => 'تم حفظ التوقيع']);
+        if ($contractId === '' && preg_match('/signature_([0-9A-Za-z_-]+)\.png/i', $s3Key, $m)) {
+            $contractId = $m[1];
+        }
+        if ($bookingId !== '' && $contractId !== '') {
+            $conx->query("UPDATE bookings SET stt = '1', contract_id = '$contractId' WHERE id = '$bookingId'");
+        }
+        // لو التوقيع اترفَع على مسار قديم فاضي، انسخه للمسار الصحيح
+        try {
+            if (class_exists('S3Storage') && $contractId !== '') {
+                $s3 = S3Storage::getInstance();
+                $canonical = "Mobile_App/signatures/Maintenance_Contracts_New/signature_{$contractId}.png";
+                if ($s3Key !== $canonical && $s3->exists($s3Key) && !$s3->exists($canonical)) {
+                    $tmp = sys_get_temp_dir() . "/sign_fix_{$contractId}.png";
+                    $url = $s3->presignedUrl($s3Key, 300);
+                    $bytes = @file_get_contents($url);
+                    if ($bytes && strlen($bytes) > 100) {
+                        file_put_contents($tmp, $bytes);
+                        $s3->upload($tmp, $canonical, 'public-read');
+                        @unlink($tmp);
+                        $s3Key = $canonical;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // non-fatal
+        }
+        echo json_encode([
+            'success' => true,
+            'message' => 'تم حفظ التوقيع',
+            'contractId' => $contractId,
+            's3Key' => $s3Key,
+        ]);
         exit;
     }
 
     // الكود القديم — لو جاي base64 (fallback)
-    $signature = sanitize($input['signature']);
-    if (empty($contractId) || empty($signature)) {
+    $signature = $input['signature'] ?? '';
+    $signature = preg_replace('/\s+/', '', (string)$signature);
+    $signature = preg_replace('#^data:image/\w+;base64,#', '', $signature);
+    if ($contractId === '' || $signature === '') {
         echo json_encode(['success' => false, 'message' => 'بيانات غير كاملة']);
         exit;
     }
-    $upload_dir = '../erp2026/assets/signatures/';
+    $upload_dir = __DIR__ . '/../erp2026/assets/signatures/';
     if (!file_exists($upload_dir)) mkdir($upload_dir, 0777, true);
     $filename = 'signature_' . $contractId . '.png';
     $filepath = $upload_dir . $filename;
     $image_data = base64_decode($signature);
-    if (file_put_contents($filepath, $image_data)) {
-        echo json_encode(['success' => true, 'message' => 'تم حفظ التوقيع بنجاح']);
+    if ($image_data && file_put_contents($filepath, $image_data)) {
+        if ($bookingId !== '') {
+            $conx->query("UPDATE bookings SET stt = '1', contract_id = '$contractId' WHERE id = '$bookingId'");
+        }
+        try {
+            if (class_exists('S3Storage')) {
+                $s3 = S3Storage::getInstance();
+                $s3->upload($filepath, "Mobile_App/signatures/Maintenance_Contracts_New/{$filename}", 'public-read');
+            }
+        } catch (Throwable $e) {
+        }
+        echo json_encode(['success' => true, 'message' => 'تم حفظ التوقيع بنجاح', 'contractId' => $contractId]);
     } else {
         echo json_encode(['success' => false, 'message' => 'فشل في حفظ الصورة']);
     }
+}
+
+/**
+ * Link signed maintenance contract to booking + mark app contract owner.
+ */
+function saveMaintenanceContract($input) {
+    global $conx;
+    $bookingId = sanitize($input['bookingId'] ?? ($input['bookId'] ?? ''));
+    $contractId = sanitize($input['contractId'] ?? '');
+    $uid = sanitize($input['uid'] ?? ($input['userId'] ?? ''));
+    if ($bookingId === '' || $contractId === '') {
+        echo json_encode(['success' => false, 'message' => 'bookingId and contractId required']);
+        exit;
+    }
+
+    $conx->query(
+        "UPDATE bookings
+         SET contract_id = '$contractId', stt = '1',
+             enter = IF(enter LIKE '%صيانة%', enter, 'صيانة')
+         WHERE id = '$bookingId'"
+    );
+
+    // Fill customer name/phone/address + bind app uid (a30) for resume/completed checks.
+    $book = $conx->query(
+        "SELECT b.uid, c.a1 AS name, c.a2 AS phone,
+                CONCAT(IFNULL(a.city,''),' - ',IFNULL(a.zone,''),' - ',IFNULL(a.building,'')) AS addr
+         FROM bookings b
+         LEFT JOIN cust_app c ON c.a3 = b.uid
+         LEFT JOIN addresses a ON a.id = b.addressId
+         WHERE b.id = '$bookingId'
+         LIMIT 1"
+    )->fetch_assoc();
+
+    if ($book) {
+        if ($uid === '') {
+            $uid = sanitize($book['uid'] ?? '');
+        }
+        $name = sanitize($book['name'] ?? '');
+        $addr = sanitize($book['addr'] ?? '');
+        $startDate = date('Y-m-d');
+        $endDate = date('Y-m-d', strtotime('+1 year'));
+        $conx->query(
+            "UPDATE contracts
+             SET a3 = IF(TRIM(IFNULL(a3,''))='', '$name', a3),
+                 a11 = IF(TRIM(IFNULL(a11,''))='', '$addr', a11),
+                 a30 = IF(TRIM(IFNULL(a30,''))='', '$uid', a30),
+                 a19 = IF(TRIM(IFNULL(a19,''))='', '$startDate', a19),
+                 a20 = IF(TRIM(IFNULL(a20,''))='', '$endDate', a20),
+                 a2 = IF(TRIM(IFNULL(a2,''))='', '$startDate', a2),
+                 stx = '1'
+             WHERE id = '$contractId'"
+        );
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'تم ربط عقد الصيانة',
+        'bookingId' => $bookingId,
+        'contractId' => $contractId,
+    ]);
+    exit;
+}
+
+/**
+ * App user's maintenance contracts (settings screen).
+ * Returns dates + expiry status for UI coloring.
+ */
+function getMyMaintenanceContracts($input) {
+    global $conx;
+    $uid = sanitize($input['uid'] ?? ($input['userId'] ?? ''));
+    if ($uid === '') {
+        sendResponse(false, 'uid required');
+    }
+
+    $rows = [];
+    $q = $conx->query(
+        "SELECT id, type, a2, a3, a11, a19, a20, a30, stx
+         FROM contracts
+         WHERE a30 = '$uid' AND (type = '4' OR type = '5')
+         ORDER BY id DESC"
+    );
+    $today = strtotime(date('Y-m-d'));
+    $canCreateNew = true;
+    $activeCount = 0;
+
+    while ($r = mysqli_fetch_assoc($q)) {
+        $start = trim((string)($r['a19'] ?? ''));
+        $end = trim((string)($r['a20'] ?? ''));
+        $created = trim((string)($r['a2'] ?? ''));
+        if ($start === '' && $created !== '') {
+            $start = $created;
+        }
+        if ($end === '' && $start !== '') {
+            $ts = strtotime($start);
+            if ($ts) {
+                $end = date('Y-m-d', strtotime('+1 year', $ts));
+            }
+        }
+
+        $endTs = $end !== '' ? strtotime($end) : false;
+        $status = 'active';
+        $daysLeft = null;
+        if ($endTs) {
+            $daysLeft = (int)floor(($endTs - $today) / 86400);
+            if ($daysLeft < 0) {
+                $status = 'expired';
+            } elseif ($daysLeft <= 30) {
+                $status = 'expiring_soon';
+                $canCreateNew = false;
+                $activeCount++;
+            } else {
+                $status = 'active';
+                $canCreateNew = false;
+                $activeCount++;
+            }
+        } else {
+            // No end date → treat as active (block new until set/expired)
+            $status = 'active';
+            $canCreateNew = false;
+            $activeCount++;
+        }
+
+        $bookingId = '';
+        $cidEsc = mysqli_real_escape_string($conx, (string)$r['id']);
+        $bRow = $conx->query(
+            "SELECT id FROM bookings
+             WHERE contract_id = '$cidEsc'
+             ORDER BY id DESC LIMIT 1"
+        )->fetch_assoc();
+        if ($bRow) {
+            $bookingId = (string)$bRow['id'];
+        }
+
+        $rows[] = [
+            'id' => (string)$r['id'],
+            'type' => (string)($r['type'] ?? ''),
+            'customer_name' => (string)($r['a3'] ?? ''),
+            'address' => (string)($r['a11'] ?? ''),
+            'start_date' => $start,
+            'end_date' => $end,
+            'created_date' => $created,
+            'stx' => (string)($r['stx'] ?? '0'),
+            'status' => $status,
+            'days_left' => $daysLeft,
+            'booking_id' => $bookingId,
+        ];
+    }
+
+    // If no contracts at all, allow creating the first one.
+    if (count($rows) === 0) {
+        $canCreateNew = true;
+    }
+
+    sendResponse(true, '', [
+        'contracts' => $rows,
+        'can_create_new' => $canCreateNew ? 1 : 0,
+        'active_count' => $activeCount,
+    ]);
+}
+
+/**
+ * Latest signed maintenance PDF URL for preview in the app.
+ */
+function getMaintenanceContractPdf($input) {
+    global $conx;
+    $contractId = sanitize($input['contractId'] ?? '');
+    $bookingId = sanitize($input['bookingId'] ?? ($input['bookId'] ?? ''));
+    $uid = sanitize($input['uid'] ?? ($input['userId'] ?? ''));
+
+    if ($contractId === '') {
+        echo json_encode(['success' => false, 'message' => 'contractId required']);
+        exit;
+    }
+
+    // Ownership check when uid provided
+    if ($uid !== '') {
+        $own = $conx->query(
+            "SELECT id FROM contracts
+             WHERE id = '$contractId' AND a30 = '$uid'
+               AND (type = '4' OR type = '5')
+             LIMIT 1"
+        )->fetch_assoc();
+        if (!$own) {
+            echo json_encode(['success' => false, 'message' => 'غير مصرح']);
+            exit;
+        }
+    }
+
+    if ($bookingId === '') {
+        $b = $conx->query(
+            "SELECT id FROM bookings
+             WHERE contract_id = '$contractId'
+             ORDER BY id DESC LIMIT 1"
+        )->fetch_assoc();
+        if ($b) {
+            $bookingId = (string)$b['id'];
+        }
+    }
+
+    $pdfUrl = '';
+    $folders = [
+        'Maintenance_Contracts_New',
+        'Maintenance Contracts New',
+        'Maintenance_Contracts',
+        'Maintenance Contracts',
+    ];
+
+    try {
+        if (class_exists('S3Storage')) {
+            $s3 = S3Storage::getInstance();
+            foreach ($folders as $folder) {
+                $prefix = "Mobile_App/contracts/{$folder}/contract_{$contractId}_";
+                $files = $s3->listFiles($prefix, 100);
+                $bestKey = '';
+                $bestTs = -1;
+                foreach ($files as $f) {
+                    $key = is_array($f) ? (string)($f['Key'] ?? $f['key'] ?? '') : (string)$f;
+                    if ($key === '') continue;
+                    if (preg_match('/contract_' . preg_quote($contractId, '/') . '_(\d+)\.pdf$/i', $key, $m)) {
+                        $ts = (int)$m[1];
+                        if ($ts >= $bestTs) {
+                            $bestTs = $ts;
+                            $bestKey = $key;
+                        }
+                    }
+                }
+                if ($bestKey !== '') {
+                    $pdfUrl = method_exists($s3, 'url')
+                        ? $s3->url($bestKey)
+                        : ('https://daltaliftstech.s3.ap-south-1.amazonaws.com/' . $bestKey);
+                    break;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        // fall through to regenerate
+    }
+
+    // Regenerate signed PDF if none found on S3
+    if ($pdfUrl === '') {
+        $batchQ = $bookingId !== '' ? ('&batchId=' . urlencode($bookingId)) : '';
+        $genUrl = 'https://daltalifts.com/app2026/pdf/index.php?contractId='
+            . urlencode($contractId) . '&sign=1&ktype=4' . $batchQ;
+        $ctx = stream_context_create(['http' => ['timeout' => 60, 'ignore_errors' => true]]);
+        $raw = @file_get_contents($genUrl, false, $ctx);
+        $decoded = $raw ? json_decode($raw, true) : null;
+        if (is_array($decoded) && !empty($decoded['success']) && !empty($decoded['url'])) {
+            $pdfUrl = (string)$decoded['url'];
+        }
+    }
+
+    if ($pdfUrl === '') {
+        echo json_encode([
+            'success' => false,
+            'message' => 'تعذر العثور على ملف العقد الموقّع',
+        ]);
+        exit;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'url' => $pdfUrl,
+        'contractId' => $contractId,
+        'bookingId' => $bookingId,
+    ]);
+    exit;
 }
 
 /**
@@ -879,10 +1490,10 @@ function getMaintenances($input) {
         $indexChanged = sanitize($input['indexChanged']);
         switch ($indexChanged) {
             case '1':
-                $stx = "AND a5 = 'Normal'";
+                $stx = "AND maintenance.a5 = 'Normal'";
                 break;
             case '2':
-                $stx = "AND a5 = 'Urgent'";
+                $stx = "AND maintenance.a5 = 'Urgent'";
                 break;
             default:
                 $stx = "";
@@ -890,7 +1501,20 @@ function getMaintenances($input) {
         }
     }
     $mainarr = array();
-    $mainQuery = "SELECT id, a1, a2, a3, a4, a5, stx FROM maintenance WHERE a6 = '$uid' $stx";
+    if (isAppManagerUid($uid)) {
+        // Managers see all maintenance tickets + client + address
+        $mainQuery = "SELECT maintenance.id, maintenance.a1, maintenance.a2, maintenance.a3, maintenance.a4, maintenance.a5, maintenance.stx, maintenance.a6, maintenance.a7,
+                             cust_app.a1 AS client_name,
+                             addresses.city, addresses.zone, addresses.street, addresses.building,
+                             addresses.latitude, addresses.longitude
+                      FROM maintenance
+                      LEFT JOIN cust_app ON maintenance.a6 = cust_app.a3
+                      LEFT JOIN addresses ON maintenance.a1 = addresses.id
+                      WHERE 1=1 $stx
+                      ORDER BY maintenance.id DESC";
+    } else {
+        $mainQuery = "SELECT id, a1, a2, a3, a4, a5, stx FROM maintenance WHERE a6 = '$uid' $stx";
+    }
     $mainResult = $conx->query($mainQuery);
     while($rows=mysqli_fetch_assoc($mainResult)) {$mainarr[] = $rows;}
     sendResponse(true, '',$mainarr);
@@ -965,6 +1589,186 @@ function searchItems($input) {
     $mainResult = $conx->query($mainQuery);
     while($rows=mysqli_fetch_assoc($mainResult)) {$mainarr[] = $rows;}
     sendResponse(true, '',$mainarr);
+}
+
+/**
+ * Whether this app uid is an ERP mobile admin (cust_app.a29 or users.a29 by phone).
+ */
+function isAppManagerUid($uid) {
+    global $conx;
+    $uid = sanitize($uid);
+    if ($uid === '') {
+        return false;
+    }
+    $phoneRaw = '';
+    $qRole = "SELECT a2, a29 FROM cust_app WHERE a3 = '$uid' LIMIT 1";
+    $resRole = $conx->query($qRole);
+    if ($resRole && ($rowRole = mysqli_fetch_assoc($resRole))) {
+        $phoneRaw = isset($rowRole['a2']) ? (string)$rowRole['a2'] : '';
+        if ((string)$rowRole['a29'] === '1') {
+            return true;
+        }
+    }
+    if ($phoneRaw === '') {
+        return false;
+    }
+    $phoneCanon = custAppPhoneCanonical8($phoneRaw);
+    if ($phoneCanon === '') {
+        return false;
+    }
+    $phoneEsc = sanitize($phoneCanon);
+    $qErp = "SELECT a29 FROM users
+             WHERE REPLACE(REPLACE(REPLACE(TRIM(a5), '+', ''), ' ', ''), '-', '') LIKE '%$phoneEsc'
+             LIMIT 1";
+    $resErp = $conx->query($qErp);
+    if ($resErp && ($rowErp = mysqli_fetch_assoc($resErp)) && (string)$rowErp['a29'] === '1') {
+        return true;
+    }
+    return false;
+}
+
+function maintenanceStatusLabel($stx) {
+    $stx = trim((string)$stx);
+    if ($stx === '' || $stx === '0') {
+        return array('key' => 'pending', 'label' => 'معلق');
+    }
+    if ($stx === '2' || $stx === '9') {
+        return array('key' => 'done', 'label' => 'منتهي');
+    }
+    return array('key' => 'active', 'label' => 'جاري');
+}
+
+function bookingStatusLabel($stl, $stb = '') {
+    $stb = trim((string)$stb);
+    if ($stb === '4') {
+        return array('key' => 'pending', 'label' => 'مرفوض');
+    }
+    $stl = trim((string)$stl);
+    if ($stl === '9') {
+        return array('key' => 'done', 'label' => 'منتهي');
+    }
+    if ($stl === '' || $stl === '0') {
+        return array('key' => 'pending', 'label' => 'معلق');
+    }
+    return array('key' => 'active', 'label' => 'جاري');
+}
+
+function formatAdminLocation($row) {
+    $locParts = array_filter(array(
+        isset($row['city']) ? $row['city'] : '',
+        isset($row['zone']) ? $row['zone'] : '',
+        isset($row['street']) ? $row['street'] : '',
+        !empty($row['building']) ? ('مبنى ' . $row['building']) : '',
+    ));
+    return implode(' - ', $locParts);
+}
+
+/**
+ * Admin search: bookings + maintenance only (each with address).
+ * Maintenance distinguishes Normal vs Urgent. Managers only.
+ */
+function searchAdmin($input) {
+    global $conx;
+    $uid = isset($input['uid']) ? trim((string)$input['uid']) : '';
+    $raw = '';
+    if (isset($input['query'])) {
+        $raw = trim((string)$input['query']);
+    } elseif (isset($input['kval'])) {
+        $raw = trim((string)$input['kval']);
+    }
+    if ($uid === '' || !isAppManagerUid($uid)) {
+        sendResponse(false, 'غير مصرح', array());
+        return;
+    }
+    if ($raw === '') {
+        sendResponse(true, '', array());
+        return;
+    }
+    $kval = sanitize($raw);
+    $results = array();
+
+    // Bookings
+    $bookSql = "SELECT b.id, b.date, b.stl, b.stb, b.orderId,
+                       c.a1 AS client_name,
+                       a.city, a.zone, a.street, a.building
+                FROM bookings b
+                LEFT JOIN cust_app c ON b.uid = c.a3
+                LEFT JOIN addresses a ON b.addressId = a.id
+                WHERE CAST(b.id AS CHAR) LIKE '%$kval%'
+                   OR CAST(IFNULL(b.orderId, '') AS CHAR) LIKE '%$kval%'
+                   OR IFNULL(c.a1, '') LIKE '%$kval%'
+                   OR IFNULL(a.city, '') LIKE '%$kval%'
+                   OR IFNULL(a.zone, '') LIKE '%$kval%'
+                   OR IFNULL(a.street, '') LIKE '%$kval%'
+                   OR IFNULL(a.building, '') LIKE '%$kval%'
+                ORDER BY b.id DESC
+                LIMIT 50";
+    $bookRes = $conx->query($bookSql);
+    if ($bookRes) {
+        while ($row = mysqli_fetch_assoc($bookRes)) {
+            $st = bookingStatusLabel(
+                isset($row['stl']) ? $row['stl'] : '',
+                isset($row['stb']) ? $row['stb'] : ''
+            );
+            $location = formatAdminLocation($row);
+            $results[] = array(
+                'type' => 'booking',
+                'subtype' => '',
+                'id' => (string)$row['id'],
+                'title' => 'حجز #' . $row['id'],
+                'client_name' => isset($row['client_name']) ? (string)$row['client_name'] : '',
+                'location' => $location,
+                'status' => $st['label'],
+                'status_key' => $st['key'],
+                'date' => isset($row['date']) ? (string)$row['date'] : '',
+                'description' => '',
+                'type_label' => 'حجز',
+            );
+        }
+    }
+
+    // Maintenance (Normal + Urgent)
+    $maintSql = "SELECT m.id, m.a2, m.a3, m.a5, m.stx,
+                        c.a1 AS client_name,
+                        a.city, a.zone, a.street, a.building
+                 FROM maintenance m
+                 LEFT JOIN cust_app c ON m.a6 = c.a3
+                 LEFT JOIN addresses a ON m.a1 = a.id
+                 WHERE CAST(m.id AS CHAR) LIKE '%$kval%'
+                    OR m.a2 LIKE '%$kval%'
+                    OR IFNULL(c.a1, '') LIKE '%$kval%'
+                    OR IFNULL(a.city, '') LIKE '%$kval%'
+                    OR IFNULL(a.zone, '') LIKE '%$kval%'
+                    OR IFNULL(a.street, '') LIKE '%$kval%'
+                    OR IFNULL(a.building, '') LIKE '%$kval%'
+                    OR IFNULL(m.a5, '') LIKE '%$kval%'
+                 ORDER BY m.id DESC
+                 LIMIT 50";
+    $maintRes = $conx->query($maintSql);
+    if ($maintRes) {
+        while ($row = mysqli_fetch_assoc($maintRes)) {
+            $st = maintenanceStatusLabel(isset($row['stx']) ? $row['stx'] : '');
+            $location = formatAdminLocation($row);
+            $isUrgent = (isset($row['a5']) && (string)$row['a5'] === 'Urgent');
+            $subtype = $isUrgent ? 'Urgent' : 'Normal';
+            $typeLabel = $isUrgent ? 'صيانة عاجلة' : 'صيانة عادية';
+            $results[] = array(
+                'type' => 'maintenance',
+                'subtype' => $subtype,
+                'id' => (string)$row['id'],
+                'title' => $typeLabel . ' #' . $row['id'],
+                'client_name' => isset($row['client_name']) ? (string)$row['client_name'] : '',
+                'location' => $location,
+                'status' => $st['label'],
+                'status_key' => $st['key'],
+                'date' => isset($row['a3']) ? (string)$row['a3'] : '',
+                'description' => isset($row['a2']) ? (string)$row['a2'] : '',
+                'type_label' => $typeLabel,
+            );
+        }
+    }
+
+    sendResponse(true, '', $results);
 }
 
 /**
@@ -1056,8 +1860,12 @@ function getUpdates($input) {
 
 
 function getPresignedUrlS3($input) {
-    $contractId = $input['contractId'];
-    $contractType = $input['contractType'];
+    $contractId = $input['contractId'] ?? '';
+    $contractType = (string)($input['contractType'] ?? '');
+    $bookingId = sanitize($input['bookingId'] ?? ($input['bookId'] ?? ''));
+    if ($contractId === '' || $contractId === null) {
+        $contractId = $bookingId !== '' ? $bookingId : '';
+    }
     $contract_type = "";
     switch ($contractType) {
         case '1':
@@ -1069,13 +1877,29 @@ function getPresignedUrlS3($input) {
         case '3':
             $contract_type = "IIP_Contracts_Delivery";
             break;
-        default:
+        case '4':
+            // عقد صيانة العملاء الجدد (ktype=4)
+            $contract_type = "Maintenance_Contracts_New";
             break;
+        default:
+            if ($bookingId !== '') {
+                $contract_type = "Maintenance_Contracts_New";
+            }
+            break;
+    }
+    if ($contractId === '' || $contract_type === '') {
+        echo json_encode(['success' => false, 'message' => 'contractId/contractType required']);
+        return;
     }
     $s3 = S3Storage::getInstance();
     $key = "Mobile_App/signatures/".$contract_type."/signature_{$contractId}.png";
     $url = $s3->presignedUploadUrl($key, 'image/png');
-    echo json_encode(['success' => true, 'url' => $url, 'key' => $key]);
+    echo json_encode([
+        'success' => true,
+        'url' => $url,
+        'key' => $key,
+        'contractId' => (string)$contractId,
+    ]);
 }
 
 function getPresignedPdfUrl($input) {
@@ -1178,21 +2002,37 @@ function updateProfilePhoto($input) {
 }
 
 function getMaintenanceImages($input) {
-  $getMaintenanceImages = $input['getMaintenanceImages'] ?? '';
   $maintenance_id = $input['maintenance_id'] ?? '';
   $user_id        = $input['user_id'] ?? '';
-  $type           = $input['type'] ?? 'Normal';
+  $type           = trim((string)($input['type'] ?? 'Normal'));
+  if ($type === '') $type = 'Normal';
   
   if (!$maintenance_id || !$user_id) {
       echo json_encode(['images' => []]);
       exit;
   }
   
-  $prefix = "Mobile_App/Maintenance/{$type}/Images/{$user_id}/{$maintenance_id}/";
-  
-  $s3   = S3Storage::getInstance();
-  $keys = $s3->listFiles($prefix);
-  $images = array_map(fn($key) => $s3->url($key), $keys);
+  $s3 = S3Storage::getInstance();
+  $candidates = array($type);
+  $lower = strtolower($type);
+  if ($lower === 'normal' || $lower === 'urgent') {
+      $candidates[] = ucfirst($lower);
+      $candidates[] = strtoupper($lower);
+      $candidates[] = $lower;
+  }
+  if ($lower === 'normal') $candidates[] = 'Urgent';
+  if ($lower === 'urgent') $candidates[] = 'Normal';
+  $candidates = array_values(array_unique($candidates));
+
+  $images = array();
+  foreach ($candidates as $folderType) {
+      $prefix = "Mobile_App/Maintenance/{$folderType}/Images/{$user_id}/{$maintenance_id}/";
+      $keys = $s3->listFiles($prefix);
+      if (!empty($keys)) {
+          $images = array_map(fn($key) => $s3->url($key), $keys);
+          break;
+      }
+  }
   echo json_encode(['images' => $images]);
 }
 
@@ -1206,6 +2046,114 @@ function getProcessingImages($input) {
   $keys = $s3->listFiles($prefix);
   $images = array_map(fn($key) => $s3->url($key), $keys);
   echo json_encode(['images' => $images]);
+}
+
+/**
+ * Admin upload for stage photos — same path as ERP upload_handler:
+ * Mobile_App/Processing/{bookId}/{processType}/{index}.{ext}
+ */
+function getPresignedProcessingImageUrl($input) {
+    $adminUid = sanitize($input['uid'] ?? '');
+    if ($adminUid === '' || !isAppManagerUid($adminUid)) {
+        echo json_encode(['success' => false, 'message' => 'غير مصرح']);
+        return;
+    }
+
+    $bookId = intval($input['bookId'] ?? 0);
+    $processType = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)($input['processType'] ?? ''));
+    $allowedTypes = array('importing', 'installation', 'playing', 'completed', 'waiting');
+    if ($bookId <= 0 || $processType === '' || !in_array($processType, $allowedTypes, true)) {
+        echo json_encode(['success' => false, 'message' => 'بيانات غير صحيحة']);
+        return;
+    }
+
+    $extRaw = isset($input['ext']) ? (string)$input['ext'] : 'jpg';
+    $ext = strtolower(preg_replace('/[^a-z0-9]/i', '', $extRaw));
+    if ($ext === '') $ext = 'jpg';
+
+    $contentType = isset($input['contentType']) ? (string)$input['contentType'] : '';
+    $mimeMap = array(
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        'mp4' => 'video/mp4',
+        'mov' => 'video/quicktime',
+        'm4v' => 'video/x-m4v',
+        'webm' => 'video/webm',
+    );
+    if ($contentType === '' || !isset($mimeMap[$ext])) {
+        $contentType = $mimeMap[$ext] ?? 'image/jpeg';
+    }
+
+    $index = intval($input['index'] ?? 0);
+    $s3 = S3Storage::getInstance();
+    $prefix = "Mobile_App/Processing/{$bookId}/{$processType}/";
+
+    if ($index <= 0) {
+        $keys = $s3->listFiles($prefix);
+        $max = 0;
+        foreach ($keys as $key) {
+            $base = basename((string)$key);
+            if (preg_match('/^(\d+)\./', $base, $m)) {
+                $max = max($max, intval($m[1]));
+            }
+        }
+        $index = $max + 1;
+    }
+    if ($index <= 0) $index = 1;
+
+    $key = $prefix . $index . '.' . $ext;
+    $url = $s3->presignedUploadUrl($key, $contentType);
+    echo json_encode([
+        'success' => true,
+        'url' => $url,
+        'key' => $key,
+        'index' => $index,
+    ]);
+}
+
+/**
+ * Admin deletes a stage photo from S3 (same Processing path as ERP).
+ */
+function deleteProcessingImage($input) {
+    $adminUid = sanitize($input['uid'] ?? '');
+    if ($adminUid === '' || !isAppManagerUid($adminUid)) {
+        echo json_encode(['success' => false, 'message' => 'غير مصرح']);
+        return;
+    }
+
+    $bookId = intval($input['bookId'] ?? 0);
+    $processType = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)($input['processType'] ?? ''));
+    $imageUrl = trim((string)($input['imageUrl'] ?? ''));
+    $allowedTypes = array('importing', 'installation', 'playing', 'completed', 'waiting');
+    if ($bookId <= 0 || $processType === '' || $imageUrl === '' || !in_array($processType, $allowedTypes, true)) {
+        echo json_encode(['success' => false, 'message' => 'بيانات غير صحيحة']);
+        return;
+    }
+
+    $s3 = S3Storage::getInstance();
+    $key = method_exists($s3, 'keyFromUrl') ? $s3->keyFromUrl($imageUrl) : '';
+    if ($key === '') {
+        $base = 'https://daltaliftstech.s3.ap-south-1.amazonaws.com/';
+        $key = ltrim(str_replace($base, '', $imageUrl), '/');
+    }
+    // Strip query string if any
+    $key = preg_replace('/\?.*$/', '', $key);
+
+    $expectedPrefix = "Mobile_App/Processing/{$bookId}/{$processType}/";
+    if (strpos($key, $expectedPrefix) !== 0) {
+        echo json_encode(['success' => false, 'message' => 'مسار غير صالح']);
+        return;
+    }
+
+    try {
+        $s3->delete($key);
+        echo json_encode(['success' => true, 'message' => 'تم حذف الصورة']);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'فشل حذف الصورة']);
+    }
 }
 
 function getRejectionReason($input) {
@@ -1324,6 +2272,21 @@ function updateQuotationStx($input) {
     echo json_encode(['success' => true, 'stx' => $stx]);
 }
 
+/**
+ * Client approved the contract PDF and is ready to sign.
+ * Do NOT attach an old contract_id by customer name (caused reused signatures).
+ */
+function approveContract($input) {
+    global $conx;
+    $bookId = intval($input['bookId'] ?? 0);
+    if ($bookId <= 0) {
+        echo json_encode(['success' => false, 'message' => 'بيانات غير كاملة']);
+        return;
+    }
+    $conx->query("UPDATE bookings SET stt = '2', contract_id = NULL WHERE id = '$bookId'");
+    echo json_encode(['success' => true]);
+}
+
 function updateEnterClient($input) {
     global $conx;
     $bookId = sanitize($input['bookId']) ?? '';
@@ -1365,9 +2328,235 @@ function getMaintenanceDetails($input) {
     global $conx;
     $maintenanceId = sanitize($input['maintenanceId']) ?? '';
     $maintarr = array();
-    $maintResult = $conx->query("SELECT maintenance.id , maintenance.a2 , maintenance.a3 , maintenance.a4 , maintenance.a5 , contracts.id AS contract_id , addresses.city , addresses.zone , addresses.street , addresses.building , hrusers.a1 AS hr_name , hrusers.a3 AS hr_phone FROM maintenance LEFT JOIN addresses ON maintenance.a1 = addresses.id LEFT JOIN hrusers ON maintenance.a7 = hrusers.id LEFT JOIN contracts ON maintenance.a6 = contracts.a30 WHERE maintenance.id = '$maintenanceId'");
+    $maintResult = $conx->query("SELECT maintenance.id, maintenance.a2, maintenance.a3, maintenance.a4, maintenance.a5, maintenance.a6, maintenance.a7, maintenance.stx,
+        contracts.id AS contract_id,
+        addresses.city, addresses.zone, addresses.street, addresses.building,
+        hrusers.a1 AS hr_name, hrusers.a3 AS hr_phone,
+        cust_app.a1 AS client_name, cust_app.a2 AS client_phone
+        FROM maintenance
+        LEFT JOIN addresses ON maintenance.a1 = addresses.id
+        LEFT JOIN hrusers ON maintenance.a7 = hrusers.id
+        LEFT JOIN contracts ON maintenance.a6 = contracts.a30
+        LEFT JOIN cust_app ON maintenance.a6 = cust_app.a3
+        WHERE maintenance.id = '$maintenanceId'");
     while($rows=mysqli_fetch_assoc($maintResult)) {$maintarr[] = $rows;}
     sendResponse(true, '',$maintarr);
+}
+
+function _notifyMaintenanceCustomer($customerUid, $title, $content, $extra = array()) {
+    return _notifyBookingCustomer($customerUid, $title, $content, $extra);
+}
+
+/**
+ * In-app + OneSignal push to a customer (cust_app.a3 = uid).
+ * Returns list of subscription ids that were targeted.
+ */
+function _notifyBookingCustomer($customerUid, $title, $content, $extra = array()) {
+    global $conx;
+    $customerUid = sanitize($customerUid);
+    $sentTo = array();
+    $GLOBALS['_notify_push_attempted'] = false;
+    if ($customerUid === '') return $sentTo;
+
+    $titleEsc = sanitize($title);
+    $contentEsc = sanitize($content);
+    $date = date('Y-m-d');
+    $time = date('h:i A');
+    $conx->query(
+        "INSERT INTO notifications_center(title, content, uid, date, time)
+         VALUES('$titleEsc', '$contentEsc', '$customerUid', '$date', '$time')"
+    );
+
+    $players = $conx->query(
+        "SELECT a7 FROM cust_app
+         WHERE a3 = '$customerUid'
+           AND a7 IS NOT NULL AND TRIM(a7) != '' AND LOWER(TRIM(a7)) != 'null'"
+    );
+    if ($players) {
+        while ($row = mysqli_fetch_assoc($players)) {
+            $sub = trim((string)($row['a7'] ?? ''));
+            if ($sub === '') continue;
+            $sentTo[] = $sub;
+        }
+    }
+
+    $onesignalPath = __DIR__ . '/../erp2026/xtras/Onesignalnotification.php';
+    if (!file_exists($onesignalPath)) {
+        return $sentTo;
+    }
+    include_once($onesignalPath);
+    if (!class_exists('OneSignalNotification')) {
+        return $sentTo;
+    }
+
+    $onesignal = new OneSignalNotification();
+    $payloadExtra = array_merge(array(
+        'headings' => array('en' => $title, 'ar' => $title),
+        'contents' => array('en' => $content, 'ar' => $content),
+    ), $extra);
+
+    foreach ($sentTo as $sub) {
+        $onesignal->sendToUser($sub, $title, $content, $payloadExtra);
+    }
+
+    // Fallback: external_id = customer app uid (if OneSignal Login linked)
+    if (empty($sentTo)) {
+        $onesignal->sendToExternalId($customerUid, $title, $content, $payloadExtra);
+    }
+
+    $GLOBALS['_notify_push_attempted'] = true;
+    return $sentTo;
+}
+
+function updateMaintenanceStatus($input) {
+    global $conx;
+    $adminUid = sanitize($input['uid'] ?? '');
+    $maintenanceId = intval($input['maintenanceId'] ?? 0);
+    $stx = sanitize($input['stx'] ?? '');
+    $allowed = array('0', '1', '2');
+    if ($adminUid === '' || $maintenanceId <= 0 || !in_array($stx, $allowed, true)) {
+        sendResponse(false, 'بيانات غير صحيحة');
+        return;
+    }
+    if (!isAppManagerUid($adminUid)) {
+        sendResponse(false, 'غير مصرح');
+        return;
+    }
+    $row = $conx->query("SELECT id, a6 FROM maintenance WHERE id = '$maintenanceId' LIMIT 1")->fetch_assoc();
+    if (!$row) {
+        sendResponse(false, 'الطلب غير موجود');
+        return;
+    }
+    $conx->query("UPDATE maintenance SET stx = '$stx' WHERE id = '$maintenanceId'");
+    $titles = array(
+        '0' => array('طلب الصيانة معلّق', 'طلب الصيانة بانتظار بدء التنفيذ من فريق دلتا'),
+        '1' => array('بدء تنفيذ الصيانة', 'فريق الصيانة بدأ العمل على طلبك وسيتم التواصل معك'),
+        '2' => array('اكتملت الصيانة', 'تم إكمال طلب الصيانة بنجاح. شكراً لثقتكم في دلتا للمصاعد'),
+    );
+    _notifyMaintenanceCustomer($row['a6'] ?? '', $titles[$stx][0], $titles[$stx][1]);
+    sendResponse(true, 'تم تحديث حالة الصيانة', array('maintenanceId' => $maintenanceId, 'stx' => $stx));
+}
+
+function getHrTechnicians($input) {
+    global $conx;
+    $adminUid = sanitize($input['uid'] ?? '');
+    if ($adminUid === '' || !isAppManagerUid($adminUid)) {
+        sendResponse(false, 'غير مصرح');
+        return;
+    }
+    $list = array();
+    $res = $conx->query(
+        "SELECT id, a1, a3 FROM hrusers
+         WHERE TRIM(IFNULL(a1,'')) != ''
+         ORDER BY a1 ASC"
+    );
+    if ($res) {
+        while ($row = mysqli_fetch_assoc($res)) {
+            $list[] = $row;
+        }
+    }
+    sendResponse(true, '', $list);
+}
+
+function getTechnicianWorkZone($input) {
+    global $conx;
+    $uid = sanitize($input['uid'] ?? '');
+    if ($uid === '' || !isAppManagerUid($uid)) {
+        sendResponse(false, 'غير مصرح');
+        return;
+    }
+    $name = '';
+    $phoneRaw = '';
+    $q = $conx->query("SELECT a1, a2 FROM cust_app WHERE a3 = '$uid' LIMIT 1");
+    if ($q && ($row = mysqli_fetch_assoc($q))) {
+        $name = isset($row['a1']) ? (string)$row['a1'] : '';
+        $phoneRaw = isset($row['a2']) ? (string)$row['a2'] : '';
+    }
+    $jobTitle = '';
+    $phoneCanon = custAppPhoneCanonical8($phoneRaw);
+    if ($phoneCanon !== '') {
+        $phoneEsc = sanitize($phoneCanon);
+        $erp = $conx->query(
+            "SELECT a4 FROM users
+             WHERE REPLACE(REPLACE(REPLACE(TRIM(a5), '+', ''), ' ', ''), '-', '') LIKE '%$phoneEsc'
+             LIMIT 1"
+        );
+        if ($erp && ($er = mysqli_fetch_assoc($erp))) {
+            $jobTitle = isset($er['a4']) ? trim((string)$er['a4']) : '';
+        }
+    }
+    $branchName = '';
+    $branchAddress = '';
+    $br = $conx->query(
+        "SELECT a2, a4 FROM branches WHERE stx = '1' AND TRIM(IFNULL(a2,'')) != '' ORDER BY id ASC LIMIT 1"
+    );
+    if ($br && ($b = mysqli_fetch_assoc($br))) {
+        $branchName = isset($b['a2']) ? trim((string)$b['a2']) : '';
+        $branchAddress = isset($b['a4']) ? trim((string)$b['a4']) : '';
+    }
+    // No per-technician branch_id/zone column exists on users/cust_app/hrusers.
+    sendResponse(true, '', array(
+        'name' => $name,
+        'job_title' => $jobTitle,
+        'assigned_zone' => '',
+        'has_personal_zone' => 0,
+        'branch_name' => $branchName,
+        'branch_address' => $branchAddress,
+    ));
+}
+
+function assignMaintenanceTech($input) {
+    global $conx;
+    $adminUid = sanitize($input['uid'] ?? '');
+    $maintenanceId = intval($input['maintenanceId'] ?? 0);
+    $hrId = intval($input['hrId'] ?? 0);
+    if ($adminUid === '' || $maintenanceId <= 0 || $hrId <= 0) {
+        sendResponse(false, 'بيانات غير صحيحة');
+        return;
+    }
+    if (!isAppManagerUid($adminUid)) {
+        sendResponse(false, 'غير مصرح');
+        return;
+    }
+    $row = $conx->query("SELECT id, a6, stx FROM maintenance WHERE id = '$maintenanceId' LIMIT 1")->fetch_assoc();
+    if (!$row) {
+        sendResponse(false, 'الطلب غير موجود');
+        return;
+    }
+    $conx->query("UPDATE maintenance SET a7 = '$hrId' WHERE id = '$maintenanceId'");
+    $stx = trim((string)($row['stx'] ?? ''));
+    if ($stx === '' || $stx === '0') {
+        $conx->query("UPDATE maintenance SET stx = '1' WHERE id = '$maintenanceId'");
+    }
+    $tech = $conx->query("SELECT a1, a3 FROM hrusers WHERE id = '$hrId' LIMIT 1")->fetch_assoc();
+    $techName = $tech && !empty($tech['a1']) ? $tech['a1'] : 'فني الصيانة';
+    $techPhone = $tech && !empty($tech['a3']) ? trim((string)$tech['a3']) : '';
+    $title = 'تعيين فني الصيانة';
+    $body = $techPhone !== ''
+        ? "تم تعيين الفني $techName ورقمه $techPhone لمتابعة طلب الصيانة رقم #$maintenanceId"
+        : "تم تعيين $techName لمتابعة طلب الصيانة رقم #$maintenanceId";
+    $GLOBALS['_notify_push_attempted'] = false;
+    $playerIds = _notifyMaintenanceCustomer(
+        $row['a6'] ?? '',
+        $title,
+        $body,
+        array(
+            'data' => array(
+                'type' => 'maintenance_tech',
+                'maintenanceId' => (string)$maintenanceId,
+            ),
+        )
+    );
+    sendResponse(true, 'تم تعيين الفني', array(
+        'maintenanceId' => $maintenanceId,
+        'hrId' => $hrId,
+        'title' => $title,
+        'content' => $body,
+        'playerIds' => $playerIds,
+        'customerUid' => $row['a6'] ?? '',
+        'techName' => $techName,
+        'pushAttempted' => !empty($GLOBALS['_notify_push_attempted']) ? 1 : 0,
+    ));
 }
 
 function getDeliveryStatus($input) {
@@ -1390,6 +2579,219 @@ function saveDeliveryContract($input) {
     $contractId = sanitize($input['contractId']);
     $conx->query("UPDATE bookings SET delivery_contract_id = '$contractId' WHERE id = '$bookId'");
     sendResponse(true, 'تم حفظ محضر التسليم');
+}
+
+/**
+ * Admin advances elevator execution stage (bookings.stl) + notifies customer.
+ * Same effect as ERP statusId/stIndex update.
+ */
+function updateBookingStage($input) {
+    global $conx;
+    $adminUid = sanitize($input['uid'] ?? '');
+    $bookId = intval($input['bookId'] ?? 0);
+    $stage = intval($input['stage'] ?? 0);
+
+    if ($adminUid === '' || $bookId <= 0 || $stage < 1 || $stage > 9) {
+        sendResponse(false, 'بيانات غير صحيحة');
+        return;
+    }
+    if (!isAppManagerUid($adminUid)) {
+        sendResponse(false, 'غير مصرح');
+        return;
+    }
+
+    $book = $conx->query(
+        "SELECT id, uid, date FROM bookings WHERE id = '$bookId' LIMIT 1"
+    )->fetch_assoc();
+    if (!$book) {
+        sendResponse(false, 'الطلب غير موجود');
+        return;
+    }
+
+    $titles = array(
+        1 => array('مرحلة التعاقد', 'تم توقيع العقد وجاري مراجعة كافة البنود والمتطلبات'),
+        2 => array('طلب المصعد من المصنع', 'تم إرسال طلب التصنيع للمصنع بكافة المواصفات المطلوبة'),
+        3 => array('تصنيع المصعد', 'المصنع يقوم حالياً بتصنيع مصعدك وفق المواصفات المتفق عليها'),
+        4 => array('شحن المصعد', 'تم الانتهاء من التصنيع وجاري شحن المصعد من المصنع إلى الموقع'),
+        5 => array('توريد المصعد', 'وصل المصعد إلى الموقع وجاري استلام كافة المكونات والتحقق منها'),
+        6 => array('تركيب المصعد ميكانيكياً', 'يقوم فريقنا الفني بتركيب جميع الأجزاء الميكانيكية للمصعد'),
+        7 => array('انتظار دخول الكهرباء للعقار', 'اكتمل التركيب الميكانيكي وننتظر توصيل الكهرباء للعقار لاستكمال التشغيل'),
+        8 => array('تشغيل المصعد', 'جاري تشغيل المصعد واختباره والتأكد من سلامة كافة الأنظمة'),
+        9 => array('تسليم المصعد', 'تم تسليم المصعد بنجاح ويعمل بكفاءة تامة، نتمنى لكم تجربة موفقة'),
+    );
+    $title = $titles[$stage][0];
+    $content = $titles[$stage][1];
+    $customerUid = sanitize($book['uid'] ?? '');
+
+    $conx->query("UPDATE bookings SET stl = '$stage' WHERE id = '$bookId'");
+
+    $playerIds = array();
+    if ($customerUid !== '') {
+        $playerIds = _notifyBookingCustomer($customerUid, $title, $content, array(
+            'data' => array(
+                'type' => 'booking_stage',
+                'bookId' => (string)$bookId,
+                'stage' => (string)$stage,
+            ),
+        ));
+    }
+
+    sendResponse(true, 'تم إرسال المرحلة للعميل', array(
+        'bookId' => $bookId,
+        'stage' => $stage,
+        'title' => $title,
+        'content' => $content,
+        'customerUid' => $customerUid,
+        'playerIds' => $playerIds,
+    ));
+}
+
+/**
+ * Notify customer that stage media (photo/video) was uploaded by admin.
+ */
+function notifyProcessingMedia($input) {
+    global $conx;
+    $adminUid = sanitize($input['uid'] ?? '');
+    $bookId = intval($input['bookId'] ?? 0);
+    $processType = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)($input['processType'] ?? ''));
+    $mediaKind = sanitize($input['mediaKind'] ?? 'image');
+
+    if ($adminUid === '' || $bookId <= 0 || $processType === '') {
+        sendResponse(false, 'بيانات غير صحيحة');
+        return;
+    }
+    if (!isAppManagerUid($adminUid)) {
+        sendResponse(false, 'غير مصرح');
+        return;
+    }
+
+    $book = $conx->query(
+        "SELECT id, uid FROM bookings WHERE id = '$bookId' LIMIT 1"
+    )->fetch_assoc();
+    if (!$book) {
+        sendResponse(false, 'الطلب غير موجود');
+        return;
+    }
+
+    $labels = array(
+        'importing' => 'صور توريد المصعد',
+        'installation' => 'صورة التركيب الميكانيكي',
+        'playing' => 'فيديو تشغيل المصعد',
+        'waiting' => 'مستندات مرحلة الكهرباء',
+        'completed' => 'محضر الاستلام',
+    );
+    $label = $labels[$processType] ?? 'تحديث مرحلة التنفيذ';
+    if ($mediaKind === 'video') {
+        $title = 'فيديو جديد في مراحل التنفيذ';
+        $content = 'تم إضافة ' . $label . ' لطلبك. افتح مراحل التنفيذ لمشاهدته الآن.';
+    } else if ($mediaKind === 'delivery') {
+        $title = 'محضر الاستلام جاهز';
+        $content = 'تم تجهيز محضر الاستلام لطلبك. يمكنك مراجعته والتوقيع من مراحل التنفيذ.';
+    } else {
+        $title = 'صور جديدة في مراحل التنفيذ';
+        $content = 'تم إضافة ' . $label . ' لطلبك. افتح مراحل التنفيذ لمشاهدتها الآن.';
+    }
+
+    $playerIds = _notifyBookingCustomer(
+        $book['uid'] ?? '',
+        $title,
+        $content,
+        array(
+            'data' => array(
+                'type' => 'processing_media',
+                'bookId' => (string)$bookId,
+                'processType' => $processType,
+            ),
+        )
+    );
+
+    sendResponse(true, 'تم إشعار العميل', array(
+        'bookId' => $bookId,
+        'processType' => $processType,
+        'playerIds' => $playerIds,
+    ));
+}
+
+/**
+ * Contact card for technicians.
+ *
+ * NOTE: There is no supervisor_id (or similar) column on cust_app / users.
+ * Do not add one without an explicit product decision. Until then we surface
+ * an ERP mobile admin (users.a29 = 1), else a configured operations-office fallback.
+ */
+function getSupervisorContact($input) {
+    global $conx;
+
+    $fallback = array(
+        'name' => 'مكتب العمليات — دلتا للمصاعد',
+        'role' => 'الإدارة العامة',
+        'phone' => '44440111',
+        'photo' => '',
+        'is_fallback' => 1,
+        'source' => 'operations_office',
+    );
+
+    $uid = sanitize($input['uid'] ?? ($input['technician_id'] ?? ''));
+    $myPhone8 = '';
+    if ($uid !== '') {
+        $me = $conx->query("SELECT a2 FROM cust_app WHERE a3 = '$uid' LIMIT 1");
+        if ($me && ($rowMe = mysqli_fetch_assoc($me))) {
+            $myPhone8 = custAppPhoneCanonical8($rowMe['a2'] ?? '');
+        }
+    }
+
+    $pick = null;
+    $admins = $conx->query(
+        "SELECT a1, a5 FROM users WHERE a29 = '1' AND a5 IS NOT NULL AND TRIM(a5) != '' ORDER BY a1 ASC"
+    );
+    if ($admins) {
+        $first = null;
+        while ($row = mysqli_fetch_assoc($admins)) {
+            $phone8 = custAppPhoneCanonical8($row['a5'] ?? '');
+            if ($first === null) $first = $row;
+            if ($myPhone8 !== '' && $phone8 === $myPhone8) {
+                continue;
+            }
+            $pick = $row;
+            break;
+        }
+        if ($pick === null) $pick = $first;
+    }
+
+    if (!$pick) {
+        sendResponse(true, '', $fallback);
+        return;
+    }
+
+    $name = trim((string)($pick['a1'] ?? ''));
+    $phone = trim((string)($pick['a5'] ?? ''));
+    if ($name === '' || $phone === '') {
+        sendResponse(true, '', $fallback);
+        return;
+    }
+
+    $photo = '';
+    $phone8 = custAppPhoneCanonical8($phone);
+    if ($phone8 !== '') {
+        $phoneEsc = sanitize($phone8);
+        $app = $conx->query(
+            "SELECT a6 FROM cust_app
+             WHERE REPLACE(REPLACE(REPLACE(TRIM(a2), '+', ''), ' ', ''), '-', '') LIKE '%$phoneEsc'
+             LIMIT 1"
+        );
+        if ($app && ($rowApp = mysqli_fetch_assoc($app))) {
+            $photo = trim((string)($rowApp['a6'] ?? ''));
+        }
+    }
+
+    sendResponse(true, '', array(
+        'name' => $name,
+        'role' => 'مشرف / إدارة التطبيق',
+        'phone' => $phone,
+        'photo' => $photo,
+        'is_fallback' => 0,
+        'source' => 'erp_mobile_admin',
+    ));
 }
 
 mysqli_close($conx);

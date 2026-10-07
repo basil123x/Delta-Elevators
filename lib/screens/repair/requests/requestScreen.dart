@@ -5,6 +5,8 @@ import 'package:Delta/provider/app_provider.dart';
 import 'package:Delta/screens/order/addresses_screen.dart';
 import 'package:Delta/screens/repair/repair_theme.dart';
 import 'package:Delta/screens/repair/requests/camera_screen.dart';
+import 'package:Delta/screens/repair/requests/media_preview_gallery.dart';
+import 'package:Delta/screens/settings/Maintenance/MaintenScreen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:dio/dio.dart';
 import 'package:dotted_border/dotted_border.dart';
@@ -223,7 +225,28 @@ class _RequestScreenState extends State<RequestScreen> {
     dio.options.receiveTimeout = const Duration(seconds: 60);
 
     for (int i = 0; i < imageFiles.length; i++) {
-      final ext = imageFiles[i].path.split('.').last;
+      final pathLower = imageFiles[i].path.toLowerCase();
+      var ext = imageFiles[i].path.split('.').last.toLowerCase();
+      if (ext.isEmpty || ext.length > 5) {
+        ext = isMaintenanceMediaVideo(imageFiles[i].path) ? 'mp4' : 'jpg';
+      }
+      var contentType = 'image/jpeg';
+      if (ext == 'png') {
+        contentType = 'image/png';
+      } else if (ext == 'webp') {
+        contentType = 'image/webp';
+      } else if (ext == 'mp4' || pathLower.endsWith('.mp4')) {
+        contentType = 'video/mp4';
+        ext = 'mp4';
+      } else if (ext == 'mov' || pathLower.endsWith('.mov')) {
+        contentType = 'video/quicktime';
+        ext = 'mov';
+      } else if (ext == 'm4v') {
+        contentType = 'video/x-m4v';
+      } else if (isMaintenanceMediaVideo(imageFiles[i].path)) {
+        contentType = 'video/mp4';
+        ext = 'mp4';
+      }
 
       final presignRes = await dio.post(
         "https://daltalifts.com/app2026/sql.php",
@@ -252,7 +275,7 @@ class _RequestScreenState extends State<RequestScreen> {
         data: Stream.fromIterable([bytes]),
         options: Options(
           headers: {
-            'Content-Type': 'image/jpeg',
+            'Content-Type': contentType,
             'Content-Length': bytes.length,
           },
         ),
@@ -260,15 +283,25 @@ class _RequestScreenState extends State<RequestScreen> {
     }
 
     myAllImg.clear();
-    Provider.of<AppProvider>(context, listen: false).allImagesList.clear();
+    Provider.of<AppProvider>(context, listen: false).clearMyImages();
     descController.clear();
     dateController.text = intlx.DateFormat('yyyy-MM-dd').format(DateTime.now());
     timeController.text = intlx.DateFormat('hh:mm a').format(DateTime.now());
     isLoading = false;
+    if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("تم إضافة طلب صيانة جديد")));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("تم إضافة طلب صيانة جديد")),
+    );
+    _goToMaintenanceRequests();
+  }
+
+  void _goToMaintenanceRequests() {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const MaintenanceScreen()),
+      (route) => route.isFirst,
+    );
   }
 
   @override
@@ -337,7 +370,7 @@ class _RequestScreenState extends State<RequestScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              "سعر الصيانة العاجلة 200 ريال",
+                              "سعر الزيارة العاجلة 200 ريال",
                               style: RepairTheme.cairo(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -373,7 +406,7 @@ class _RequestScreenState extends State<RequestScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          "سعر الصيانة العادية 100 ريال",
+                          "سعر الزيارة العادية 100 ريال",
                           style: RepairTheme.cairo(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -476,58 +509,37 @@ class _RequestScreenState extends State<RequestScreen> {
                   if (app.allImagesList.isEmpty) {
                     return const SizedBox.shrink();
                   }
+                  final paths = app.allImagesList
+                      .map((e) => e.toString())
+                      .toList();
                   return SizedBox(
                     height: 88,
                     child: ListView.separated(
                       clipBehavior: Clip.none,
                       padding: const EdgeInsets.only(top: 8, right: 8),
                       scrollDirection: Axis.horizontal,
-                      itemCount: app.allImagesList.length,
+                      itemCount: paths.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 12),
                       itemBuilder: (context, i) {
-                        return Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 72,
-                              height: 72,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: RepairTheme.border),
-                                image: DecorationImage(
-                                  image: FileImage(File(app.allImagesList[i])),
-                                  fit: BoxFit.cover,
+                        return MaintenanceMediaThumb(
+                          path: paths[i],
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MaintenanceMediaPreviewGallery(
+                                  paths: List<String>.from(paths),
+                                  initialIndex: i,
+                                  onDelete: (removeAt) {
+                                    app.removeMyImageAt(removeAt);
+                                  },
                                 ),
                               ),
-                            ),
-                            Positioned(
-                              top: -6,
-                              right: -6,
-                              child: GestureDetector(
-                                onTap: () {
-                                  app.allImagesList.removeAt(i);
-                                  app.notifyListeners();
-                                },
-                                child: Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEF4444),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Iconsax.close_circle,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                            );
+                          },
+                          onDelete: () {
+                            app.removeMyImageAt(i);
+                          },
                         );
                       },
                     ),
@@ -582,15 +594,35 @@ class _RequestScreenState extends State<RequestScreen> {
                                 ) {
                                   myAllImg.add(File(app.allImagesList[i]));
                                 }
-                                uploadImages(
+                                await uploadImages(
                                   myAllImg,
                                   result.data['data']['mainId'].toString(),
                                 );
                               } else {
+                                if (!mounted) return;
                                 setState(() {
                                   isLoading = false;
                                 });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("تم إضافة طلب صيانة جديد"),
+                                  ),
+                                );
+                                _goToMaintenanceRequests();
                               }
+                            } else {
+                              if (!mounted) return;
+                              setState(() {
+                                isLoading = false;
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    result.data['message']?.toString() ??
+                                        'فشل إرسال طلب الصيانة',
+                                  ),
+                                ),
+                              );
                             }
                           }
                         },

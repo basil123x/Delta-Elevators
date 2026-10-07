@@ -27,22 +27,55 @@ android {
         applicationId = "com.delta_elevator"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
-        versionCode = 17
-        versionName = "1.3.6"
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
     }
     signingConfigs {
-    create("release") {
-        if (keyPropertiesFile.exists()) {
-            keyAlias = keyProperties["keyAlias"] as String
-            keyPassword = keyProperties["keyPassword"] as String
-            storeFile = file(keyProperties["storeFile"] as String)
-            storePassword = keyProperties["storePassword"] as String
+        create("release") {
+            val alias = keyProperties["keyAlias"] as String?
+            val keyPasswordValue = keyProperties["keyPassword"] as String?
+            val storePath = keyProperties["storeFile"] as String?
+            val storePasswordValue = keyProperties["storePassword"] as String?
+            if (!alias.isNullOrBlank() &&
+                !keyPasswordValue.isNullOrBlank() &&
+                !storePath.isNullOrBlank() &&
+                !storePasswordValue.isNullOrBlank()
+            ) {
+                keyAlias = alias
+                keyPassword = keyPasswordValue
+                storeFile = file(storePath)
+                storePassword = storePasswordValue
+            }
         }
     }
-}
     buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("release")
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+            val storePath = keyProperties["storeFile"] as String?
+            val store = storePath?.let { file(it) }
+            val releaseSigning = signingConfigs.getByName("release")
+            if (!keyPropertiesFile.exists() || store == null || !store.exists()) {
+                throw GradleException(
+                    """
+                    Cannot sign the release AAB: upload keystore is missing.
+
+                    Create android/key.properties (gitignored) with:
+                      storePassword=...
+                      keyPassword=...
+                      keyAlias=...
+                      storeFile=/absolute/path/to/your-upload-keystore.jks
+
+                    Use the SAME Play Store upload keystore from previous releases
+                    (this app is already published; a new keystore will be rejected).
+                    """.trimIndent(),
+                )
+            }
+            signingConfig = releaseSigning
         }
     }
 }

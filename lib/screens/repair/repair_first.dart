@@ -5,11 +5,22 @@ import 'package:Delta/screens/repair/new_client_flow.dart';
 import 'package:Delta/screens/repair/repair_screen.dart';
 import 'package:Delta/screens/repair/repair_theme.dart';
 import 'package:Delta/screens/settings/Addresses/Addresses_Screen.dart';
-import 'package:Delta/screens/settings/Maintenance/maintenScreen.dart';
+import 'package:Delta/screens/settings/Maintenance/maintenance_contracts_screen.dart';
 import 'package:Delta/services/DioServiceCert.dart';
 import 'package:flutter/material.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Prefs keys for resuming the maintenance onboarding flow.
+class MaintFlowPrefs {
+  static const typeKey = 'maint_customer_type'; // 'delta' | 'new'
+  static const bookingIdKey = 'maint_booking_id';
+  static const deltaVerifiedKey = 'maint_delta_verified';
+  /// ERP physical contract id only — never reuse elevator `contract_id`.
+  static const erpContractIdKey = 'maint_erp_contract_id';
+
+  static String approvedKey(String bookingId) => 'contractApproved_$bookingId';
+}
 
 class RepairFirst extends StatefulWidget {
   const RepairFirst({super.key});
@@ -22,113 +33,142 @@ class _RepairFirstState extends State<RepairFirst> {
   int currentCard = 0;
   String selectCard = "من تختار؟";
   bool isLoading = false;
+  bool _resuming = true;
 
   static const String _endpoint = "https://daltalifts.com/app2026/sql.php";
 
-  /// New-client maintenance flow: create/get a maintenance booking, make sure
-  /// it has an address (reusing [AddressesScreen] in return mode if needed),
-  /// then continue to the contract + signature screen.
-  Future<void> _startNewClientFlow() async {
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedType = prefs.getString(MaintFlowPrefs.typeKey) ?? '';
+    final savedCard = prefs.getInt('currentCard') ?? 0;
+
+    // Prefer explicit saved type; fall back to last selected card.
+    if (savedType == 'delta' || savedCard == 1) {
+      await _resumeDeltaFlow(prefs);
+      return;
+    }
+    if (savedType == 'new' || savedCard == 2) {
+      await _resumeNewClientFlow(prefs);
+      return;
+    }
+
+    if (mounted) setState(() => _resuming = false);
+  }
+
+  Future<void> _resumeDeltaFlow(SharedPreferences prefs) async {
+    await prefs.setString(MaintFlowPrefs.typeKey, 'delta');
+    await prefs.setInt('currentCard', 1);
+
+    final verified = prefs.getBool(MaintFlowPrefs.deltaVerifiedKey) ?? false;
+    final erpContractId =
+        prefs.getString(MaintFlowPrefs.erpContractIdKey) ?? '';
+
+    if (!mounted) return;
+    // Only skip phone verify when we already verified an ERP physical contract
+    // for maintenance — never treat elevator `contract_id` as enough.
+    if (verified && erpContractId.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const RepairScreen()),
+      );
+      return;
+    }
+
+    // Chose Delta but hasn't finished phone/contract verification yet.
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const DeltaCustomerLoginScreen()),
+    );
+  }
+
+  Future<void> _resumeNewClientFlow(SharedPreferences prefs) async {
+    await prefs.setString(MaintFlowPrefs.typeKey, 'new');
+    await prefs.setInt('currentCard', 2);
+    if (!mounted) return;
+    setState(() {
+      _resuming = true;
+      isLoading = true;
+    });
+    await _startNewClientFlow(resumeOnly: true);
+  }
+
+  /// New-client maintenance flow: create/get booking and resume exact step.
+  ///
+  /// Server statuses from `checkMaintenanceStatus`:
+  /// none | pending_address | pending_approval | pending_prepare | pending_contract | completed
+  Future<void> _startNewClientFlow({bool resumeOnly = false}) async {
     setState(() => isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       final uid = prefs.getString("userId") ?? "";
+      if (uid.isEmpty) {
+        throw Exception('missing uid');
+      }
+      await prefs.setString(MaintFlowPrefs.typeKey, 'new');
+      await prefs.setInt('currentCard', 2);
 
-      // CHECK FIRST: does this uid already have a contract?
       final statusResult = await getDio().post(
         _endpoint,
         data: {"action": "checkMaintenanceStatus", "uid": uid},
       );
-      final status = statusResult.data['status'];
+      final statusData = statusResult.data;
+      if (statusData is! Map || statusData['success'] != true) {
+        throw Exception(statusData is Map
+            ? (statusData['message']?.toString() ?? 'check failed')
+            : 'check failed');
+      }
+      var status = statusData['status']?.toString() ?? 'none';
+      var bookingId =
+          statusData['bookingId']?.toString() ??
+          prefs.getString(MaintFlowPrefs.bookingIdKey) ??
+          '';
 
       if (status == 'completed') {
-        // Already has a contract! Show warning dialog
         if (!mounted) return;
-        setState(() => isLoading = false);
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => Directionality(
-            textDirection: TextDirection.rtl,
-            child: AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: Row(
-                children: [
-                  Icon(Iconsax.warning_2, color: Color(0xFFF37021)),
-                  SizedBox(width: 8),
-                  Text(
-                    "عقد مسجل بالفعل",
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              content: Text(
-                "لديك عقد صيانة مسجل بالفعل.\nيمكنك مراجعة عقودك من صفحة الإعدادات.",
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 14,
-                  color: Colors.grey[700],
-                  height: 1.6,
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    "إلغاء",
-                    style: TextStyle(fontFamily: 'Cairo', color: Colors.grey),
-                  ),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFFF37021),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context); // close dialog
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => MaintenanceScreen()),
-                    );
-                  },
-                  child: Text(
-                    "عرض العقود",
-                    style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+        setState(() {
+          isLoading = false;
+          _resuming = false;
+        });
+        if (resumeOnly) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const RepairScreen()),
+          );
+          return;
+        }
+        await _showAlreadyHasContractDialog();
         return;
       }
 
-      final oid = (1000 + Random().nextInt(9000)).toString();
+      // Create booking only when there is none yet.
+      if (status == 'none' || bookingId.isEmpty || bookingId == 'null') {
+        final oid = (1000 + Random().nextInt(9000)).toString();
+        final bookingResult = await getDio().post(
+          _endpoint,
+          data: {"action": "addMaintenanceBooking", "uid": uid, "oid": oid},
+        );
+        final bookingData = bookingResult.data;
+        if (bookingData is! Map ||
+            bookingData['success'] != true ||
+            (bookingData['bookingId']?.toString().isEmpty ?? true)) {
+          throw Exception(bookingData is Map
+              ? (bookingData['message']?.toString() ?? 'create failed')
+              : 'create failed');
+        }
+        bookingId = bookingData['bookingId'].toString();
+        status = 'pending_address';
+      }
 
-      // 1. Get or create the maintenance booking.
-      final bookingResult = await getDio().post(
-        _endpoint,
-        data: {"action": "addMaintenanceBooking", "uid": uid, "oid": oid},
-      );
-      final bookingId = bookingResult.data['bookingId'].toString();
+      await prefs.setString(MaintFlowPrefs.bookingIdKey, bookingId);
 
-      // 2. Check whether the booking already has an address.
-      final bookDet = await getDio().post(
-        _endpoint,
-        data: {"action": "getMyBookingDet", "bookId": bookingId},
-      );
-      final addressId = bookDet.data['data'][0]['addressId'];
-
-      // 3. If no address yet, let the user pick one and attach it.
-      if (addressId == null || addressId == '0' || addressId == 0) {
+      // Trust server status: only ask for address when it is still missing.
+      if (status == 'pending_address') {
         if (!mounted) return;
         final selectedId = await Navigator.push(
           context,
@@ -137,96 +177,135 @@ class _RepairFirstState extends State<RepairFirst> {
           ),
         );
 
-        // If the user pressed back without selecting an address, stop here
-        // instead of continuing to the contract screen.
-        if (selectedId == null) {
-          if (mounted) setState(() => isLoading = false);
+        if (selectedId == null ||
+            selectedId.toString().isEmpty ||
+            selectedId.toString() == '0') {
+          // Keep flow prefs; leave so next open resumes at address.
+          if (mounted) Navigator.maybePop(context);
           return;
         }
 
-        // 4. Attach the chosen address to the booking.
-        await getDio().post(
+        final addrResult = await getDio().post(
           _endpoint,
           data: {
             "action": "updateBookingAddress",
             "bookingId": bookingId,
-            "addressId": selectedId,
+            "addressId": selectedId.toString(),
           },
         );
-
-        // 5. Continue to the contract
-        if (!mounted) return;
-        await prefs.remove("currentCard");
-        setState(() => isLoading = false); // stop loading BEFORE push
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => NewClientContractScreen(bookingId: bookingId),
-          ),
-        );
-        return; // EXIT here so finally doesn't interfere
+        final addrData = addrResult.data;
+        if (addrData is! Map || addrData['success'] != true) {
+          throw Exception(addrData is Map
+              ? (addrData['message']?.toString() ?? 'address update failed')
+              : 'address update failed');
+        }
+        await prefs.setString('addId', selectedId.toString());
+        // After address → waiting for ERP approval.
+        status = 'pending_approval';
       }
 
-      // Booking already has an address
+      // pending_approval / pending_prepare / pending_contract
+      // → wait screens or PDF (NewClientContractScreen polls stx + contract_ready).
+      final ready = status == 'pending_contract';
+      final approved =
+          prefs.getBool(MaintFlowPrefs.approvedKey(bookingId)) ?? false;
+
       if (!mounted) return;
-      await prefs.remove("currentCard");
-      setState(() => isLoading = false);
-      Navigator.push(
+      setState(() {
+        isLoading = false;
+        _resuming = false;
+      });
+
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => NewClientContractScreen(bookingId: bookingId),
+          builder: (_) => NewClientContractScreen(
+            bookingId: bookingId,
+            startFromSignature: ready && approved,
+          ),
         ),
       );
-      return;
     } catch (e) {
-      print('New client flow error: $e');
+      debugPrint('New client flow error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("حدث خطأ، حاول مرة أخرى")));
-      }
-    } finally {
-      // Only reset loading if still mounted AND not already navigated
-      if (mounted && isLoading) setState(() => isLoading = false);
-    }
-  }
-
-  Future getSharedSettings() async {
-    SharedPreferences prefx = await SharedPreferences.getInstance();
-    await prefx.remove("currentCard");
-
-    String uid = prefx.getString("userId") ?? "";
-    if (uid.isEmpty) return;
-
-    // If user just logged out and logged back in, show selection screen
-    final justLoggedIn = prefx.getBool('just_logged_in') ?? false;
-    if (justLoggedIn) {
-      await prefx.remove('just_logged_in');
-      return; // show RepairFirst selection screen
-    }
-
-    try {
-      final result = await getDio().post(
-        _endpoint,
-        data: {"action": "checkMaintenanceStatus", "uid": uid},
-      );
-      final status = result.data['status'];
-      if (status == 'completed') {
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => RepairScreen()),
+        setState(() {
+          isLoading = false;
+          _resuming = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("حدث خطأ، حاول مرة أخرى")),
         );
       }
-    } catch (e) {
-      print('Status check error: $e');
     }
   }
 
-  @override
-  void initState() {
-    getSharedSettings();
-    super.initState();
+  Future<void> _showAlreadyHasContractDialog() async {
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Icon(Iconsax.warning_2, color: Color(0xFFF37021)),
+              SizedBox(width: 8),
+              Text(
+                "عقد مسجل بالفعل",
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            "لديك عقد صيانة مسجل بالفعل.\nيمكنك مراجعة عقودك من صفحة الإعدادات.",
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 14,
+              color: Colors.grey[700],
+              height: 1.6,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                "إلغاء",
+                style: TextStyle(fontFamily: 'Cairo', color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF37021),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MaintenanceContractsScreen(),
+                  ),
+                );
+              },
+              child: const Text(
+                "عرض العقود",
+                style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _selectionCard({
@@ -273,6 +352,18 @@ class _RepairFirstState extends State<RepairFirst> {
 
   @override
   Widget build(BuildContext context) {
+    if (_resuming) {
+      return const Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: RepairTheme.bg,
+          body: Center(
+            child: CircularProgressIndicator(color: Color(0xFFF37021)),
+          ),
+        ),
+      );
+    }
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -367,18 +458,22 @@ class _RepairFirstState extends State<RepairFirst> {
                 onTap: currentCard == 0 || isLoading
                     ? null
                     : () async {
-                        SharedPreferences prefx =
-                            await SharedPreferences.getInstance();
-                        prefx.setInt("currentCard", currentCard);
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setInt("currentCard", currentCard);
                         if (currentCard == 1) {
-                          Navigator.push(
+                          await prefs.setString(
+                            MaintFlowPrefs.typeKey,
+                            'delta',
+                          );
+                          if (!mounted) return;
+                          Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
                               builder: (_) => const DeltaCustomerLoginScreen(),
                             ),
                           );
-                          setState(() {});
                         } else {
+                          await prefs.setString(MaintFlowPrefs.typeKey, 'new');
                           await _startNewClientFlow();
                         }
                       },
